@@ -270,4 +270,4 @@ Eigene Plugins: analog `MEINPLUGIN_*_CACHE_MS` in README dokumentieren.
 4. **Server entlasten** — TTL-Cache + sinnvolle Poll-Intervalle  
 5. **Erst rendern, dann laden** — kein schwerer Code beim Script-Start  
 
-Fragen oder fehlende Lucide-Icons: Issue/PR im [SelfDashboard-Repo](https://github.com/kabelsalatundklartext/selfdashboard) — am besten mit Plugin-ID und Icon-Namen.
+Fragen oder fehlende Lucide-Icons: Issue/PR im [SelfDashboard-Repo](https://github.com/s3lfcod3r/selfdashboard) — am besten mit Plugin-ID und Icon-Namen.

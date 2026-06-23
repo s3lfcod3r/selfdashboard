@@ -6,7 +6,7 @@
 
 ### Kurzbeschreibung
 
-**Aktive IPTV-Streams** aus [Selfstream](https://github.com/kabelsalatundklartext/selfstream)-Admin: Nutzer, Kanal, Laufzeit, optional IP.
+**Aktive IPTV-Streams** aus [Selfstream](https://github.com/s3lfcod3r/selfstream)-Admin: Nutzer, Kanal, Laufzeit, optional IP.
 
 ### Installation
 
@@ -26,7 +26,7 @@ Verbindung → URL/Port/Firewall. 401 → Passwort.
 
 ### Summary
 
-**Active IPTV streams** from [Selfstream](https://github.com/kabelsalatundklartext/selfstream) admin: user, channel, duration, optional IP.
+**Active IPTV streams** from [Selfstream](https://github.com/s3lfcod3r/selfstream) admin: user, channel, duration, optional IP.
 
 ### Installation
 

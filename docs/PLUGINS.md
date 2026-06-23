@@ -101,7 +101,7 @@ Env (im Image `:beta` bereits gesetzt):
 
 | Variable | Bedeutung |
 |----------|-----------|
-| `SELFDASHBOARD_PLUGINS_GITHUB_REPO` | z. B. `kabelsalatundklartext/selfdashboard` |
+| `SELFDASHBOARD_PLUGINS_GITHUB_REPO` | z. B. `s3lfcod3r/selfdashboard` |
 | `SELFDASHBOARD_PLUGINS_GITHUB_REF` | Branch, Stable: `main` |
 | `SELFDASHBOARD_PLUGINS_GITHUB_PATH` | `plugins-pack` |
 
