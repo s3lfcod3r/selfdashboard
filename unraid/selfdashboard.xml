@@ -1,19 +1,19 @@
 <?xml version="1.0"?>
 <Container version="2">
   <Name>SelfDashboard</Name>
-  <Repository>ghcr.io/kabelsalatundklartext/selfdashboard:latest</Repository>
-  <Registry>https://github.com/kabelsalatundklartext/selfdashboard/pkgs/container/selfdashboard</Registry>
+  <Repository>ghcr.io/s3lfcod3r/selfdashboard:latest</Repository>
+  <Registry>https://github.com/s3lfcod3r/selfdashboard/pkgs/container/selfdashboard</Registry>
   <Network>bridge</Network>
   <MyIP/>
   <Shell>sh</Shell>
   <Privileged>false</Privileged>
-  <Support>https://github.com/kabelsalatundklartext/selfdashboard/issues</Support>
-  <Project>https://github.com/kabelsalatundklartext/selfdashboard</Project>
+  <Support>https://github.com/s3lfcod3r/selfdashboard/issues</Support>
+  <Project>https://github.com/s3lfcod3r/selfdashboard</Project>
   <Overview>SelfDashboard — modulares Homelab-Dashboard (Image :latest). Kern-App im Container; Widgets über Plugin-Store „Von GitHub“ (Branch main, Ordner plugins-pack) oder ZIP nach /app/plugins/custom (plugin.json + widget.js). Plugin-APIs sind im Image (Builtin); nach Plugin-Update: Strg+F5. Config Storage: dashboard.json unter /app/data. CrowdSec-Nutzer: PUID/PGID wie beim CrowdSec-Container setzen. Doku: docs/PLUGINS.md, docs/PLUGIN_DEV.md.</Overview>
   <Category>Tools: Status:Stable</Category>
   <WebUI>http://[IP]:[PORT:3000]</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/unraid/selfdashboard.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/public/icon_unraid.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/unraid/selfdashboard.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/icon_unraid.png</Icon>
   <ExtraParams>--group-add=281</ExtraParams>
   <PostArgs/>
   <CPUset/>
@@ -102,13 +102,13 @@
   <Config
     Name="GitHub Plugins Repo"
     Target="SELFDASHBOARD_PLUGINS_GITHUB_REPO"
-    Default="kabelsalatundklartext/selfdashboard"
+    Default="s3lfcod3r/selfdashboard"
     Mode=""
     Description="GitHub-Repository für den Plugin-Store (owner/repo). Lädt plugins-pack/plugins-index.json."
     Type="Variable"
     Display="always"
     Required="false"
-    Mask="false">kabelsalatundklartext/selfdashboard</Config>
+    Mask="false">s3lfcod3r/selfdashboard</Config>
 
   <Config
     Name="GitHub Plugins Branch"

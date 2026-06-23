@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/public/logo-white.svg"/>
-    <img src="https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/public/logo.svg" alt="SelfDashboard" height="80"/>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/logo-white.svg"/>
+    <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/logo.svg" alt="SelfDashboard" height="80"/>
   </picture>
 </p>
 
@@ -219,7 +219,7 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/google-home.png" width="22"/> | [Google Home / Nest](plugins-pack/google-home/README.md) | Utility | Nest thermostats, sensors, device status (SDM API) **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/home-assistant.png" width="22"/> | [Home Assistant](plugins-pack/home-assistant/README.md) | Utility | Selected entities **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/raspberrymatic.png" width="22"/> | [Homematic](plugins-pack/homematic/README.md) | Utility | Heating, switches, sensors, rooms (RaspberryMatic) **(Beta)** |
-| <img src="https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/bambu-cam/icon.svg" width="22"/> | [Bambu Lab Camera](plugins-pack/bambu-cam/README.md) | Utility | Live printer camera (P1/A1 local or stream URL) **(Beta)** |
+| <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/bambu-cam/icon.svg" width="22"/> | [Bambu Lab Camera](plugins-pack/bambu-cam/README.md) | Utility | Live printer camera (P1/A1 local or stream URL) **(Beta)** |
 | 🖼️ | [Iframe](plugins-pack/iframe/README.md) | Utility | Embed URLs |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/jellyfin.png" width="22"/> | [Jellyfin](plugins-pack/jellyfin/README.md) | Media | Active sessions |
 | ✉️ | [Email](plugins-pack/mail/README.md) | Productivity | Navbar IMAP badge |
@@ -231,7 +231,7 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/pi-hole.png" width="22"/> | [Pi-hole](plugins-pack/pihole/README.md) | Network | Pi-hole v6 stats |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/plex.png" width="22"/> | [Plex](plugins-pack/plex/README.md) | Media | Active sessions **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proxmox.png" width="22"/> | [Proxmox VE](plugins-pack/proxmox/README.md) | System | Nodes, VMs/LXC **(Beta)** |
-| <img src="https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/reolink/icon.svg" width="22"/> | [Reolink Camera](plugins-pack/reolink/README.md) | Utility | Live camera, AI/motion badges, PTZ **(Beta)** |
+| <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/reolink/icon.svg" width="22"/> | [Reolink Camera](plugins-pack/reolink/README.md) | Utility | Live camera, AI/motion badges, PTZ **(Beta)** |
 | 📝 | [Scratchpad](plugins-pack/scratchpad/README.md) | Utility | Short notes |
 | ✉️ | [SelfMailer](plugins-pack/selfmailer/README.md) | Productivity | Unread across all SelfMailer mailboxes |
 | 📺 | [Selfstream](plugins-pack/selfstream/README.md) | Media | Live IPTV |
@@ -253,7 +253,7 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 
 **Required:** map **`/app/data`** and **`/app/plugins/custom`**. Without the plugins folder, the store can install files but they will not persist.
 
-**Image tags:** Unraid template uses **`ghcr.io/kabelsalatundklartext/selfdashboard:latest`**. The plugin catalog is loaded from GitHub branch **`main`** (`SELFDASHBOARD_PLUGINS_GITHUB_REF`, normally left as-is).
+**Image tags:** Unraid template uses **`ghcr.io/s3lfcod3r/selfdashboard:latest`**. The plugin catalog is loaded from GitHub branch **`main`** (`SELFDASHBOARD_PLUGINS_GITHUB_REF`, normally left as-is).
 
 **Non-root container (PUID/PGID):** the app runs non-root, by default as **PUID/PGID 99/100** (Unraid `nobody:users`). On start, the entrypoint remaps to your PUID/PGID and chowns `/app/data` + `/app/plugins/custom` automatically (opt-out: `SELFDASHBOARD_SKIP_CHOWN=1`). **CrowdSec tip:** set PUID/PGID to the **same values as your CrowdSec container** — then SelfDashboard owns and reads `crowdsec.db` directly, surviving nightly backups that restart CrowdSec (no chmod needed).
 
@@ -277,7 +277,7 @@ docker run -d \
   -v /mnt/user/appdata/selfdashboard:/app/data \
   -v /mnt/user/appdata/selfdashboard/plugins:/app/plugins/custom \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  ghcr.io/kabelsalatundklartext/selfdashboard:latest
+  ghcr.io/s3lfcod3r/selfdashboard:latest
 ```
 
 *(**`/app/data`** → `dashboard.json`, calendar, logs. **`/app/plugins/custom`** → installed plugins. **Store → From GitHub** or ZIP, then **Ctrl+F5**. Docker socket optional — **Docker** plugin only. CrowdSec mount optional — **CrowdSec** plugin only.)*
@@ -285,7 +285,7 @@ docker run -d \
 ### Option 3 — docker-compose
 
 ```bash
-git clone https://github.com/kabelsalatundklartext/selfdashboard.git
+git clone https://github.com/s3lfcod3r/selfdashboard.git
 cd selfdashboard
 docker-compose up -d
 ```
@@ -296,7 +296,7 @@ docker-compose up -d
 |-----------------|--------|
 | **`/app/data`** | Per-user dashboards (`users/`), auth DB (`auth/`), calendar, central log — **back up** regularly |
 | **`/app/plugins/custom`** | Installed plugins (`<id>/plugin.json`, `widget.js`, optional `server.mjs`) — **back up** with appdata |
-| **GitHub env vars** | Pre-set in `:latest` image: repo `kabelsalatundklartext/selfdashboard`, ref `main`, path `plugins-pack` |
+| **GitHub env vars** | Pre-set in `:latest` image: repo `s3lfcod3r/selfdashboard`, ref `main`, path `plugins-pack` |
 | **Docker Socket** (optional) | Local host only — **[Docker plugin](docs/plugins/docker/README.md)** |
 | **CrowdSec Data** (optional) | `crowdsec.db` read-only — **[CrowdSec plugin](docs/plugins/crowdsec/README.md)** |
 
@@ -428,7 +428,7 @@ Ideal for a kitchen display, wall tablet, or shared screen on your LAN.
 | `SELFDASHBOARD_SECRET_KEY` | auto-generated file in data dir | **Central secret key** for encrypting **all** stored credentials: calendar, mail **and widget passwords/tokens** (AdGuard, Pi-hole, FRITZ!, Speedtest, …). **Strongly recommended:** set a fixed value in Docker so credentials survive image updates and volume moves. Once set, never change it — sealed secrets become unreadable. (Legacy alias `SELFDASHBOARD_CALENDAR_KEY` still works as a fallback.) |
 | `MAIL_DATA_DIR` | `<plugins/custom>/mail` | Directory for **`mail.json`** (optional override) |
 | `SELFDASHBOARD_PLUGINS_CUSTOM` | `<app>/plugins/custom` | Installed plugins (Unraid: map host folder here) |
-| `SELFDASHBOARD_PLUGINS_GITHUB_REPO` | `kabelsalatundklartext/selfdashboard` in `:latest` image | GitHub repo for store (`owner/repo`) |
+| `SELFDASHBOARD_PLUGINS_GITHUB_REPO` | `s3lfcod3r/selfdashboard` in `:latest` image | GitHub repo for store (`owner/repo`) |
 | `SELFDASHBOARD_PLUGINS_GITHUB_REF` | `main` | Branch/tag for `plugins-pack/` |
 | `SELFDASHBOARD_PLUGINS_GITHUB_PATH` | `plugins-pack` | Path in repo to plugin files |
 | `CROWDSEC_DATA_DIR` | `/crowdsec-data` | Allowed root for DB paths (CrowdSec widget only; optional) |
@@ -718,7 +718,7 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/google-home.png" width="22"/> | [Google Home / Nest](plugins-pack/google-home/README.md) | Utility | Nest-Thermostate, Sensoren, Gerätestatus (SDM-API) **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/home-assistant.png" width="22"/> | [Home Assistant](plugins-pack/home-assistant/README.md) | Utility | Ausgewählte Entitäten **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/raspberrymatic.png" width="22"/> | [Homematic](plugins-pack/homematic/README.md) | Utility | Heizung, Schalter, Sensoren, Räume (RaspberryMatic) **(Beta)** |
-| <img src="https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/bambu-cam/icon.svg" width="22"/> | [Bambu Lab Kamera](plugins-pack/bambu-cam/README.md) | Utility | Live-Druckerkamera (P1/A1 lokal oder Stream-URL) **(Beta)** |
+| <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/bambu-cam/icon.svg" width="22"/> | [Bambu Lab Kamera](plugins-pack/bambu-cam/README.md) | Utility | Live-Druckerkamera (P1/A1 lokal oder Stream-URL) **(Beta)** |
 | 🖼️ | [Iframe](plugins-pack/iframe/README.md) | Utility | Webseite einbetten |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/jellyfin.png" width="22"/> | [Jellyfin](plugins-pack/jellyfin/README.md) | Media | Aktive Sessions |
 | ✉️ | [E-Mail](plugins-pack/mail/README.md) | Productivity | Navbar IMAP-Badge |
@@ -730,7 +730,7 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/pi-hole.png" width="22"/> | [Pi-hole](plugins-pack/pihole/README.md) | Netzwerk | DNS-Statistik v6 |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/plex.png" width="22"/> | [Plex](plugins-pack/plex/README.md) | Media | Aktive Sessions **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proxmox.png" width="22"/> | [Proxmox VE](plugins-pack/proxmox/README.md) | System | Nodes, VMs/LXC **(Beta)** |
-| <img src="https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/reolink/icon.svg" width="22"/> | [Reolink Kamera](plugins-pack/reolink/README.md) | Utility | Live-Kamera, KI-/Bewegungs-Badges, PTZ **(Beta)** |
+| <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/reolink/icon.svg" width="22"/> | [Reolink Kamera](plugins-pack/reolink/README.md) | Utility | Live-Kamera, KI-/Bewegungs-Badges, PTZ **(Beta)** |
 | 📝 | [Notizzettel](plugins-pack/scratchpad/README.md) | Utility | Kurznotizen |
 | ✉️ | [SelfMailer](plugins-pack/selfmailer/README.md) | Productivity | Ungelesene über alle SelfMailer-Postfächer |
 | 📺 | [Selfstream](plugins-pack/selfstream/README.md) | Media | IPTV-Streams live |
@@ -754,7 +754,7 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 
 **Pflicht:** **`/app/data`** und **`/app/plugins/custom`** mounten. Ohne Plugin-Ordner gehen Store-Installationen beim Neustart verloren.
 
-**Image-Tags:** Unraid-Template nutzt **`ghcr.io/kabelsalatundklartext/selfdashboard:latest`**. Der Plugin-Katalog kommt vom GitHub-Branch **`main`** (`SELFDASHBOARD_PLUGINS_GITHUB_REF`, normalerweise unverändert lassen).
+**Image-Tags:** Unraid-Template nutzt **`ghcr.io/s3lfcod3r/selfdashboard:latest`**. Der Plugin-Katalog kommt vom GitHub-Branch **`main`** (`SELFDASHBOARD_PLUGINS_GITHUB_REF`, normalerweise unverändert lassen).
 
 **Non-root-Container (PUID/PGID):** Die App läuft non-root, standardmäßig als **PUID/PGID 99/100** (Unraid `nobody:users`). Der Entrypoint mappt beim Start auf deine PUID/PGID und chownt `/app/data` + `/app/plugins/custom` automatisch (Opt-out: `SELFDASHBOARD_SKIP_CHOWN=1`). **CrowdSec-Tipp:** PUID/PGID auf **dieselben Werte wie dein CrowdSec-Container** setzen — dann besitzt und liest SelfDashboard die `crowdsec.db` direkt, auch nach nächtlichen Backups, die CrowdSec neu starten (kein chmod nötig).
 
@@ -778,7 +778,7 @@ docker run -d \
   -v /mnt/user/appdata/selfdashboard:/app/data \
   -v /mnt/user/appdata/selfdashboard/plugins:/app/plugins/custom \
   -v /var/run/docker.sock:/var/run/docker.sock \
-  ghcr.io/kabelsalatundklartext/selfdashboard:latest
+  ghcr.io/s3lfcod3r/selfdashboard:latest
 ```
 
 *(**`/app/data`** → `dashboard.json`, Kalender, Protokoll. **`/app/plugins/custom`** → installierte Plugins. **Store → Von GitHub** oder ZIP, dann **Strg+F5**. Docker-Socket optional — **Docker**-Plugin. CrowdSec-Mount optional — **CrowdSec**-Plugin.)*
@@ -786,7 +786,7 @@ docker run -d \
 ### Option 3 — docker-compose
 
 ```bash
-git clone https://github.com/kabelsalatundklartext/selfdashboard.git
+git clone https://github.com/s3lfcod3r/selfdashboard.git
 cd selfdashboard
 docker-compose up -d
 ```
@@ -797,7 +797,7 @@ docker-compose up -d
 |---------------------|--------|
 | **`/app/data`** | Pro-User-Dashboards (`users/`), Auth-DB (`auth/`), Kalender, Protokoll — **Backup** |
 | **`/app/plugins/custom`** | Installierte Plugins (`<id>/plugin.json`, `widget.js`, optional `server.mjs`) — **mit Appdata sichern** |
-| **GitHub-Env** | Im `:latest`-Image voreingestellt: Repo `kabelsalatundklartext/selfdashboard`, Ref `main`, Pfad `plugins-pack` |
+| **GitHub-Env** | Im `:latest`-Image voreingestellt: Repo `s3lfcod3r/selfdashboard`, Ref `main`, Pfad `plugins-pack` |
 | **Docker Socket** (optional) | Nur lokaler Host — **[Docker-Plugin](docs/plugins/docker/README.md)** |
 | **CrowdSec Data** (optional) | `crowdsec.db` read-only — **[CrowdSec-Plugin](docs/plugins/crowdsec/README.md)** |
 
@@ -929,7 +929,7 @@ Für Küchendisplay, Wand-Tablet oder gemeinsamen Bildschirm im LAN.
 | `SELFDASHBOARD_SECRET_KEY` | Datei im Data-Ordner | **Zentraler Schlüssel** für **alle** gespeicherten Zugangsdaten: Kalender, E-Mail **und Widget-Passwörter/-Tokens** (AdGuard, Pi-hole, FRITZ!, Speedtest, …). **Dringend empfohlen:** festen Wert in Docker setzen, damit Zugangsdaten Image-Updates und Volume-Umzüge überleben. Einmal gesetzt, nie mehr ändern — sonst sind verschlüsselte Werte unlesbar. (Alter Name `SELFDASHBOARD_CALENDAR_KEY` funktioniert weiter als Fallback.) |
 | `MAIL_DATA_DIR` | `<plugins/custom>/mail` | Verzeichnis für **`mail.json`** (optional) |
 | `SELFDASHBOARD_PLUGINS_CUSTOM` | `<app>/plugins/custom` | Installierte Plugins (Unraid: Host-Ordner hierher mappen) |
-| `SELFDASHBOARD_PLUGINS_GITHUB_REPO` | `kabelsalatundklartext/selfdashboard` im `:latest`-Image | GitHub-Repo für Store (`owner/repo`) |
+| `SELFDASHBOARD_PLUGINS_GITHUB_REPO` | `s3lfcod3r/selfdashboard` im `:latest`-Image | GitHub-Repo für Store (`owner/repo`) |
 | `SELFDASHBOARD_PLUGINS_GITHUB_REF` | `main` | Branch/Tag für `plugins-pack/` |
 | `SELFDASHBOARD_PLUGINS_GITHUB_PATH` | `plugins-pack` | Pfad im Repo zu den Plugin-Dateien |
 | `CROWDSEC_DATA_DIR` | `/crowdsec-data` | Erlaubtes Wurzelverzeichnis für DB-Pfade (nur CrowdSec-Widget; optional) |

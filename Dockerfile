@@ -48,7 +48,7 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV SELFDASHBOARD_DATA_DIR=/app/data
 ENV CROWDSEC_DATA_DIR=/crowdsec-data
-ENV SELFDASHBOARD_PLUGINS_GITHUB_REPO=kabelsalatundklartext/selfdashboard
+ENV SELFDASHBOARD_PLUGINS_GITHUB_REPO=s3lfcod3r/selfdashboard
 # Plugin catalog branch: main for release images, beta for :beta (set by CI build-arg).
 ARG PLUGINS_REF=main
 ENV SELFDASHBOARD_PLUGINS_GITHUB_REF=$PLUGINS_REF

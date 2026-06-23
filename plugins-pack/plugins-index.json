@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "repository": "kabelsalatundklartext/selfdashboard",
+  "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
   "generatedAt": "2026-06-23T11:42:10.988Z",
@@ -73,7 +73,7 @@
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "🖨️",
-      "iconUrl": "https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/bambu-cam/icon.svg",
+      "iconUrl": "https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/bambu-cam/icon.svg",
       "defaultLayout": {
         "w": 3,
         "h": 4,
@@ -311,7 +311,7 @@
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "💡",
-      "iconUrl": "https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/hue/icon.svg",
+      "iconUrl": "https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/hue/icon.svg",
       "defaultLayout": {
         "w": 3,
         "h": 4,
@@ -536,7 +536,7 @@
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "📹",
-      "iconUrl": "https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/reolink/icon.svg",
+      "iconUrl": "https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/reolink/icon.svg",
       "defaultLayout": {
         "w": 3,
         "h": 4,
@@ -630,7 +630,7 @@
       "author": "SelfDashboard",
       "category": "media",
       "icon": "📺",
-      "iconUrl": "https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/selfstream-emby/icon.png",
+      "iconUrl": "https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/selfstream-emby/icon.png",
       "defaultLayout": {
         "w": 4,
         "h": 3,

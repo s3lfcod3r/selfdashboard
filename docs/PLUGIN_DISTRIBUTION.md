@@ -24,7 +24,7 @@
 ## GitHub-Konfiguration (Container-Env)
 
 ```text
-SELFDASHBOARD_PLUGINS_GITHUB_REPO=kabelsalatundklartext/selfdashboard
+SELFDASHBOARD_PLUGINS_GITHUB_REPO=s3lfcod3r/selfdashboard
 SELFDASHBOARD_PLUGINS_GITHUB_REF=main
 SELFDASHBOARD_PLUGINS_GITHUB_PATH=plugins-pack
 ```
@@ -34,7 +34,7 @@ Index-Datei: `plugins-pack/plugins-index.json` (Liste aller Plugins + Dateien).
 Raw-URL-Beispiel:
 
 ```text
-https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/plugins-pack/clock/widget.js
+https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/clock/widget.js
 ```
 
 ## Maintainer: Pack auf GitHub aktualisieren

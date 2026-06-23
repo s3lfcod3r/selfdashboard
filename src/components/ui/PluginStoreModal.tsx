@@ -261,7 +261,7 @@ export function PluginStoreModal({ open, onClose }: Props) {
   const existingPlugins = activeDashboard()?.plugins ?? []
   const [remotePlugins, setRemotePlugins] = useState<RemotePluginRow[]>([])
   const [githubConfigured, setGithubConfigured] = useState(false)
-  const [githubRepo, setGithubRepo] = useState('kabelsalatundklartext/selfdashboard')
+  const [githubRepo, setGithubRepo] = useState('s3lfcod3r/selfdashboard')
   const [githubRef, setGithubRef] = useState('main')
   const [volumeOnly, setVolumeOnly] = useState(false)
   const [volumeInstalledIds, setVolumeInstalledIds] = useState<string[]>([])
@@ -830,8 +830,8 @@ export function PluginStoreModal({ open, onClose }: Props) {
               <p className="text-xs mb-3 px-3 py-2 rounded-lg" style={{ background: '#f8717114', color: '#f87171', border: '1px solid #f8717133' }}>
                 {t(locale, 'githubNotConfigured')}
                 {locale === 'de'
-                  ? ' Setze SELFDASHBOARD_PLUGINS_GITHUB_REPO=kabelsalatundklartext/selfdashboard (Unraid: „GitHub Plugins Repo“) und starte den Container neu.'
-                  : ' Set SELFDASHBOARD_PLUGINS_GITHUB_REPO=kabelsalatundklartext/selfdashboard (Unraid: “GitHub Plugins Repo”) and restart the container.'}
+                  ? ' Setze SELFDASHBOARD_PLUGINS_GITHUB_REPO=s3lfcod3r/selfdashboard (Unraid: „GitHub Plugins Repo“) und starte den Container neu.'
+                  : ' Set SELFDASHBOARD_PLUGINS_GITHUB_REPO=s3lfcod3r/selfdashboard (Unraid: “GitHub Plugins Repo”) and restart the container.'}
               </p>
             )}
             {!isAdmin && userAllowedPlugins.length === 0 && (
@@ -893,7 +893,7 @@ export function PluginStoreModal({ open, onClose }: Props) {
             {' · '}
             {t(locale, 'devHint')}{' '}
             <a
-              href="https://github.com/kabelsalatundklartext/selfdashboard/blob/main/docs/PLUGIN_DEV.md"
+              href="https://github.com/s3lfcod3r/selfdashboard/blob/main/docs/PLUGIN_DEV.md"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: 'var(--accent)' }}

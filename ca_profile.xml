@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Maintainer>
-  <Icon>https://raw.githubusercontent.com/kabelsalatundklartext/selfdashboard/main/public/ca-icon.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/ca-icon.svg</Icon>
   <Profile>
     Homelab-Enthusiast aus Deutschland. Ich baue Tools für Unraid und Self-Hosting,
     die ich selbst täglich nutze — praktisch, quelloffen und ohne Schnickschnack.
@@ -12,8 +12,8 @@
     Docker stats via a read-only socket mapping. See the GitHub README for environment
     variables, volumes, and Unraid Community Apps notes..
   </Profile>
-  <WebPage>https://github.com/kabelsalatundklartext/selfdashboard</WebPage>
+  <WebPage>https://github.com/s3lfcod3r/selfdashboard</WebPage>
   <DonateText>EN: Like the project? Star us on GitHub! — DE: Gefällt dir das Projekt? Stern auf GitHub!</DonateText>
-  <DonateLink>https://github.com/kabelsalatundklartext/selfdashboard</DonateLink>
+  <DonateLink>https://github.com/s3lfcod3r/selfdashboard</DonateLink>
 </Maintainer>
 
