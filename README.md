@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/logo-white.svg"/>
-    <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/logo.svg" alt="SelfDashboard" height="80"/>
-  </picture>
+  <img src="assets/logo.png" width="240" alt="SelfDashboard"/>
 </p>
 
 <p align="center">
