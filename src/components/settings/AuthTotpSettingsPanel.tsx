@@ -20,6 +20,11 @@ export function AuthTotpSettingsPanel({ locale }: { locale: Locale }) {
   const [disablePassword, setDisablePassword] = useState('')
   const [disableCode, setDisableCode] = useState('')
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null)
+  const [replaceSecret, setReplaceSecret] = useState('')
+  const [replaceUri, setReplaceUri] = useState('')
+  const [replaceQrDataUrl, setReplaceQrDataUrl] = useState('')
+  const [replaceCode, setReplaceCode] = useState('')
+  const [replacePassword, setReplacePassword] = useState('')
 
   const refresh = useCallback(async () => {
     const res = await fetch('/api/auth/totp/status', { cache: 'no-store' })
@@ -102,6 +107,65 @@ export function AuthTotpSettingsPanel({ locale }: { locale: Locale }) {
       setDisableCode('')
       setEnabled(false)
       setMsg(de ? '2FA deaktiviert.' : '2FA disabled.')
+      await refresh()
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function cancelReplace() {
+    setReplaceSecret('')
+    setReplaceUri('')
+    setReplaceQrDataUrl('')
+    setReplaceCode('')
+    setReplacePassword('')
+  }
+
+  async function startReplace() {
+    setBusy(true)
+    setMsg(null)
+    setBackupCodes(null)
+    try {
+      const res = await fetch('/api/auth/totp/setup?replace=1', { cache: 'no-store' })
+      const j = (await res.json()) as { secret?: string; uri?: string; qrDataUrl?: string; error?: string; retryAfterSec?: number }
+      if (!res.ok) {
+        if (j.error === 'rate_limited' && j.retryAfterSec) {
+          throw new Error(de ? `Zu viele Versuche. In ${j.retryAfterSec} s erneut.` : `Too many attempts. Retry in ${j.retryAfterSec}s.`)
+        }
+        throw new Error(j.error ?? 'setup_failed')
+      }
+      setReplaceSecret(j.secret ?? '')
+      setReplaceUri(j.uri ?? '')
+      setReplaceQrDataUrl(j.qrDataUrl ?? '')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function confirmReplace(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/auth/totp/replace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: replacePassword, secret: replaceSecret, code: replaceCode.trim() }),
+      })
+      const j = (await res.json()) as { backupCodes?: string[]; error?: string; retryAfterSec?: number }
+      if (!res.ok) {
+        if (j.error === 'rate_limited' && j.retryAfterSec) {
+          throw new Error(de ? `Zu viele Versuche. In ${j.retryAfterSec} s erneut.` : `Too many attempts. Retry in ${j.retryAfterSec}s.`)
+        }
+        throw new Error(j.error ?? 'invalid_code')
+      }
+      cancelReplace()
+      setBackupCodes(j.backupCodes ?? [])
+      setMsg(de ? 'Neues Gerät aktiv. Altes Gerät kannst du löschen.' : 'New device active. You can remove the old one.')
       await refresh()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))
@@ -204,7 +268,53 @@ export function AuthTotpSettingsPanel({ locale }: { locale: Locale }) {
           </form>
         ) : null}
 
-        {enabled ? (
+        {enabled && !replaceSecret ? (
+          <button type="button" className="btn-ghost self-start flex items-center gap-1.5 px-3 py-1.5 text-xs" disabled={busy} onClick={() => void startReplace()}>
+            <Shield size={14} />
+            {de ? 'Gerät wechseln' : 'Switch device'}
+          </button>
+        ) : null}
+
+        {enabled && replaceSecret ? (
+          <form onSubmit={confirmReplace} className="flex flex-col gap-2">
+            <p className="text-xs font-semibold" style={{ margin: 0 }}>
+              {de ? 'Neues Gerät einrichten' : 'Set up new device'}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)', lineHeight: 1.45, margin: 0 }}>
+              {de
+                ? 'Scanne den Code mit der App auf dem neuen Gerät und bestätige mit Passwort + neuem Code. 2FA bleibt durchgehend aktiv.'
+                : 'Scan the code with the app on the new device, then confirm with your password + a code from the new app. 2FA stays on the whole time.'}
+            </p>
+            {replaceQrDataUrl ? <TotpQrImage dataUrl={replaceQrDataUrl} locale={locale} /> : null}
+            <input readOnly style={{ ...inp, fontFamily: 'monospace', fontSize: '11px' }} value={replaceSecret} />
+            {replaceUri ? <p className="text-[10px] break-all font-mono" style={{ color: 'var(--text-muted)' }}>{replaceUri}</p> : null}
+            <input
+              type="password"
+              style={inp}
+              placeholder={de ? 'Aktuelles Passwort' : 'Current password'}
+              value={replacePassword}
+              onChange={(e) => setReplacePassword(e.target.value)}
+              required
+            />
+            <input
+              style={inp}
+              placeholder={de ? 'Code aus neuer App' : 'Code from new app'}
+              value={replaceCode}
+              onChange={(e) => setReplaceCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+              required
+            />
+            <div className="flex items-center gap-2">
+              <button type="submit" className="btn-accent px-3 py-1.5" disabled={busy}>
+                {de ? 'Übernehmen' : 'Apply'}
+              </button>
+              <button type="button" className="btn-ghost px-3 py-1.5 text-xs" disabled={busy} onClick={cancelReplace}>
+                {de ? 'Abbrechen' : 'Cancel'}
+              </button>
+            </div>
+          </form>
+        ) : null}
+
+        {enabled && !replaceSecret ? (
           <form onSubmit={disableTotp} className="flex flex-col gap-2">
             <input
               type="password"
