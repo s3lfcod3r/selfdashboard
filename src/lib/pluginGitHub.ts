@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 
@@ -36,6 +37,14 @@ const VALID_CATEGORIES = new Set<PluginCategory>([
 export type GitHubPluginIndexEntry = PluginManifest & {
 
   files: string[]
+
+  /**
+   * Optional per-file SHA-256 integrity hashes (filename → lowercase hex digest).
+   * When present for a file, the downloaded bytes are verified before they are
+   * written to disk; a mismatch aborts the install. Files without a hash entry
+   * install unverified (backward compatible until the catalog ships hashes).
+   */
+  sha256?: Record<string, string>
 
 }
 
@@ -220,6 +229,30 @@ const REQUIRED_INSTALL_FILES = new Set(['plugin.json', 'widget.js'])
 
 /** Install only from GitHub raw URLs (plugins-pack/<id>/ on the configured branch, default main). */
 
+/** Normalize a SHA-256 hash string for comparison (lowercase, strip optional "sha256:" prefix). */
+function normalizeSha256(value: string): string {
+  return value.trim().toLowerCase().replace(/^sha256[:-]/, '')
+}
+
+/**
+ * Verify a downloaded plugin file against the optional sha256 entry in the index.
+ * Returns null when valid (or when no hash is configured for the file),
+ * otherwise a short error code describing the failure.
+ */
+function verifyFileIntegrity(
+  entry: GitHubPluginIndexEntry,
+  file: string,
+  buf: Buffer,
+): string | null {
+  const expectedRaw = entry.sha256?.[file]
+  if (!expectedRaw) return null // no hash published yet → install unverified
+  const expected = normalizeSha256(expectedRaw)
+  if (!/^[a-f0-9]{64}$/.test(expected)) return `integrity_bad_hash:${file}`
+  const actual = crypto.createHash('sha256').update(buf).digest('hex')
+  if (actual !== expected) return `integrity_mismatch:${file}`
+  return null
+}
+
 export async function installPluginFromGitHub(pluginId: string): Promise<{
 
   ok: boolean
@@ -313,6 +346,22 @@ export async function installPluginFromGitHub(pluginId: string): Promise<{
     }
 
     const buf = Buffer.from(await res.arrayBuffer())
+
+    const integrityError = verifyFileIntegrity(entry, file, buf)
+    if (integrityError) {
+      console.error(
+        `[SelfDashboard] Plugin integrity check failed for ${pluginId}/${file} ` +
+          `(${integrityError}) — install aborted. The remote file does not match the ` +
+          `sha256 hash in plugins-index.json.`,
+      )
+      return {
+        ok: false,
+        pluginId,
+        written,
+        error: integrityError,
+        hint: `Integritätsprüfung fehlgeschlagen für ${file}. Der heruntergeladene Inhalt stimmt nicht mit dem sha256-Hash im Katalog überein — Installation abgebrochen.`,
+      }
+    }
 
     fs.writeFileSync(path.join(destDir, file), buf)
 

@@ -40,7 +40,23 @@ export function warnInsecureProductionEnv(): void {
   }
 }
 
-/** Ignore one-time env password reset when running in production. */
+/**
+ * Whether the operator explicitly opted in to env-based password reset in production.
+ * Acts as a safety net in case NODE_ENV is not set to 'production' in the container.
+ */
+function hasProductionResetOptIn(): boolean {
+  const value = process.env.SELFDASHBOARD_ENABLE_ENV_RESET?.trim().toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes'
+}
+
+/**
+ * Allow the one-time env password reset.
+ *
+ * - Outside production: always allowed (homelab convenience).
+ * - In production: only when SELFDASHBOARD_ENABLE_ENV_RESET is explicitly set,
+ *   so a forgotten NODE_ENV cannot leave the reset path silently enabled.
+ */
 export function allowEnvPasswordReset(): boolean {
-  return !isProductionRuntime()
+  if (!isProductionRuntime()) return true
+  return hasProductionResetOptIn()
 }

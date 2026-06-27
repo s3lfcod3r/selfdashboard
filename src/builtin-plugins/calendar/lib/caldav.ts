@@ -31,7 +31,7 @@
 
 import { createDAVClient } from 'tsdav'
 
-import { assertSafeOutboundUrl } from '@/lib/security/ssrf'
+import { assertSafeOutboundUrlResolved } from '@/lib/security/ssrf'
 import {
   formatCalDavPushError,
   resolveCalendarReadOnly,
@@ -92,7 +92,9 @@ async function buildClient(account: Account) {
   const password = decryptAccountPassword(cfg.passwordEncrypted)
   const serverUrl = normalizeCaldavServerUrl(cfg.url)
   try {
-    assertSafeOutboundUrl(serverUrl)
+    // Resolve DNS and re-check the target IP to also block DNS-rebinding attacks.
+    // tsdav performs its own fetch calls, so this pre-flight check is our guard.
+    await assertSafeOutboundUrlResolved(serverUrl)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     throw new Error(`CalDAV URL blocked: ${msg}`)

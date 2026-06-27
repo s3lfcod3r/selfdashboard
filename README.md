@@ -436,6 +436,7 @@ Ideal for a kitchen display, wall tablet, or shared screen on your LAN.
 | `SELFDASHBOARD_INSECURE_COOKIES` | — | Set `1` to force non-Secure cookies (same as default on HTTP). |
 | `SELFDASHBOARD_TRUST_PROXY` | off | Set `1` **only** when a reverse proxy in front of the app sets `X-Forwarded-For`/`X-Real-IP`. When off, those (client-spoofable) headers are ignored for rate limiting. Account brute-force protection works regardless (persistent per-account lockout). |
 | `SELFDASHBOARD_AUTH_RESET_PASSWORD` | — | One-shot admin password reset on container start (see **Login & multi-user**) |
+| `SELFDASHBOARD_ENABLE_ENV_RESET` | off | Required opt-in (`1`/`true`/`yes`) to allow the env-based `SELFDASHBOARD_AUTH_RESET_*` reset **in production**. Without it the reset is ignored even if `NODE_ENV` is misconfigured. |
 
 ---
 
@@ -452,14 +453,17 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 - **Docker container actions** (start/stop/restart) now require an admin with completed MFA — read-only listing stays available to widget users.
 - **Plugin pack extraction** validates every zip entry against path traversal (zip-slip) and enforces entry-count limits; uploads have a hard entry cap.
 - **Plugin SVG assets** are served with `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` and a locked-down CSP, preventing stored XSS via uploaded SVGs.
+- **Internal identity headers** (`x-sd-user-id`, `x-sd-role`, `x-sd-kiosk`) are stripped from every incoming request and are **never** echoed on responses, so a client cannot spoof its identity by sending them.
+- **Remote plugin files can carry SHA-256 hashes:** when `plugins-index.json` lists a `sha256` digest for a file (e.g. `server.mjs`), the download is verified before it is written/imported and a mismatch aborts the install.
+- **CalDAV outbound URLs are resolved and re-checked** against private/loopback ranges (DNS-rebinding protection), matching the existing IMAP/FRITZ! guard.
 
 **Operator responsibilities / when exposing publicly:**
 - **Use HTTPS and set `SELFDASHBOARD_SECURE_COOKIES=1`.** The default is off so plain-HTTP LAN setups keep working — but over the internet, session cookies must be Secure.
+- **Strip `x-sd-*` headers at your reverse proxy.** The app removes any client-supplied `x-sd-user-id` / `x-sd-role` / `x-sd-kiosk` on its own, but as defense-in-depth your proxy (nginx, Traefik, NPM, …) should drop these request headers before forwarding.
 - **Plugin code runs with full server privileges.** Uploaded/remote plugin `server.mjs` files execute in the Node process — there is no sandbox. Only install plugins you trust, and treat the admin account as equivalent to shell access.
+- **Env-based admin password reset is gated in production:** set `SELFDASHBOARD_ENABLE_ENV_RESET=1` (in addition to `NODE_ENV=production`) to allow the one-shot `SELFDASHBOARD_AUTH_RESET_*` flow; otherwise it is ignored.
 - **TLS verification** for IMAP/FRITZ! can be disabled per connection — leave it on unless you have a specific reason.
 - Use a **strong admin password** and a fixed `SELFDASHBOARD_SECRET_KEY`.
-
-> Known lower-priority follow-ups (not yet changed): the credential-encryption KDF uses a static salt, and CalDAV lacks DNS-rebinding protection (IMAP/FRITZ! already resolve and check the target IP). These are low risk on a trusted LAN.
 
 ---
 
@@ -937,6 +941,7 @@ Für Küchendisplay, Wand-Tablet oder gemeinsamen Bildschirm im LAN.
 | `SELFDASHBOARD_INSECURE_COOKIES` | — | `1` = explizit unsichere Cookies (wie Standard bei HTTP). |
 | `SELFDASHBOARD_TRUST_PROXY` | aus | Nur auf `1` setzen, wenn ein Reverse-Proxy davor `X-Forwarded-For`/`X-Real-IP` setzt. Sonst werden diese (vom Client fälschbaren) Header beim Rate-Limiting ignoriert. Der Brute-Force-Schutz pro Konto wirkt unabhängig davon (persistente Konto-Sperre). |
 | `SELFDASHBOARD_AUTH_RESET_PASSWORD` | — | Einmal-Passwort-Reset beim Container-Start (siehe **Login & Mehrbenutzer**) |
+| `SELFDASHBOARD_ENABLE_ENV_RESET` | aus | Pflicht-Opt-in (`1`/`true`/`yes`), um den env-basierten `SELFDASHBOARD_AUTH_RESET_*`-Reset **in Produktion** zu erlauben. Ohne ihn wird der Reset ignoriert, selbst wenn `NODE_ENV` falsch gesetzt ist. |
 
 ---
 
@@ -953,14 +958,17 @@ SelfDashboard ist für ein vertrauenswürdiges Heimnetz gebaut. Ein Security-Rev
 - **Docker-Container-Aktionen** (Start/Stopp/Neustart) erfordern jetzt einen Admin mit abgeschlossener MFA — die reine Liste bleibt für Widget-Nutzer sichtbar.
 - **Plugin-Pack-Extraktion** prüft jeden Zip-Eintrag gegen Path-Traversal (Zip-Slip) und begrenzt die Eintragszahl; Uploads haben ein hartes Limit.
 - **Plugin-SVG-Assets** werden mit `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` und restriktiver CSP ausgeliefert → kein gespeichertes XSS über hochgeladene SVGs.
+- **Interne Identitäts-Header** (`x-sd-user-id`, `x-sd-role`, `x-sd-kiosk`) werden aus jeder eingehenden Anfrage entfernt und **nie** in Antworten zurückgegeben — ein Client kann seine Identität damit nicht fälschen.
+- **Remote-Plugin-Dateien können SHA-256-Hashes tragen:** Listet `plugins-index.json` für eine Datei (z. B. `server.mjs`) einen `sha256`-Digest, wird der Download vor dem Schreiben/Importieren geprüft; bei Abweichung bricht die Installation ab.
+- **CalDAV-Ziel-URLs werden aufgelöst und erneut geprüft** gegen private/Loopback-Bereiche (DNS-Rebinding-Schutz), wie schon bei IMAP/FRITZ!.
 
 **Betreiber-Verantwortung / bei öffentlicher Erreichbarkeit:**
 - **HTTPS nutzen und `SELFDASHBOARD_SECURE_COOKIES=1` setzen.** Standard ist aus, damit reine HTTP-LAN-Setups funktionieren — über das Internet müssen Session-Cookies aber Secure sein.
+- **`x-sd-*`-Header am Reverse-Proxy strippen.** Die App entfernt zwar selbst alle vom Client gesendeten `x-sd-user-id` / `x-sd-role` / `x-sd-kiosk` — als Defense-in-Depth sollte dein Proxy (nginx, Traefik, NPM, …) diese Request-Header zusätzlich vor dem Weiterleiten entfernen.
 - **Plugin-Code läuft mit vollen Server-Rechten.** Hochgeladene/Remote-Plugin-`server.mjs`-Dateien werden im Node-Prozess ausgeführt — ohne Sandbox. Installiere nur vertrauenswürdige Plugins und behandle den Admin-Account wie Shell-Zugriff.
+- **Env-basierter Admin-Passwort-Reset ist in Produktion gesperrt:** Setze `SELFDASHBOARD_ENABLE_ENV_RESET=1` (zusätzlich zu `NODE_ENV=production`), um den einmaligen `SELFDASHBOARD_AUTH_RESET_*`-Ablauf zu erlauben; sonst wird er ignoriert.
 - **TLS-Prüfung** für IMAP/FRITZ! kann pro Verbindung deaktiviert werden — lass sie an, außer es gibt einen konkreten Grund.
 - Nutze ein **starkes Admin-Passwort** und einen festen `SELFDASHBOARD_SECRET_KEY`.
-
-> Bekannte nachrangige Punkte (noch nicht geändert): Die KDF der Credential-Verschlüsselung nutzt einen statischen Salt, und CalDAV hat keinen DNS-Rebinding-Schutz (IMAP/FRITZ! lösen die Ziel-IP bereits auf und prüfen sie). Im vertrauenswürdigen LAN geringes Risiko.
 
 ---
 
