@@ -266,6 +266,35 @@ Nutzer sehen neue Plugins im Store nach ein paar Minuten (Index-Cache ~5 Min).
 > der Index muss nicht mehr von Hand gepflegt werden.
 > (`npm run generate:plugins-index` lokal geht weiterhin.)
 
+### Integritätsprüfung (`sha256`, optional)
+
+Jeder Plugin-Eintrag im `plugins-index.json` darf ein optionales Feld
+`sha256` führen: eine Zuordnung **Dateiname → SHA-256-Hex-Digest** (lowercase).
+Beim Installieren bzw. Aktualisieren wird jede heruntergeladene Datei – inklusive
+`server.mjs` – **vor dem Schreiben** gegen diesen Hash geprüft. Stimmt der Inhalt
+nicht überein, bricht die Installation ab (`integrity_mismatch:<datei>`) und ein
+`console.error` wird ausgegeben; es wird nichts auf das Volume geschrieben.
+
+```json
+{
+  "id": "meinplugin",
+  "name": "Mein Plugin",
+  "version": "1.0.0",
+  "files": ["plugin.json", "widget.js", "server.mjs"],
+  "sha256": {
+    "server.mjs": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "widget.js": "…"
+  }
+}
+```
+
+- **Rückwärtskompatibel:** Dateien ohne `sha256`-Eintrag werden wie bisher
+  ungeprüft installiert. Das Feld kann schrittweise nachgezogen werden.
+- Den Hash erzeugst du z. B. mit `sha256sum plugins-pack/<id>/server.mjs`
+  (nur der Hex-Teil gehört in den Index).
+- Empfohlen besonders für `server.mjs`, da dieser Code serverseitig ausgeführt
+  wird — der Hash verhindert, dass manipulierte Remote-Dateien importiert werden.
+
 ---
 
 ## 8. ZIP verteilen (ohne GitHub)

@@ -21,16 +21,34 @@ import { needsSetup } from '@/lib/auth/users'
 
 export const runtime = 'nodejs'
 
+/**
+ * Internal identity headers set by the middleware for downstream route handlers.
+ * They MUST only ever be set on the *request* (never the response) and any
+ * client-supplied copies must be stripped first, so a caller cannot spoof their
+ * identity by sending these headers directly.
+ */
+const INTERNAL_IDENTITY_HEADERS = ['x-sd-user-id', 'x-sd-role', 'x-sd-kiosk'] as const
+
+/** Clone request headers and remove any client-supplied internal identity headers. */
+function sanitizedRequestHeaders(request: NextRequest): Headers {
+  const headers = new Headers(request.headers)
+  for (const name of INTERNAL_IDENTITY_HEADERS) headers.delete(name)
+  return headers
+}
+
 function nextWithKioskHeaders(request: NextRequest, kioskAccess: { ownerUserId: string }) {
-  const requestHeaders = new Headers(request.headers)
+  const requestHeaders = sanitizedRequestHeaders(request)
   requestHeaders.set('x-sd-user-id', kioskAccess.ownerUserId)
   requestHeaders.set('x-sd-role', 'user')
   requestHeaders.set('x-sd-kiosk', '1')
-  const res = NextResponse.next({ request: { headers: requestHeaders } })
-  res.headers.set('x-sd-user-id', kioskAccess.ownerUserId)
-  res.headers.set('x-sd-role', 'user')
-  res.headers.set('x-sd-kiosk', '1')
-  return res
+  // Set only on the request for internal handlers — never echo identity on the response.
+  return NextResponse.next({ request: { headers: requestHeaders } })
+}
+
+/** Forward the request with all client-supplied internal identity headers stripped. */
+function nextWithoutClientIdentity(request: NextRequest): NextResponse {
+  const headers = sanitizedRequestHeaders(request)
+  return NextResponse.next({ request: { headers } })
 }
 
 function allowKioskPluginApi(request: NextRequest): NextResponse | null {
@@ -48,17 +66,17 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (isPublicPath(pathname)) {
-    return NextResponse.next()
+    return nextWithoutClientIdentity(request)
   }
 
   if (isAuthDisabled()) {
-    return NextResponse.next()
+    return nextWithoutClientIdentity(request)
   }
 
   const setupRequired = needsSetup()
 
   if (setupRequired) {
-    if (isSetupPath(pathname)) return NextResponse.next()
+    if (isSetupPath(pathname)) return nextWithoutClientIdentity(request)
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'setup_required' }, { status: 503 })
     }
@@ -87,7 +105,7 @@ export function middleware(request: NextRequest) {
       url.searchParams.set('next', request.nextUrl.searchParams.get('next') || '/dashboard/home')
       return NextResponse.redirect(url)
     }
-    return NextResponse.next()
+    return nextWithoutClientIdentity(request)
   }
 
   if (isTotpLoginPath(pathname)) {
@@ -102,13 +120,13 @@ export function middleware(request: NextRequest) {
       url.pathname = '/dashboard/home'
       return NextResponse.redirect(url)
     }
-    return NextResponse.next()
+    return nextWithoutClientIdentity(request)
   }
 
   const session = getSessionFromRequest(request)
   if (session && !session.mfaVerified) {
     if (pathname.startsWith('/api/') && isMfaPendingAllowedApi(pathname)) {
-      return NextResponse.next()
+      return nextWithoutClientIdentity(request)
     }
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'mfa_required' }, { status: 403 })
@@ -121,7 +139,7 @@ export function middleware(request: NextRequest) {
 
   if (!session) {
     if (isKioskApiPath(pathname)) {
-      return NextResponse.next()
+      return nextWithoutClientIdentity(request)
     }
     const kioskAllowed = allowKioskPluginApi(request)
     if (kioskAllowed) return kioskAllowed
@@ -148,13 +166,11 @@ export function middleware(request: NextRequest) {
     if (pluginDenied) return pluginDenied
   }
 
-  const requestHeaders = new Headers(request.headers)
+  const requestHeaders = sanitizedRequestHeaders(request)
   requestHeaders.set('x-sd-user-id', session.userId)
   requestHeaders.set('x-sd-role', session.role)
-  const res = NextResponse.next({ request: { headers: requestHeaders } })
-  res.headers.set('x-sd-user-id', session.userId)
-  res.headers.set('x-sd-role', session.role)
-  return res
+  // Set only on the request for internal handlers — never echo identity on the response.
+  return NextResponse.next({ request: { headers: requestHeaders } })
 }
 
 export const config = {
