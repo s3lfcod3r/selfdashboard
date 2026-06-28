@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" width="240" alt="SelfDashboard"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/logo-white.svg"/>
+    <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/logo.svg" alt="SelfDashboard" height="80"/>
+  </picture>
 </p>
 
 <p align="center">
@@ -21,7 +24,7 @@
 
 <p align="center">
   <a href="docs/screenshot-dashboard.png">
-    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — example dashboard with calendar, weather, bookmarks, CrowdSec, dual Unraid monitoring, and navbar mail badge" width="920"/>
+    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — example dashboard with calendar, notes, weather, bookmarks, CrowdSec, AdGuard, WireGuard, dual Unraid monitoring, and navbar mail badge" width="920"/>
   </a>
 </p>
 
@@ -32,13 +35,14 @@
 | Visible in the screenshot | What you get |
 |---|---|
 | 📅 **Calendar** | Events (CalDAV/ICS), month view right on the dashboard |
+| 📝 **Notes** | Quick scratchpad pinned to the dashboard |
 | 🕐 **Clock & weather** | Local time; weather with **day blocks** (0–6 … 18–24) + **7-day** forecast (from tomorrow) |
-| 🔖 **Bookmark grid** | Quick access to Unraid, DSM, Emby, Nextcloud, Vaultwarden, … |
+| 🔖 **Bookmark grid** | Quick access to Unraid, Emby, Nextcloud, Immich, SelfMailer, … |
 | 🛡️ **CrowdSec** | Alerts and active bans at a glance |
 | 🌐 **Network / AdGuard** | Protection status, DNS stats (tiles fill the widget) |
 | ⚡ **FRITZ! energy** | Smart-outlet power: now, today, 7 days, month (TR-064) |
+| 🔐 **WireGuard** | Peers online now / total, with live up/down traffic |
 | 🖥️ **Unraid (2×)** | CPU, RAM, array/pool, and disks per server (**Unraid 7.2+** GraphQL) |
-| 📺 **Kiosk / wall tablet** | Public **view-only** URL `/kiosk` — full-screen widgets for guests/tablets (optional password) |
 | 📺 **Emby / SelfStream** | Active streams — separate widgets or **Selfstream-Emby** combined list |
 | 💚 **Uptime Kuma** | Status-page monitors (up / down / pending) in a compact list |
 | ✉️ **Navbar mail** | Unread IMAP badge (install **E-Mail** plugin from the store) — click opens webmail |
@@ -230,7 +234,6 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proxmox.png" width="22"/> | [Proxmox VE](plugins-pack/proxmox/README.md) | System | Nodes, VMs/LXC **(Beta)** |
 | <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/reolink/icon.svg" width="22"/> | [Reolink Camera](plugins-pack/reolink/README.md) | Utility | Live camera, AI/motion badges, PTZ **(Beta)** |
 | 📝 | [Scratchpad](plugins-pack/scratchpad/README.md) | Utility | Short notes |
-| ✉️ | [SelfMailer](plugins-pack/selfmailer/README.md) | Productivity | Unread across all SelfMailer mailboxes |
 | 📺 | [Selfstream](plugins-pack/selfstream/README.md) | Media | Live IPTV |
 | 📺 | [Selfstream · Emby · Jellyfin](plugins-pack/selfstream-emby/README.md) | Media | Combined stream list |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/spotify.png" width="22"/> | [Spotify](plugins-pack/spotify/README.md) | Media | Now playing, controls, seek, volume, search & device picker |
@@ -436,7 +439,8 @@ Ideal for a kitchen display, wall tablet, or shared screen on your LAN.
 | `SELFDASHBOARD_INSECURE_COOKIES` | — | Set `1` to force non-Secure cookies (same as default on HTTP). |
 | `SELFDASHBOARD_TRUST_PROXY` | off | Set `1` **only** when a reverse proxy in front of the app sets `X-Forwarded-For`/`X-Real-IP`. When off, those (client-spoofable) headers are ignored for rate limiting. Account brute-force protection works regardless (persistent per-account lockout). |
 | `SELFDASHBOARD_AUTH_RESET_PASSWORD` | — | One-shot admin password reset on container start (see **Login & multi-user**) |
-| `SELFDASHBOARD_ENABLE_ENV_RESET` | off | Required opt-in (`1`/`true`/`yes`) to allow the env-based `SELFDASHBOARD_AUTH_RESET_*` reset **in production**. Without it the reset is ignored even if `NODE_ENV` is misconfigured. |
+| `SELFDASHBOARD_ENABLE_ENV_RESET` | off | In **production** (`NODE_ENV=production`, the default in the official image) the env password reset is **ignored** unless this is set to `1`. Outside production it is always allowed. Safety net so a forgotten `NODE_ENV` cannot leave the reset path silently active. |
+| `SELFDASHBOARD_SECRET_SALT` | built-in | Optional KDF salt for credential encryption. Leave unset to use the default. If set, pin it from the very first start and **never change it** (like `SELFDASHBOARD_SECRET_KEY`) — changing it makes existing encrypted credentials unreadable. |
 
 ---
 
@@ -453,17 +457,19 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 - **Docker container actions** (start/stop/restart) now require an admin with completed MFA — read-only listing stays available to widget users.
 - **Plugin pack extraction** validates every zip entry against path traversal (zip-slip) and enforces entry-count limits; uploads have a hard entry cap.
 - **Plugin SVG assets** are served with `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` and a locked-down CSP, preventing stored XSS via uploaded SVGs.
-- **Internal identity headers** (`x-sd-user-id`, `x-sd-role`, `x-sd-kiosk`) are stripped from every incoming request and are **never** echoed on responses, so a client cannot spoof its identity by sending them.
-- **Remote plugin files can carry SHA-256 hashes:** when `plugins-index.json` lists a `sha256` digest for a file (e.g. `server.mjs`), the download is verified before it is written/imported and a mismatch aborts the install.
-- **CalDAV outbound URLs are resolved and re-checked** against private/loopback ranges (DNS-rebinding protection), matching the existing IMAP/FRITZ! guard.
+- **Remote plugin integrity:** when the catalog (`plugins-index.json`) ships an optional `sha256` per file, every downloaded plugin file (incl. the executable `server.mjs`) is verified before it is written — a mismatch aborts the install. Protects against a compromised catalog.
+- **Internal identity headers** (`x-sd-user-id` / `x-sd-role`) are set on the request for route handlers only, are **stripped from any client-supplied request**, and are **no longer echoed on responses**, so they cannot be spoofed or leaked.
+- **Env password reset hardened:** in production the env reset is ignored unless `SELFDASHBOARD_ENABLE_ENV_RESET=1` is explicitly set.
+- **CalDAV** now resolves and re-checks the target IP before connecting (DNS-rebinding protection), matching IMAP/FRITZ!.
 
 **Operator responsibilities / when exposing publicly:**
 - **Use HTTPS and set `SELFDASHBOARD_SECURE_COOKIES=1`.** The default is off so plain-HTTP LAN setups keep working — but over the internet, session cookies must be Secure.
-- **Strip `x-sd-*` headers at your reverse proxy.** The app removes any client-supplied `x-sd-user-id` / `x-sd-role` / `x-sd-kiosk` on its own, but as defense-in-depth your proxy (nginx, Traefik, NPM, …) should drop these request headers before forwarding.
+- **Strip internal headers at the reverse proxy.** If you run SelfDashboard behind a proxy, configure it to drop incoming `x-sd-user-id`, `x-sd-role` and `x-sd-kiosk` request headers from clients. The app already strips them internally; this is defense in depth.
 - **Plugin code runs with full server privileges.** Uploaded/remote plugin `server.mjs` files execute in the Node process — there is no sandbox. Only install plugins you trust, and treat the admin account as equivalent to shell access.
-- **Env-based admin password reset is gated in production:** set `SELFDASHBOARD_ENABLE_ENV_RESET=1` (in addition to `NODE_ENV=production`) to allow the one-shot `SELFDASHBOARD_AUTH_RESET_*` flow; otherwise it is ignored.
 - **TLS verification** for IMAP/FRITZ! can be disabled per connection — leave it on unless you have a specific reason.
 - Use a **strong admin password** and a fixed `SELFDASHBOARD_SECRET_KEY`.
+
+> Known lower-priority follow-up (not yet changed): the credential-encryption KDF uses a fixed default salt (an optional `SELFDASHBOARD_SECRET_SALT` override is available for fresh installs). Low risk on a trusted LAN.
 
 ---
 
@@ -534,7 +540,7 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 
 <p align="center">
   <a href="docs/screenshot-dashboard.png">
-    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — Beispiel-Dashboard mit Kalender, Wetter, Dienst-Links, CrowdSec, Unraid-Monitoring und E-Mail-Badge in der Navbar" width="920"/>
+    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — Beispiel-Dashboard mit Kalender, Notizzettel, Wetter, Dienst-Links, CrowdSec, AdGuard, WireGuard, Unraid-Monitoring und E-Mail-Badge in der Navbar" width="920"/>
   </a>
 </p>
 
@@ -545,13 +551,14 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 | Im Screenshot sichtbar | Was es dir bringt |
 |---|---|
 | 📅 **Kalender** | Termine (CalDAV/ICS), Monatsansicht direkt auf dem Dashboard |
+| 📝 **Notizzettel** | Schneller Notizblock direkt auf dem Dashboard |
 | 🕐 **Uhr & Wetter** | Lokale Zeit; Wetter mit **Tagesabschnitten** (0–6 … 18–24) + **7-Tage**-Vorschau (ab morgen) |
-| 🔖 **Lesezeichen-Grid** | Schnellzugriff auf Unraid, DSM, Emby, Nextcloud, Vaultwarden, … |
+| 🔖 **Lesezeichen-Grid** | Schnellzugriff auf Unraid, Emby, Nextcloud, Immich, SelfMailer, … |
 | 🛡️ **CrowdSec** | Alerts und aktive Bans auf einen Blick |
 | 🌐 **Netzwerk / AdGuard** | Schutz-Status, DNS-Statistik (Kacheln füllen das Widget) |
 | ⚡ **FRITZ! Energie** | Steckdose: aktuell, heute, 7 Tage, Monat (TR-064) |
+| 🔐 **WireGuard** | Peers jetzt online / gesamt, mit Live-Traffic (rauf/runter) |
 | 🖥️ **Unraid (2×)** | CPU, RAM, Array/Pool und Festplatten pro Server (**Unraid 7.2+** GraphQL) |
-| 📺 **Kiosk / Wand-Tablet** | Öffentliche **Nur-Ansicht** unter `/kiosk` — Vollbild für Gäste/Tablet (optional Passwort) |
 | 📺 **Emby / SelfStream** | Aktive Streams — einzeln oder kombiniert als **Selfstream-Emby** |
 | 💚 **Uptime Kuma** | Status-Page-Monitore (OK / Down / Pending) in kompakter Liste |
 | ✉️ **Navbar E-Mail** | IMAP-Badge (Plugin **E-Mail** aus dem Store installieren) — Klick öffnet Webmail |
@@ -733,7 +740,6 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/proxmox.png" width="22"/> | [Proxmox VE](plugins-pack/proxmox/README.md) | System | Nodes, VMs/LXC **(Beta)** |
 | <img src="https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/plugins-pack/reolink/icon.svg" width="22"/> | [Reolink Kamera](plugins-pack/reolink/README.md) | Utility | Live-Kamera, KI-/Bewegungs-Badges, PTZ **(Beta)** |
 | 📝 | [Notizzettel](plugins-pack/scratchpad/README.md) | Utility | Kurznotizen |
-| ✉️ | [SelfMailer](plugins-pack/selfmailer/README.md) | Productivity | Ungelesene über alle SelfMailer-Postfächer |
 | 📺 | [Selfstream](plugins-pack/selfstream/README.md) | Media | IPTV-Streams live |
 | 📺 | [Selfstream · Emby · Jellyfin](plugins-pack/selfstream-emby/README.md) | Media | Kombinierte Stream-Liste |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/spotify.png" width="22"/> | [Spotify](plugins-pack/spotify/README.md) | Media | Aktueller Titel, Steuerung, Seek, Lautstärke, Suche & Gerätewahl |
@@ -941,7 +947,8 @@ Für Küchendisplay, Wand-Tablet oder gemeinsamen Bildschirm im LAN.
 | `SELFDASHBOARD_INSECURE_COOKIES` | — | `1` = explizit unsichere Cookies (wie Standard bei HTTP). |
 | `SELFDASHBOARD_TRUST_PROXY` | aus | Nur auf `1` setzen, wenn ein Reverse-Proxy davor `X-Forwarded-For`/`X-Real-IP` setzt. Sonst werden diese (vom Client fälschbaren) Header beim Rate-Limiting ignoriert. Der Brute-Force-Schutz pro Konto wirkt unabhängig davon (persistente Konto-Sperre). |
 | `SELFDASHBOARD_AUTH_RESET_PASSWORD` | — | Einmal-Passwort-Reset beim Container-Start (siehe **Login & Mehrbenutzer**) |
-| `SELFDASHBOARD_ENABLE_ENV_RESET` | aus | Pflicht-Opt-in (`1`/`true`/`yes`), um den env-basierten `SELFDASHBOARD_AUTH_RESET_*`-Reset **in Produktion** zu erlauben. Ohne ihn wird der Reset ignoriert, selbst wenn `NODE_ENV` falsch gesetzt ist. |
+| `SELFDASHBOARD_ENABLE_ENV_RESET` | aus | In **Produktion** (`NODE_ENV=production`, Standard im offiziellen Image) wird der Env-Passwort-Reset **ignoriert**, außer dies steht auf `1`. Außerhalb von Produktion immer erlaubt. Schutznetz, falls `NODE_ENV` vergessen wurde. |
+| `SELFDASHBOARD_SECRET_SALT` | eingebaut | Optionaler KDF-Salt für die Credential-Verschlüsselung. Leer lassen = Standard. Wenn gesetzt, von Anfang an festlegen und **nie ändern** (wie `SELFDASHBOARD_SECRET_KEY`) — eine Änderung macht bestehende verschlüsselte Zugangsdaten unlesbar. |
 
 ---
 
@@ -958,17 +965,19 @@ SelfDashboard ist für ein vertrauenswürdiges Heimnetz gebaut. Ein Security-Rev
 - **Docker-Container-Aktionen** (Start/Stopp/Neustart) erfordern jetzt einen Admin mit abgeschlossener MFA — die reine Liste bleibt für Widget-Nutzer sichtbar.
 - **Plugin-Pack-Extraktion** prüft jeden Zip-Eintrag gegen Path-Traversal (Zip-Slip) und begrenzt die Eintragszahl; Uploads haben ein hartes Limit.
 - **Plugin-SVG-Assets** werden mit `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff` und restriktiver CSP ausgeliefert → kein gespeichertes XSS über hochgeladene SVGs.
-- **Interne Identitäts-Header** (`x-sd-user-id`, `x-sd-role`, `x-sd-kiosk`) werden aus jeder eingehenden Anfrage entfernt und **nie** in Antworten zurückgegeben — ein Client kann seine Identität damit nicht fälschen.
-- **Remote-Plugin-Dateien können SHA-256-Hashes tragen:** Listet `plugins-index.json` für eine Datei (z. B. `server.mjs`) einen `sha256`-Digest, wird der Download vor dem Schreiben/Importieren geprüft; bei Abweichung bricht die Installation ab.
-- **CalDAV-Ziel-URLs werden aufgelöst und erneut geprüft** gegen private/Loopback-Bereiche (DNS-Rebinding-Schutz), wie schon bei IMAP/FRITZ!.
+- **Integrität von Remote-Plugins:** Liefert der Katalog (`plugins-index.json`) optionale `sha256`-Hashes pro Datei, wird jede heruntergeladene Plugin-Datei (inkl. ausführbarer `server.mjs`) vor dem Schreiben geprüft — bei Abweichung bricht die Installation ab. Schützt vor einem kompromittierten Katalog.
+- **Interne Identitäts-Header** (`x-sd-user-id` / `x-sd-role`) werden nur am Request für die Route-Handler gesetzt, aus **eingehenden Client-Requests entfernt** und **nicht mehr in Responses** zurückgegeben — kein Spoofing, kein Leak.
+- **Env-Passwort-Reset gehärtet:** in Produktion wird der Env-Reset ignoriert, außer `SELFDASHBOARD_ENABLE_ENV_RESET=1` ist explizit gesetzt.
+- **CalDAV** löst jetzt die Ziel-IP auf und prüft sie vor dem Verbinden (DNS-Rebinding-Schutz), analog zu IMAP/FRITZ!.
 
 **Betreiber-Verantwortung / bei öffentlicher Erreichbarkeit:**
 - **HTTPS nutzen und `SELFDASHBOARD_SECURE_COOKIES=1` setzen.** Standard ist aus, damit reine HTTP-LAN-Setups funktionieren — über das Internet müssen Session-Cookies aber Secure sein.
-- **`x-sd-*`-Header am Reverse-Proxy strippen.** Die App entfernt zwar selbst alle vom Client gesendeten `x-sd-user-id` / `x-sd-role` / `x-sd-kiosk` — als Defense-in-Depth sollte dein Proxy (nginx, Traefik, NPM, …) diese Request-Header zusätzlich vor dem Weiterleiten entfernen.
+- **Interne Header am Reverse-Proxy entfernen.** Hinter einem Proxy den Proxy so konfigurieren, dass eingehende `x-sd-user-id`-, `x-sd-role`- und `x-sd-kiosk`-Request-Header von Clients verworfen werden. Die App entfernt sie bereits intern; dies ist zusätzliche Absicherung.
 - **Plugin-Code läuft mit vollen Server-Rechten.** Hochgeladene/Remote-Plugin-`server.mjs`-Dateien werden im Node-Prozess ausgeführt — ohne Sandbox. Installiere nur vertrauenswürdige Plugins und behandle den Admin-Account wie Shell-Zugriff.
-- **Env-basierter Admin-Passwort-Reset ist in Produktion gesperrt:** Setze `SELFDASHBOARD_ENABLE_ENV_RESET=1` (zusätzlich zu `NODE_ENV=production`), um den einmaligen `SELFDASHBOARD_AUTH_RESET_*`-Ablauf zu erlauben; sonst wird er ignoriert.
 - **TLS-Prüfung** für IMAP/FRITZ! kann pro Verbindung deaktiviert werden — lass sie an, außer es gibt einen konkreten Grund.
 - Nutze ein **starkes Admin-Passwort** und einen festen `SELFDASHBOARD_SECRET_KEY`.
+
+> Bekannter nachrangiger Punkt (noch nicht geändert): Die KDF der Credential-Verschlüsselung nutzt einen festen Standard-Salt (ein optionaler `SELFDASHBOARD_SECRET_SALT`-Override steht für Neu-Installationen bereit). Im vertrauenswürdigen LAN geringes Risiko.
 
 ---
 
