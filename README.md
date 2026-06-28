@@ -24,7 +24,7 @@
 
 <p align="center">
   <a href="docs/screenshot-dashboard.png">
-    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — example dashboard with calendar, notes, weather, bookmarks, CrowdSec, AdGuard, WireGuard, dual Unraid monitoring, and navbar mail badge" width="920"/>
+    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — example dashboard with SelfMailer calendar, clock, weather, FRITZ! history & power, AdGuard, bookmarks, Zoraxy, media, Uptime Kuma, WireGuard, CrowdSec, dual Unraid monitoring, notes, and navbar mail badge" width="920"/>
   </a>
 </p>
 
@@ -34,18 +34,21 @@
 
 | Visible in the screenshot | What you get |
 |---|---|
-| 📅 **Calendar** | Events (CalDAV/ICS), month view right on the dashboard |
-| 📝 **Notes** | Quick scratchpad pinned to the dashboard |
-| 🕐 **Clock & weather** | Local time; weather with **day blocks** (0–6 … 18–24) + **7-day** forecast (from tomorrow) |
+| 📅 **Calendar (SelfMailer)** | Month view with events, synced from SelfMailer |
+| 🕐 **Clock** | Local date & time, front and center |
+| 🌦️ **Weather** | **Day blocks** (0–6 … 18–24) + **7-day** forecast (from tomorrow) |
+| 📈 **FRITZ! history** | Internet throughput (down/up Mbit/s) with peaks (TR-064) |
+| 🌐 **AdGuard** | Protection status, DNS stats (tiles fill the widget) |
+| ⚡ **FRITZ! power** | Smart-outlet power: now, today, 7 days, month (TR-064) |
 | 🔖 **Bookmark grid** | Quick access to Unraid, Emby, Nextcloud, Immich, SelfMailer, … |
-| 🛡️ **CrowdSec** | Alerts and active bans at a glance |
-| 🌐 **Network / AdGuard** | Protection status, DNS stats (tiles fill the widget) |
-| ⚡ **FRITZ! energy** | Smart-outlet power: now, today, 7 days, month (TR-064) |
-| 🔐 **WireGuard** | Peers online now / total, with live up/down traffic |
-| 🖥️ **Unraid (2×)** | CPU, RAM, array/pool, and disks per server (**Unraid 7.2+** GraphQL) |
-| 📺 **Emby / SelfStream** | Active streams — separate widgets or **Selfstream-Emby** combined list |
+| 🔀 **Zoraxy** | Reverse-proxy requests — valid vs. blocked |
+| 📺 **Media (Emby / SelfStream)** | Active streams — separate widgets or **Selfstream-Emby** combined list |
 | 💚 **Uptime Kuma** | Status-page monitors (up / down / pending) in a compact list |
-| ✉️ **Navbar mail** | Unread IMAP badge (install **E-Mail** plugin from the store) — click opens webmail |
+| 🔐 **WireGuard** | Peers online now / total, with live up/down traffic |
+| 🛡️ **CrowdSec** | Alerts and active bans at a glance |
+| 🖥️ **Unraid (2×)** | CPU, RAM, array/pool, and disks per server (**Unraid 7.2+** GraphQL) |
+| 📝 **Notes** | Quick scratchpad pinned to the dashboard |
+| ✉️ **Navbar mail** | Unread IMAP badge in the navbar — click opens webmail |
 
 Everything supports **drag & drop**, **multiple dashboards** (e.g. `/dashboard/home`, `/dashboard/server`), **6 themes**, **EN/DE** — widgets come from the **volume-only plugin system** (install via **Plugin Store** or ZIP, update without rebuilding the image). See **[How SelfDashboard is built](#how-selfdashboard-is-built)**.
 
@@ -540,7 +543,7 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 
 <p align="center">
   <a href="docs/screenshot-dashboard.png">
-    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — Beispiel-Dashboard mit Kalender, Notizzettel, Wetter, Dienst-Links, CrowdSec, AdGuard, WireGuard, Unraid-Monitoring und E-Mail-Badge in der Navbar" width="920"/>
+    <img src="docs/screenshot-dashboard.png" alt="SelfDashboard — Beispiel-Dashboard mit SelfMailer-Kalender, Uhr, Wetter, FRITZ! Verlauf & Strom, AdGuard, Lesezeichen, Zoraxy, Media, Uptime Kuma, WireGuard, CrowdSec, Unraid-Monitoring, Notizzettel und E-Mail-Badge in der Navbar" width="920"/>
   </a>
 </p>
 
@@ -550,18 +553,21 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 
 | Im Screenshot sichtbar | Was es dir bringt |
 |---|---|
-| 📅 **Kalender** | Termine (CalDAV/ICS), Monatsansicht direkt auf dem Dashboard |
-| 📝 **Notizzettel** | Schneller Notizblock direkt auf dem Dashboard |
-| 🕐 **Uhr & Wetter** | Lokale Zeit; Wetter mit **Tagesabschnitten** (0–6 … 18–24) + **7-Tage**-Vorschau (ab morgen) |
+| 📅 **Kalender (SelfMailer)** | Monatsansicht mit Terminen, synchronisiert aus SelfMailer |
+| 🕐 **Uhr** | Lokales Datum & Uhrzeit, prominent platziert |
+| 🌦️ **Wetter** | **Tagesabschnitte** (0–6 … 18–24) + **7-Tage**-Vorschau (ab morgen) |
+| 📈 **FRITZ! Verlauf** | Internet-Durchsatz (rauf/runter Mbit/s) mit Peaks (TR-064) |
+| 🌐 **AdGuard** | Schutz-Status, DNS-Statistik (Kacheln füllen das Widget) |
+| ⚡ **FRITZ! Strom** | Steckdose: aktuell, heute, 7 Tage, Monat (TR-064) |
 | 🔖 **Lesezeichen-Grid** | Schnellzugriff auf Unraid, Emby, Nextcloud, Immich, SelfMailer, … |
-| 🛡️ **CrowdSec** | Alerts und aktive Bans auf einen Blick |
-| 🌐 **Netzwerk / AdGuard** | Schutz-Status, DNS-Statistik (Kacheln füllen das Widget) |
-| ⚡ **FRITZ! Energie** | Steckdose: aktuell, heute, 7 Tage, Monat (TR-064) |
-| 🔐 **WireGuard** | Peers jetzt online / gesamt, mit Live-Traffic (rauf/runter) |
-| 🖥️ **Unraid (2×)** | CPU, RAM, Array/Pool und Festplatten pro Server (**Unraid 7.2+** GraphQL) |
-| 📺 **Emby / SelfStream** | Aktive Streams — einzeln oder kombiniert als **Selfstream-Emby** |
+| 🔀 **Zoraxy** | Reverse-Proxy-Anfragen — gültig vs. geblockt |
+| 📺 **Media (Emby / SelfStream)** | Aktive Streams — einzeln oder kombiniert als **Selfstream-Emby** |
 | 💚 **Uptime Kuma** | Status-Page-Monitore (OK / Down / Pending) in kompakter Liste |
-| ✉️ **Navbar E-Mail** | IMAP-Badge (Plugin **E-Mail** aus dem Store installieren) — Klick öffnet Webmail |
+| 🔐 **WireGuard** | Peers jetzt online / gesamt, mit Live-Traffic (rauf/runter) |
+| 🛡️ **CrowdSec** | Alerts und aktive Bans auf einen Blick |
+| 🖥️ **Unraid (2×)** | CPU, RAM, Array/Pool und Festplatten pro Server (**Unraid 7.2+** GraphQL) |
+| 📝 **Notizzettel** | Schneller Notizblock direkt auf dem Dashboard |
+| ✉️ **Navbar E-Mail** | IMAP-Badge in der Navbar — Klick öffnet Webmail |
 
 Alles ist **Drag & Drop**, **mehrere Dashboards** (z. B. `/dashboard/home`, `/dashboard/server`), **6 Themes**, **DE/EN** — Widgets kommen aus dem **Volume-only Plugin-System** (Store oder ZIP, Updates ohne Image-Rebuild). Siehe **[Aufbau von SelfDashboard](#aufbau-von-selfdashboard)**.
 
