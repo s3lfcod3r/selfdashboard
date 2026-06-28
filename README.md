@@ -37,16 +37,16 @@
 | 📅 **Calendar (SelfMailer)** | Month view with events, synced from SelfMailer |
 | 🕐 **Clock** | Local date & time, front and center |
 | 🌦️ **Weather** | **Day blocks** (0–6 … 18–24) + **7-day** forecast (from tomorrow) |
-| 📈 **FRITZ! history** | Internet throughput (down/up Mbit/s) with peaks (TR-064) |
-| 🌐 **AdGuard** | Protection status, DNS stats (tiles fill the widget) |
-| ⚡ **FRITZ! power** | Smart-outlet power: now, today, 7 days, month (TR-064) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/fritzbox.png" width="18"/> **FRITZ! history** | Internet throughput (down/up Mbit/s) with peaks (TR-064) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/adguard-home.png" width="18"/> **AdGuard** | Protection status, DNS stats (tiles fill the widget) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/fritzbox.png" width="18"/> **FRITZ! power** | Smart-outlet power: now, today, 7 days, month (TR-064) |
 | 🔖 **Bookmark grid** | Quick access to Unraid, Emby, Nextcloud, Immich, SelfMailer, … |
-| 🔀 **Zoraxy** | Reverse-proxy requests — valid vs. blocked |
-| 📺 **Media (Emby / SelfStream)** | Active streams — separate widgets or **Selfstream-Emby** combined list |
-| 💚 **Uptime Kuma** | Status-page monitors (up / down / pending) in a compact list |
-| 🔐 **WireGuard** | Peers online now / total, with live up/down traffic |
-| 🛡️ **CrowdSec** | Alerts and active bans at a glance |
-| 🖥️ **Unraid (2×)** | CPU, RAM, array/pool, and disks per server (**Unraid 7.2+** GraphQL) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/zoraxy.png" width="18"/> **Zoraxy** | Reverse-proxy requests — valid vs. blocked |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png" width="18"/> **Media (Emby / SelfStream)** | Active streams — separate widgets or **Selfstream-Emby** combined list |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/uptime-kuma.png" width="18"/> **Uptime Kuma** | Status-page monitors (up / down / pending) in a compact list |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/wireguard.png" width="18"/> **WireGuard** | Peers online now / total, with live up/down traffic |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/crowdsec.png" width="18"/> **CrowdSec** | Alerts and active bans at a glance |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/unraid.png" width="18"/> **Unraid (2×)** | CPU, RAM, array/pool, and disks per server (**Unraid 7.2+** GraphQL) |
 | 📝 **Notes** | Quick scratchpad pinned to the dashboard |
 | ✉️ **Navbar mail** | Unread IMAP badge in the navbar — click opens webmail |
 
@@ -556,16 +556,16 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 | 📅 **Kalender (SelfMailer)** | Monatsansicht mit Terminen, synchronisiert aus SelfMailer |
 | 🕐 **Uhr** | Lokales Datum & Uhrzeit, prominent platziert |
 | 🌦️ **Wetter** | **Tagesabschnitte** (0–6 … 18–24) + **7-Tage**-Vorschau (ab morgen) |
-| 📈 **FRITZ! Verlauf** | Internet-Durchsatz (rauf/runter Mbit/s) mit Peaks (TR-064) |
-| 🌐 **AdGuard** | Schutz-Status, DNS-Statistik (Kacheln füllen das Widget) |
-| ⚡ **FRITZ! Strom** | Steckdose: aktuell, heute, 7 Tage, Monat (TR-064) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/fritzbox.png" width="18"/> **FRITZ! Verlauf** | Internet-Durchsatz (rauf/runter Mbit/s) mit Peaks (TR-064) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/adguard-home.png" width="18"/> **AdGuard** | Schutz-Status, DNS-Statistik (Kacheln füllen das Widget) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/fritzbox.png" width="18"/> **FRITZ! Strom** | Steckdose: aktuell, heute, 7 Tage, Monat (TR-064) |
 | 🔖 **Lesezeichen-Grid** | Schnellzugriff auf Unraid, Emby, Nextcloud, Immich, SelfMailer, … |
-| 🔀 **Zoraxy** | Reverse-Proxy-Anfragen — gültig vs. geblockt |
-| 📺 **Media (Emby / SelfStream)** | Aktive Streams — einzeln oder kombiniert als **Selfstream-Emby** |
-| 💚 **Uptime Kuma** | Status-Page-Monitore (OK / Down / Pending) in kompakter Liste |
-| 🔐 **WireGuard** | Peers jetzt online / gesamt, mit Live-Traffic (rauf/runter) |
-| 🛡️ **CrowdSec** | Alerts und aktive Bans auf einen Blick |
-| 🖥️ **Unraid (2×)** | CPU, RAM, Array/Pool und Festplatten pro Server (**Unraid 7.2+** GraphQL) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/zoraxy.png" width="18"/> **Zoraxy** | Reverse-Proxy-Anfragen — gültig vs. geblockt |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png" width="18"/> **Media (Emby / SelfStream)** | Aktive Streams — einzeln oder kombiniert als **Selfstream-Emby** |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/uptime-kuma.png" width="18"/> **Uptime Kuma** | Status-Page-Monitore (OK / Down / Pending) in kompakter Liste |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/wireguard.png" width="18"/> **WireGuard** | Peers jetzt online / gesamt, mit Live-Traffic (rauf/runter) |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/crowdsec.png" width="18"/> **CrowdSec** | Alerts und aktive Bans auf einen Blick |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/unraid.png" width="18"/> **Unraid (2×)** | CPU, RAM, Array/Pool und Festplatten pro Server (**Unraid 7.2+** GraphQL) |
 | 📝 **Notizzettel** | Schneller Notizblock direkt auf dem Dashboard |
 | ✉️ **Navbar E-Mail** | IMAP-Badge in der Navbar — Klick öffnet Webmail |
 
