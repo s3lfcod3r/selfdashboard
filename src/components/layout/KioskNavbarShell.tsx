@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
+import type { Locale } from '@/lib/i18n'
 
 const IDLE_MIN_SEC = 3
 const IDLE_MAX_SEC = 60
@@ -13,7 +14,7 @@ function clampIdleSec(v: unknown): number {
 
 type Props = {
   children: ReactNode
-  locale: 'de' | 'en'
+  locale: Locale
   idleSeconds?: number
   enabled?: boolean
   startHidden?: boolean

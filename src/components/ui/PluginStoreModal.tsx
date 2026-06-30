@@ -6,7 +6,7 @@ import { X, Plus, Check, Search, RefreshCw, ExternalLink, Upload, Package, Trash
 import { pluginReadmeDocUrl, PLUGIN_CATALOG_DOC_URL, PLUGIN_CATALOG_DOC_URL_DE } from '@/lib/pluginDocUrl'
 import { pluginRegistry } from '@/lib/pluginRegistry'
 import { useDashboardStore } from '@/lib/store'
-import { t } from '@/lib/i18n'
+import { t, type Locale } from '@/lib/i18n'
 import { displayPluginMeta } from '@/lib/pluginMetaI18n'
 import { Portal } from '@/components/ui/Portal'
 import type { PluginCategory } from '@/types'
@@ -56,7 +56,7 @@ function PluginStoreCard({
   allowManage,
 }: {
   row: CatalogRow
-  locale: 'de' | 'en'
+  locale: Locale
   githubRepo: string
   githubRef: string
   categoryLabel: (cat: string | undefined) => string
