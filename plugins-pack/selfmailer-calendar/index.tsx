@@ -8,7 +8,7 @@ import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProp
 
 const ACCENT = 'var(--accent, #14b8a6)'
 // Default-Kalenderfarbe (teal) wie im alten Kalender-Plugin — wenn ein Termin
-// keine eigene Quell-Farbe hat. Bewusst NICHT der --accent (im Dashboard gruen).
+// keine eigene Quell-Farbe hat. Bewusst NICHT der --accent (im Dashboard grün).
 const CAL_FALLBACK = '#2dd4bf'
 
 type Ev = {
@@ -124,7 +124,7 @@ function localDateKey(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-/** Lokale Uhrzeit HH:MM (fuer die Vorbelegung des Bearbeiten-Formulars). */
+/** Lokale Uhrzeit HH:MM (für die Vorbelegung des Bearbeiten-Formulars). */
 function localHM(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
@@ -183,7 +183,7 @@ function monthTitle(c: Cursor, de: boolean): string {
   })
 }
 
-/** Wochentagskuerzel Mo..So, lokalisiert. */
+/** Wochentagskürzel Mo..So, lokalisiert. */
 function weekdayLabels(de: boolean): string[] {
   return Array.from({ length: 7 }, (_, i) =>
     new Date(2024, 0, 1 + i).toLocaleDateString(de ? 'de-DE' : 'en-US', { weekday: 'short' }),
@@ -203,7 +203,7 @@ function monthCells(c: Cursor): Date[] {
   })
 }
 
-/** Sichtbarer 6-Wochen-Bereich als ISO-Zeitfenster (fuer den Datenabruf). */
+/** Sichtbarer 6-Wochen-Bereich als ISO-Zeitfenster (für den Datenabruf). */
 function monthRange(c: Cursor): { from: string; to: string } {
   const cells = monthCells(c)
   const from = new Date(cells[0])
@@ -252,7 +252,7 @@ function Widget({ config }: PluginWidgetProps) {
   // Anlege-/Bearbeiten-Formular
   const [adding, setAdding] = useState(false)
   const [editId, setEditId] = useState<number | null>(null) // null = Anlegen, sonst Event-ID
-  const [editEv, setEditEv] = useState<Ev | null>(null)      // Original (fuer Quelle/Loeschen)
+  const [editEv, setEditEv] = useState<Ev | null>(null)      // Original (für Quelle/Löschen)
   const [dayModal, setDayModal] = useState<string | null>(null) // Tag-Fenster (Datums-Key)
   const [targets, setTargets] = useState<Target[] | null>(null)
   const [fTitle, setFTitle] = useState('')
@@ -268,7 +268,7 @@ function Widget({ config }: PluginWidgetProps) {
   const [saveErr, setSaveErr] = useState<string | null>(null)
 
   // Kalender-Filter (Zahnrad): ausgeblendete Quell-Kalender, pro Browser gemerkt.
-  const [allCals, setAllCals] = useState<CalInfo[]>([]) // vollstaendige Liste vom Server
+  const [allCals, setAllCals] = useState<CalInfo[]>([]) // vollständige Liste vom Server
   const [gearOpen, setGearOpen] = useState(false)
   const [hiddenSrc, setHiddenSrc] = useState<Set<string>>(() => {
     try {
@@ -316,14 +316,14 @@ function Widget({ config }: PluginWidgetProps) {
     return () => clearInterval(t)
   }, [active, load, refreshMs])
 
-  // Vollstaendige Kalenderliste (alle Kalender, auch leere) — einmalig je base/token,
-  // NICHT beim Polling (Google-Call). Fuer den Zahnrad-Filter.
+  // Vollständige Kalenderliste (alle Kalender, auch leere) — einmalig je base/token,
+  // NICHT beim Polling (Google-Call). Für den Zahnrad-Filter.
   useEffect(() => {
     if (!base || !token) return
     let alive = true
     fetchAllCalendars(base, token)
       .then((cs) => { if (alive) setAllCals(cs) })
-      .catch(() => { /* Filter faellt sonst auf Event-Quellen zurueck */ })
+      .catch(() => { /* Filter fällt sonst auf Event-Quellen zurück */ })
     return () => { alive = false }
   }, [base, token])
 
@@ -437,8 +437,8 @@ function Widget({ config }: PluginWidgetProps) {
     () => (events ?? []).filter((e) => !hiddenSrc.has(e.source_key || `dav:${e.dav_account_id ?? 'local'}`)),
     [events, hiddenSrc],
   )
-  // Quell-Kalender fuer die Zahnrad-Liste: vollstaendige Server-Liste (ALLE
-  // Kalender, auch ohne Termine) als Basis, ergaenzt um Event-Quellen, die dort
+  // Quell-Kalender für die Zahnrad-Liste: vollständige Server-Liste (ALLE
+  // Kalender, auch ohne Termine) als Basis, ergänzt um Event-Quellen, die dort
   // nicht stehen (z. B. CalDAV) — so fehlt kein Kalender mehr.
   const sources = useMemo(() => {
     const m = new Map<string, { key: string; name: string; color: string }>()
@@ -461,7 +461,7 @@ function Widget({ config }: PluginWidgetProps) {
     return [...out.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [shownEvents])
 
-  // Tag → Termine (fuer das Monatsraster); je Tag nach Startzeit sortiert.
+  // Tag → Termine (für das Monatsraster); je Tag nach Startzeit sortiert.
   const eventsByDay = useMemo(() => {
     const m = new Map<string, Ev[]>()
     for (const ev of shownEvents) {
@@ -769,7 +769,7 @@ function Widget({ config }: PluginWidgetProps) {
               )
             })}
           </div>
-          {/* Termine des gewaehlten Tages — wie die Detailliste im Kalender-Plugin */}
+          {/* Termine des gewählten Tages — wie die Detailliste im Kalender-Plugin */}
           <div style={{ marginTop: 8, maxHeight: '34%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <p style={{ margin: 0, flex: 1, fontSize: 'clamp(9px, 2.4cqmin, 12px)', fontWeight: 700, color: 'var(--text)' }}>

@@ -968,7 +968,7 @@ export function SettingsModal({ open, onClose }: Props) {
                   {/* Outer padding */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span style={{ fontSize: '13px', color: 'var(--text)', minWidth: '120px' }}>
-                      {locale === 'de' ? 'Rand aussen' : 'Outer padding'}
+                      {locale === 'de' ? 'Rand außen' : 'Outer padding'}
                     </span>
                     <input type="range" min={0} max={48} step={4} value={gridPadding ?? 12}
                       onChange={(e) => setGridPadding(Number(e.target.value))}

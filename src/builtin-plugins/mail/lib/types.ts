@@ -184,20 +184,20 @@ export interface MailStoreFile {
   pollIntervalSeconds: number
   /** 0 = alle UNSEEN zählen; Standard 30 */
   unreadMaxAgeDays: number
-  /** IMAP-Konten ueberhaupt nutzen? false = nur SelfMailer-Quelle zaehlt, der
+  /** IMAP-Konten überhaupt nutzen? false = nur SelfMailer-Quelle zählt, der
    *  ganze IMAP-Bereich (Konten/Intervall/Altersfilter) ist aus + ausgeblendet. */
   imapEnabled: boolean
-  /** true = bei IMAP-Konten nur den reinen Posteingang (INBOX) zaehlen, keine
-   *  Unterordner/Spam/Sent. Global fuer alle IMAP-Konten; SelfMailer ist eh
+  /** true = bei IMAP-Konten nur den reinen Posteingang (INBOX) zählen, keine
+   *  Unterordner/Spam/Sent. Global für alle IMAP-Konten; SelfMailer ist eh
    *  schon INBOX-only. false (Standard) = bisheriges Verhalten (pro-Konto mailbox). */
   inboxOnly: boolean
   accounts: MailAccount[]
-  /** Optionale SelfMailer-Quelle: buendelt Ungelesen ueber ALLE dort hinterlegten
-   *  Postfaecher in EINEN Navbar-Zaehler. Leer = aus (reiner IMAP-Modus). */
+  /** Optionale SelfMailer-Quelle: bündelt Ungelesen über ALLE dort hinterlegten
+   *  Postfächer in EINEN Navbar-Zähler. Leer = aus (reiner IMAP-Modus). */
   selfmailerBase: string
   selfmailerToken: string
-  /** true = SelfMailer-Quelle zaehlt auch Unterordner/eigene Ordner (ohne
-   *  Papierkorb/Spam/Gesendet/Entwuerfe) statt nur den Posteingang. Wird als
+  /** true = SelfMailer-Quelle zählt auch Unterordner/eigene Ordner (ohne
+   *  Papierkorb/Spam/Gesendet/Entwürfe) statt nur den Posteingang. Wird als
    *  `folders=all` an SelfMailers summary-Endpoint durchgereicht. */
   selfmailerSubfolders: boolean
   status: MailAggregateStatus

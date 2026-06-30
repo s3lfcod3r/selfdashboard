@@ -36,7 +36,7 @@ function isTrashMailbox(path: string, flags?: Set<string>): boolean {
   if (flags?.has('\\Trash')) return true
   const lower = path.toLowerCase()
   const leaf = (path.includes('/') ? path.split('/').pop() : path) ?? path
-  const trashNames = ['trash', 'papierkorb', 'deleted', 'gelöscht', 'geloescht']
+  const trashNames = ['trash', 'papierkorb', 'deleted', 'gelöscht', 'gelöscht']
   return trashNames.includes(lower) || trashNames.includes(leaf.toLowerCase())
 }
 

@@ -3,8 +3,8 @@ import { logPluginApiFailure } from '@/lib/pluginLogServer'
 import { fetchWithSsrfGuard, UnsafeOutboundUrlError } from '@/lib/security/ssrf'
 import type { PluginServerContext } from '@/lib/pluginServerRegistry'
 
-// Anlegen kann auf der SelfMailer-Seite einen Google-Push ausloesen (ein
-// OAuth-Token-Refresh + REST-Call) — deshalb grosszuegiges Timeout.
+// Anlegen kann auf der SelfMailer-Seite einen Google-Push auslösen (ein
+// OAuth-Token-Refresh + REST-Call) — deshalb großzügiges Timeout.
 const FETCH_TIMEOUT_MS = 20_000
 
 function parseBase(raw: string): URL {
@@ -14,7 +14,7 @@ function parseBase(raw: string): URL {
   return new URL(withProto)
 }
 
-/** Basis-URL saeubern: Protokoll pruefen, Credentials/Hash/Trailing-Slash weg. */
+/** Basis-URL saeubern: Protokoll prüfen, Credentials/Hash/Trailing-Slash weg. */
 function normalizeBase(raw: string): string {
   const u = parseBase(raw)
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('invalid_protocol')
@@ -34,7 +34,7 @@ interface ReqBody {
   token?: string
   // summary
   days?: number
-  from?: string // ISO — expliziter Zeitbereichsanfang (Monatsansicht); ueberschreibt days
+  from?: string // ISO — expliziter Zeitbereichsanfang (Monatsansicht); überschreibt days
   to?: string   // ISO — expliziter Zeitbereichsende (Monatsansicht)
   // create / update
   id?: number    // SelfMailer-Event-ID (update/delete)
@@ -71,7 +71,7 @@ function isoPlusDays(days: number): string {
   return d.toISOString()
 }
 
-/** Akzeptiert nur gueltige ISO-Datumsangaben (sonst null → Fallback greift). */
+/** Akzeptiert nur gültige ISO-Datumsangaben (sonst null → Fallback greift). */
 function isoOrNull(raw: unknown): string | null {
   const s = typeof raw === 'string' ? raw.trim() : ''
   if (!s) return null
@@ -81,7 +81,7 @@ function isoOrNull(raw: unknown): string | null {
 
 /**
  * Server-zu-Server-Proxy auf die token-faehige SelfMailer-Kalender-API.
- * Drei Aktionen: kommende Termine listen, waehlbare Ziel-Kalender holen,
+ * Drei Aktionen: kommende Termine listen, wählbare Ziel-Kalender holen,
  * einen Termin anlegen (SelfMailer pusht ihn bei Google-Ziel automatisch weiter).
  * Der Token bleibt im Request-Body und wandert nur an SelfMailer.
  */
