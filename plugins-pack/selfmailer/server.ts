@@ -3,8 +3,8 @@ import { logPluginApiFailure } from '@/lib/pluginLogServer'
 import { fetchWithSsrfGuard, UnsafeOutboundUrlError } from '@/lib/security/ssrf'
 import type { PluginServerContext } from '@/lib/pluginServerRegistry'
 
-// Live-Sync (ein IMAP-Login je Konto auf der SelfMailer-Seite) darf laenger
-// dauern als ein reiner Cache-Lesezugriff — deshalb grosszuegiges Timeout.
+// Live-Sync (ein IMAP-Login je Konto auf der SelfMailer-Seite) darf länger
+// dauern als ein reiner Cache-Lesezugriff — deshalb großzügiges Timeout.
 const FETCH_TIMEOUT_MS = 20_000
 
 function parseBase(raw: string): URL {
@@ -14,7 +14,7 @@ function parseBase(raw: string): URL {
   return new URL(withProto)
 }
 
-/** Basis-URL saeubern: Protokoll pruefen, Credentials/Hash/Trailing-Slash weg. */
+/** Basis-URL saeubern: Protokoll prüfen, Credentials/Hash/Trailing-Slash weg. */
 function normalizeBase(raw: string): string {
   const u = parseBase(raw)
   if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('invalid_protocol')

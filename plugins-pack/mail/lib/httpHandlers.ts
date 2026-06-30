@@ -106,7 +106,7 @@ export async function handleMailSettingsPut(req: Request): Promise<Response> {
         if (!s.selfmailerBase) s.selfmailerToken = ''  // Quelle geleert -> Token weg
       }
       if (typeof body.selfmailerToken === 'string' && body.selfmailerToken.length > 0) {
-        s.selfmailerToken = body.selfmailerToken.trim()  // leer = unveraendert
+        s.selfmailerToken = body.selfmailerToken.trim()  // leer = unverändert
       }
       if (body.clearSelfmailerToken === true) s.selfmailerToken = ''
       if (typeof body.selfmailerSubfolders === 'boolean') s.selfmailerSubfolders = body.selfmailerSubfolders

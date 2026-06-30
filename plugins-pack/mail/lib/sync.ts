@@ -16,7 +16,7 @@ import { fetchWithSsrfGuard } from '@/lib/security/ssrf'
 
 const SELFMAILER_TIMEOUT_MS = 20_000
 
-/** Gebuendelte Ungelesen-Uebersicht aus einer SelfMailer-Instanz (alle Postfaecher).
+/** Gebündelte Ungelesen-Übersicht aus einer SelfMailer-Instanz (alle Postfächer).
  *  Server-zu-Server mit SSRF-Schutz; Token wandert nur an SelfMailer. */
 async function fetchSelfmailerUnread(
   base: string,
@@ -124,7 +124,7 @@ export async function runMailSync(opts?: { wait?: boolean; resetStatus?: boolean
       }
     }
 
-    // SelfMailer-Quelle: eine Instanz, alle Postfaecher gebuendelt.
+    // SelfMailer-Quelle: eine Instanz, alle Postfächer gebündelt.
     if (smEnabled) {
       try {
         const sm = await fetchSelfmailerUnread(smBase, smToken, store.selfmailerSubfolders === true)
