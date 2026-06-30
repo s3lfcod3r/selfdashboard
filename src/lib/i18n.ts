@@ -267,3 +267,13 @@ export function t(locale: Locale, key: TranslationKey): string {
   }
   return extra[locale]?.[key] ?? translations['en'][key] ?? key
 }
+
+/**
+ * Holt ein Label aus einem zweisprachigen `{ en, de, … }`-Objekt für die aktive
+ * Sprache; fällt auf Englisch (dann ersten vorhandenen Wert) zurück. So bleiben
+ * binäre Label-Objekte mit dem 12-Sprachen-Locale nutzbar.
+ */
+export function pickLabel(label: unknown, locale: Locale): string {
+  const m = (label ?? {}) as Record<string, string | undefined>
+  return m[locale] ?? m.en ?? Object.values(m).find((v): v is string => typeof v === 'string') ?? ''
+}
