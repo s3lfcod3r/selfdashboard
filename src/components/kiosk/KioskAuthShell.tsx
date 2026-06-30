@@ -2,8 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { useDashboardStore } from '@/lib/store'
-import type { Locale } from '@/lib/i18n'
-import { authT } from '@/lib/authScreenI18n'
+import { type Locale, LOCALES } from '@/lib/i18n'
 
 export function KioskAuthShell({ children }: { children: ReactNode }) {
   const locale = useDashboardStore((s) => s.locale)
@@ -51,32 +50,24 @@ function LangToggle({
   locale: Locale
   setLocale: (l: Locale) => void
 }) {
-  const btn = (id: Locale, label: string) => (
-    <button
-      type="button"
-      onClick={() => setLocale(id)}
-      title={label}
-      aria-pressed={locale === id}
-      className="text-xs font-semibold rounded-md px-2 py-1 transition-colors min-w-[2rem]"
+  return (
+    <select
+      value={locale}
+      onChange={(e) => setLocale(e.target.value as Locale)}
+      aria-label={locale === 'de' ? 'Sprache' : 'Language'}
+      className="text-xs font-semibold rounded-md px-2 py-1 shrink-0"
       style={{
-        background: locale === id ? 'var(--accent)' : 'var(--surface-2)',
-        color: locale === id ? '#fff' : 'var(--text-muted)',
-        border: `1px solid ${locale === id ? 'var(--accent)' : 'var(--border)'}`,
+        background: 'var(--surface-2)',
+        color: 'var(--text-muted)',
+        border: '1px solid var(--border)',
         cursor: 'pointer',
       }}
     >
-      {id.toUpperCase()}
-    </button>
-  )
-
-  return (
-    <div
-      className="flex gap-1 shrink-0"
-      role="group"
-      aria-label={locale === 'de' ? 'Sprache' : 'Language'}
-    >
-      {btn('de', authT(locale, 'langDe'))}
-      {btn('en', authT(locale, 'langEn'))}
-    </div>
+      {LOCALES.map((o) => (
+        <option key={o.code} value={o.code}>
+          {o.label}
+        </option>
+      ))}
+    </select>
   )
 }

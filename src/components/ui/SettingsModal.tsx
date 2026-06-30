@@ -26,14 +26,23 @@ import {
 } from '@/lib/pluginAppSettingsRegistry'
 import { WidgetErrorBoundary } from '@/components/plugins/WidgetErrorBoundary'
 import { DASHBOARD_BG_IMAGE_ACCEPT, isAllowedDashboardBgFile } from '@/lib/dashboardBackground'
-import { isSafeRasterImage, rasterImageRejectMessage } from '@/lib/imageUpload'
 import type { DashboardBackgroundMode } from '@/lib/dashboardBackground'
 
 interface Props { open: boolean; onClose: () => void }
 
 const LOCALES: { id: Locale; flag: string; label: string }[] = [
-  { id: 'en', flag: '🇬🇧', label: 'English' },
   { id: 'de', flag: '🇩🇪', label: 'Deutsch' },
+  { id: 'en', flag: '🇬🇧', label: 'English' },
+  { id: 'fr', flag: '🇫🇷', label: 'Français' },
+  { id: 'es', flag: '🇪🇸', label: 'Español' },
+  { id: 'it', flag: '🇮🇹', label: 'Italiano' },
+  { id: 'nl', flag: '🇳🇱', label: 'Nederlands' },
+  { id: 'pl', flag: '🇵🇱', label: 'Polski' },
+  { id: 'pt', flag: '🇵🇹', label: 'Português' },
+  { id: 'sv', flag: '🇸🇪', label: 'Svenska' },
+  { id: 'da', flag: '🇩🇰', label: 'Dansk' },
+  { id: 'cs', flag: '🇨🇿', label: 'Čeština' },
+  { id: 'el', flag: '🇬🇷', label: 'Ελληνικά' },
 ]
 
 const COLOR_FIELDS = [
@@ -62,22 +71,10 @@ const RETENTION_OPTIONS: { days: LogRetentionDays; label: { de: string; en: stri
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div
-      role="switch"
-      aria-checked={value}
-      tabIndex={0}
-      onClick={() => onChange(!value)}
-      onKeyDown={(e) => {
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault()
-          onChange(!value)
-        }
-      }}
-      style={{
-        width: '40px', height: '22px', borderRadius: '11px', cursor: 'pointer', flexShrink: 0,
-        background: value ? 'var(--accent)' : 'var(--border)', position: 'relative', transition: 'background 0.2s',
-      }}
-    >
+    <div onClick={() => onChange(!value)} style={{
+      width: '40px', height: '22px', borderRadius: '11px', cursor: 'pointer', flexShrink: 0,
+      background: value ? 'var(--accent)' : 'var(--border)', position: 'relative', transition: 'background 0.2s',
+    }}>
       <div style={{
         position: 'absolute', top: '3px', left: value ? '21px' : '3px',
         width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
@@ -244,20 +241,12 @@ export function SettingsModal({ open, onClose }: Props) {
   const currentTheme = themes.find((th) => th.id === dash.theme)
 
   const handleLogoUpload = (file: File) => {
-    if (!isSafeRasterImage(file)) {
-      window.alert(rasterImageRejectMessage(locale))
-      return
-    }
     const reader = new FileReader()
     reader.onload = (e) => setCustomLogo(e.target?.result as string)
     reader.readAsDataURL(file)
   }
 
   const handleNavbarBgUpload = (file: File) => {
-    if (!isSafeRasterImage(file)) {
-      window.alert(rasterImageRejectMessage(locale))
-      return
-    }
     if (file.size > 2_500_000) {
       window.alert(locale === 'de' ? 'Bild maximal ca. 2,5 MB.' : 'Image should be at most about 2.5 MB.')
       return
@@ -286,20 +275,12 @@ export function SettingsModal({ open, onClose }: Props) {
   }
 
   const handleDashIconUpload = (file: File, dashId: string) => {
-    if (!isSafeRasterImage(file)) {
-      window.alert(rasterImageRejectMessage(locale))
-      return
-    }
     const reader = new FileReader()
     reader.onload = (e) => updateDashboard(dashId, { icon: e.target?.result as string })
     reader.readAsDataURL(file)
   }
 
   const handleNewIconUpload = (file: File) => {
-    if (!isSafeRasterImage(file)) {
-      window.alert(rasterImageRejectMessage(locale))
-      return
-    }
     const reader = new FileReader()
     reader.onload = (e) => setNewIcon(e.target?.result as string)
     reader.readAsDataURL(file)
@@ -395,10 +376,10 @@ export function SettingsModal({ open, onClose }: Props) {
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: '8px' }}>
                   {t(locale, 'language')}
                 </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                   {LOCALES.map((l) => (
                     <button key={l.id} onClick={() => setLocale(l.id)} style={{
-                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                       padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
                       background: locale === l.id ? 'var(--accent)' : 'var(--surface-2)',
                       color: locale === l.id ? '#fff' : 'var(--text)',

@@ -1,4 +1,33 @@
-export type Locale = 'en' | 'de'
+import { fr } from './i18n-locales/fr'
+import { es } from './i18n-locales/es'
+import { it } from './i18n-locales/it'
+import { nl } from './i18n-locales/nl'
+import { pl } from './i18n-locales/pl'
+import { pt } from './i18n-locales/pt'
+import { sv } from './i18n-locales/sv'
+import { da } from './i18n-locales/da'
+import { cs } from './i18n-locales/cs'
+import { el } from './i18n-locales/el'
+
+export type Locale =
+  | 'en' | 'de' | 'fr' | 'es' | 'it' | 'nl'
+  | 'pl' | 'pt' | 'sv' | 'da' | 'cs' | 'el'
+
+/** Auswählbare Sprachen mit nativem Namen (für Dropdowns). */
+export const LOCALES: { code: Locale; label: string }[] = [
+  { code: 'de', label: 'Deutsch' },
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'Français' },
+  { code: 'es', label: 'Español' },
+  { code: 'it', label: 'Italiano' },
+  { code: 'nl', label: 'Nederlands' },
+  { code: 'pl', label: 'Polski' },
+  { code: 'pt', label: 'Português' },
+  { code: 'sv', label: 'Svenska' },
+  { code: 'da', label: 'Dansk' },
+  { code: 'cs', label: 'Čeština' },
+  { code: 'el', label: 'Ελληνικά' },
+]
 
 export const translations = {
   en: {
@@ -226,6 +255,15 @@ export const translations = {
 
 export type TranslationKey = keyof typeof translations['en']
 
+// Weitere Sprachen als eigene Wörterbücher (Teilmengen erlaubt — fehlende Keys
+// fallen auf Englisch zurück). Englisch + Deutsch bleiben oben vollständig.
+const extra: Record<string, Record<string, string>> = {
+  fr, es, it, nl, pl, pt, sv, da, cs, el,
+}
+
 export function t(locale: Locale, key: TranslationKey): string {
-  return translations[locale][key] ?? translations['en'][key] ?? key
+  if (locale === 'en' || locale === 'de') {
+    return translations[locale][key] ?? translations['en'][key] ?? key
+  }
+  return extra[locale]?.[key] ?? translations['en'][key] ?? key
 }
