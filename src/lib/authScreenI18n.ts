@@ -1,4 +1,14 @@
 import type { Locale } from '@/lib/i18n'
+import { fr } from './authScreen-locales/fr'
+import { es } from './authScreen-locales/es'
+import { it } from './authScreen-locales/it'
+import { nl } from './authScreen-locales/nl'
+import { pl } from './authScreen-locales/pl'
+import { pt } from './authScreen-locales/pt'
+import { sv } from './authScreen-locales/sv'
+import { da } from './authScreen-locales/da'
+import { cs } from './authScreen-locales/cs'
+import { el } from './authScreen-locales/el'
 
 export const authScreenTexts = {
   de: {
@@ -87,10 +97,18 @@ export const authScreenTexts = {
     langDe: 'Deutsch',
     langEn: 'English',
   },
-} as const satisfies Record<Locale, Record<string, string>>
+} as const satisfies Record<'de' | 'en', Record<string, string>>
+
+// Weitere Sprachen (Teilmengen erlaubt — fehlende Keys fallen auf Englisch zurück).
+const authExtra: Record<string, Record<string, string>> = {
+  fr, es, it, nl, pl, pt, sv, da, cs, el,
+}
 
 export function authT(locale: Locale, key: keyof (typeof authScreenTexts)['de']): string {
-  return authScreenTexts[locale][key] ?? authScreenTexts.en[key] ?? key
+  if (locale === 'en' || locale === 'de') {
+    return authScreenTexts[locale][key] ?? authScreenTexts.en[key] ?? key
+  }
+  return authExtra[locale]?.[key] ?? authScreenTexts.en[key] ?? key
 }
 
 export function authRateLimitMessage(locale: Locale, retryAfterSec: number): string {
