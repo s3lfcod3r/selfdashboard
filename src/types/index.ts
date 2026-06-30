@@ -1,3 +1,5 @@
+import type { Locale } from '@/lib/i18n'
+
 export type ThemeId = 'self' | 'dark' | 'light' | 'nord' | 'catppuccin' | 'dracula' | 'solarized'
 
 export interface Theme {
@@ -116,6 +118,6 @@ export interface Dashboard {
 export interface AppState {
   dashboards: Dashboard[]
   activeDashboardId: string
-  locale: 'en' | 'de'
+  locale: Locale
   editMode: boolean
 }

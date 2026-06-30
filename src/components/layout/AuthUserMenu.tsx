@@ -10,8 +10,9 @@ import {
   subscribeAuthProfile,
 } from '@/lib/authProfileClient'
 import { isPublicKioskPage } from '@/lib/kiosk/kioskClientFetch'
+import type { Locale } from '@/lib/i18n'
 
-export function AuthUserMenu({ locale }: { locale: 'de' | 'en' }) {
+export function AuthUserMenu({ locale }: { locale: Locale }) {
   const router = useRouter()
   useSyncExternalStore(subscribeAuthProfile, () => getAuthProfileSnapshot()?.user?.id ?? '', () => '')
   const profile = getAuthProfileSnapshot()
