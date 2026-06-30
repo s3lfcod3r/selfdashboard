@@ -6,7 +6,7 @@ import { X, Check, Upload, RotateCcw, Plus, Trash2, ExternalLink, Link, Eye, Eye
 import type { LogEntry, LogLevel, LogRetentionDays, LogSource } from '@/lib/errorLogTypes'
 import { useDashboardStore } from '@/lib/store'
 import { themes } from '@/lib/themes'
-import { t } from '@/lib/i18n'
+import { t, pickLabel } from '@/lib/i18n'
 import { Portal } from '@/components/ui/Portal'
 import type { ThemeId } from '@/types'
 import type { Locale } from '@/lib/i18n'
@@ -313,7 +313,7 @@ export function SettingsModal({ open, onClose }: Props) {
     { id: 'design', label: 'Design' },
     ...appSettingsPanels.map(p => ({
       id: `plugin-${p.id}` as TabId,
-      label: p.label[locale] ?? p.label.en ?? p.id,
+      label: pickLabel(p.label, locale) ?? p.label.en ?? p.id,
     })),
     ...(authRole
       ? [{ id: 'users' as TabId, label: locale === 'de' ? 'Benutzer' : 'Users' }]
@@ -449,7 +449,7 @@ export function SettingsModal({ open, onClose }: Props) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {SEARCH_PROVIDER_LIST.map((p) => (
                     <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: '8px', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-                      <span style={{ fontSize: '13px', color: 'var(--text)' }}>{p.label[locale]}</span>
+                      <span style={{ fontSize: '13px', color: 'var(--text)' }}>{pickLabel(p.label, locale)}</span>
                       <Toggle
                         value={Boolean(navbarSearchProviders?.[p.id])}
                         onChange={(v) => setNavbarSearchProviderEnabled(p.id as SearchProviderId, v)}
@@ -1274,7 +1274,7 @@ export function SettingsModal({ open, onClose }: Props) {
                       <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <input type="color" value={current} onChange={(e) => setCustomColors({ [key]: e.target.value })}
                           style={{ width: '32px', height: '32px', borderRadius: '8px', border: '1px solid var(--border)', background: 'none', padding: '1px', cursor: 'pointer' }} />
-                        <span style={{ fontSize: '13px', flex: 1, color: 'var(--text)' }}>{label[locale]}</span>
+                        <span style={{ fontSize: '13px', flex: 1, color: 'var(--text)' }}>{pickLabel(label, locale)}</span>
                         <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--text-muted)' }}>{current}</span>
                       </div>
                     )
@@ -1362,7 +1362,7 @@ export function SettingsModal({ open, onClose }: Props) {
                         border: `1px solid ${logRetention === opt.days ? 'var(--accent)' : 'var(--border)'}`,
                       }}
                     >
-                      {opt.label[locale]}
+                      {pickLabel(opt.label, locale)}
                     </button>
                   ))}
                 </div>

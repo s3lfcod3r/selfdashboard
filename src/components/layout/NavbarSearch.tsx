@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { GripVertical, Search } from 'lucide-react'
 import { useDashboardStore } from '@/lib/store'
-import type { Locale } from '@/lib/i18n'
+import { type Locale, pickLabel } from '@/lib/i18n'
 import {
   SEARCH_PROVIDER_LIST,
   buildSearchUrlForQuery,
@@ -56,7 +56,7 @@ export function NavbarSearch({
   const enabledPills: SearchPill[] = useMemo(() => {
     const builtins = SEARCH_PROVIDER_LIST.filter((p) => navbarSearchProviders[p.id]).map((p) => ({
       id: p.id,
-      label: p.label[locale],
+      label: pickLabel(p.label, locale),
     }))
     const customs = navbarSearchCustomProviders.filter((c) => c.enabled).map((c) => ({ id: c.id, label: c.name }))
     return [...builtins, ...customs]
