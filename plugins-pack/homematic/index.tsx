@@ -339,9 +339,9 @@ function Widget({ config, instanceId, editMode }: PluginWidgetProps) {
   const { active } = usePollingActive()
 
   const channels = useMemo(() => parseArr<ChannelCfg>(config.channels), [config.channels])
-  const sysvarSel = parseArr<RefCfg>(config.sysvars)
-  const programSel = parseArr<RefCfg>(config.programs)
-  const nameMap = parseNameMap(config.names)
+  const sysvarSel = useMemo(() => parseArr<RefCfg>(config.sysvars), [config.sysvars])
+  const programSel = useMemo(() => parseArr<RefCfg>(config.programs), [config.programs])
+  const nameMap = useMemo(() => parseNameMap(config.names), [config.names])
   const columns = str(config.columns) || '1'
   const colMode = columns === '1' ? 'one' : columns === 'auto' ? 'auto' : 'fixed'
   const roomGridStyle: CSSProperties =
@@ -734,8 +734,7 @@ function Settings({ config, onChange }: PluginSettingsProps) {
 
   useEffect(() => {
     if (configured) void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured])
+  }, [configured, load])
 
   const inChannels = (addr: string) => channels.some((c) => c.address === addr)
   const toggleChannel = (c: ChannelCfg) => {

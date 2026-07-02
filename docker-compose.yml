@@ -10,12 +10,21 @@ services:
     environment:
       - NODE_ENV=production
       - TZ=Europe/Berlin
+      # SSRF-Schutz: private LAN-IPs (10/8, 172.16/12, 192.168/16) sind seit
+      # 2026-07 standardmäßig BLOCKIERT. Wer Plugins bewusst auf interne Dienste
+      # zeigt (Pi-hole, AdGuard, Home Assistant, Hue, NAS, LAN-CalDAV/ICS …),
+      # muss privaten Zugriff hier wieder freischalten:
+      # - SELFDASHBOARD_ALLOW_PRIVATE_URLS=1
     volumes:
       # Persist dashboard config across container restarts
       - selfdashboard-data:/app/data
       # Plugins (Store / ZIP) — required for widgets
       - ./plugins-data:/app/plugins/custom
-      # Optional: Docker widget — same host only
+      # Optional: Docker widget — same host only.
+      # WARNUNG: Der Docker-Socket = Host-Root-Äquivalent. Wer diesen Socket lesen
+      # kann, kann praktisch beliebigen Code als root auf dem HOST ausführen
+      # (privilegierte Container starten, Host-FS mounten). Nur für vertrauenswürdige
+      # Admins mounten und niemals nach außen exponieren; read-only schützt nicht.
       # - /var/run/docker.sock:/var/run/docker.sock
       # Optional: CrowdSec widget — read-only crowdsec.db (only if CrowdSec runs on this host)
       # - /mnt/user/appdata/crowdsec/data:/crowdsec-data:ro

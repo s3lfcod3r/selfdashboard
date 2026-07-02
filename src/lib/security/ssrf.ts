@@ -52,9 +52,28 @@ function isPrivateLanIp(ip: string): boolean {
   return false
 }
 
+function isTruthyEnv(v: string | undefined): boolean {
+  const s = v?.trim().toLowerCase()
+  return s === '1' || s === 'true' || s === 'yes'
+}
+
+/**
+ * Opt-OUT SSRF policy for private LAN IPs (10/8, 172.16/12, 192.168/16).
+ *
+ * Default: private IPs are BLOCKED — a user-supplied URL (calendar/iframe/…)
+ * pointing at an internal host is treated as an SSRF attempt.
+ *
+ * Homelab admins who deliberately bind internal services (LAN Nextcloud/CalDAV,
+ * Pi-hole, AdGuard, Home Assistant …) re-enable private access explicitly with
+ *   SELFDASHBOARD_ALLOW_PRIVATE_URLS=1
+ *
+ * Legacy: SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS is still honoured as a force
+ * (kept so existing setups that opted in don't silently change), but it is now
+ * redundant because blocking is the default.
+ */
 function blockPrivateLanUrls(): boolean {
-  const v = process.env.SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS?.trim().toLowerCase()
-  return v === '1' || v === 'true' || v === 'yes'
+  if (isTruthyEnv(process.env.SELFDASHBOARD_ALLOW_PRIVATE_URLS)) return false
+  return true
 }
 
 export class UnsafeOutboundUrlError extends Error {
@@ -98,9 +117,18 @@ export function assertSafeOutboundUrl(urlStr: string): void {
 /**
  * Static checks + DNS resolution: every address the hostname resolves to must
  * pass the IP blocklist. Closes the "evil.example.com → 127.0.0.1 / 169.254.169.254"
- * bypass of the literal-hostname check. (Note: a TTL-0 rebinding attacker could
- * still swap records between this check and the actual connect; full pinning
- * would require a custom dispatcher. This covers the practical cases.)
+ * bypass of the literal-hostname check.
+ *
+ * KNOWN LIMITATION — DNS rebinding / TOCTOU (accepted, not fixed here):
+ * There is a time-of-check/time-of-use gap between this lookup() and the actual
+ * connect() inside fetch(). A malicious authoritative server answering with a
+ * TTL-0 record can return a safe public IP for THIS check and then swap to a
+ * private/loopback address for the subsequent connect. Fully closing this needs
+ * a custom HTTP(S) agent/dispatcher that pins the connection to the exact IP that
+ * was validated (e.g. resolve here, then dial that IP with the Host header set,
+ * or a lookup hook that re-validates on every socket). That is a larger change
+ * and deliberately out of scope for this hardening pass; the resolve-then-check
+ * approach above covers the common static-record and CNAME-to-internal cases.
  */
 export async function assertSafeOutboundUrlResolved(urlStr: string): Promise<void> {
   assertSafeOutboundUrl(urlStr)

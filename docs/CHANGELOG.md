@@ -6,12 +6,19 @@ This file summarizes **notable plugin and API behaviour** that may not fit in th
 
 ## 🇬🇧 English
 
+### Core app (2026-07) — SSRF default flipped to block private IPs
+
+| Topic | Change |
+|--------|--------|
+| **Private LAN IPs blocked by default** | The SSRF guard now **blocks** private LAN targets (`10/8`, `172.16/12`, `192.168/16`) by default — previously they were allowed unless you opted in. **Homelab users who point plugins (Pi-hole, AdGuard, Home Assistant, Hue, NAS, self-hosted CalDAV/ICS …) at a LAN IP must now set `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`** to re-enable access. Loopback / link-local / cloud-metadata stay blocked always. |
+| **Open item** | `script-src` still uses `'unsafe-inline' 'unsafe-eval'`; a nonce-based CSP tightening remains a follow-up. DNS-rebinding/TOCTOU on outbound fetches is documented as a known limitation (would need a connection-pinning dispatcher). |
+
 ### Core app (2026-06) — security hardening
 
 | Topic | Change |
 |--------|--------|
 | **Encrypted widget passwords** | Widget-config passwords (AdGuard, Pi-hole, FRITZ!Box, Fritz-Energy, Selfstream/-Emby) are sealed with **AES-256-GCM** (`sdsec1:` prefix) on save **and** on first read of existing configs. The browser only ever sees ciphertext; plugin servers decrypt server-side. Key: `SELFDASHBOARD_CALENDAR_KEY` / `<dataDir>/.calendar-key`. |
-| **SSRF guard everywhere** | All proxy plugins now resolve DNS and block loopback / link-local / cloud-metadata targets (incl. IPv4-mapped IPv6). Private LAN IPs stay allowed by default (`SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS=1` to block). Blocked requests return `blocked_url` (HTTP 400). |
+| **SSRF guard everywhere** | All proxy plugins now resolve DNS and block loopback / link-local / cloud-metadata targets (incl. IPv4-mapped IPv6). Blocked requests return `blocked_url` (HTTP 400). _Note: as of 2026-07 private LAN IPs are **blocked by default** — set `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1` to allow them (see entry above)._ |
 | **TOTP replay protection** | Each TOTP code/step is valid **once** (new `totp_last_step` column, auto-migrated). |
 | **Non-root container** | App runs as UID **1001**; entrypoint chowns `/app/data` + `/app/plugins/custom` on start (opt-out `SELFDASHBOARD_SKIP_CHOWN=1`) and adds read perms on `/crowdsec-data` (opt-out `SELFDASHBOARD_FIX_CROWDSEC_PERMS=0`). |
 | **Image build** | `npm ci` (reproducible), `HEALTHCHECK` on `/api/auth/setup-status`, plugin-id validation on store installs, scoped TLS handling for FRITZ! self-signed certs (no more global `NODE_TLS_REJECT_UNAUTHORIZED`). |
@@ -68,12 +75,19 @@ After **Update all**: **Ctrl+F5**. Existing plaintext passwords are migrated aut
 
 ## 🇩🇪 Deutsch
 
+### Kern-App (2026-07) — SSRF-Default blockt jetzt private IPs
+
+| Thema | Änderung |
+|--------|----------|
+| **Private LAN-IPs standardmäßig geblockt** | Der SSRF-Schutz **blockt** private LAN-Ziele (`10/8`, `172.16/12`, `192.168/16`) jetzt standardmäßig — vorher waren sie erlaubt, sofern man nicht ausdrücklich blockte. **Homelab-Nutzer, die Plugins (Pi-hole, AdGuard, Home Assistant, Hue, NAS, selbstgehostetes CalDAV/ICS …) auf eine LAN-IP zeigen, müssen jetzt `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1` setzen**, um den Zugriff wieder freizuschalten. Loopback / Link-Local / Cloud-Metadata bleiben immer geblockt. |
+| **Offener Punkt** | `script-src` nutzt weiterhin `'unsafe-inline' 'unsafe-eval'`; eine Nonce-basierte CSP-Verschärfung bleibt ein Folge-Schritt. DNS-Rebinding/TOCTOU bei ausgehenden Fetches ist als bekannte Einschränkung dokumentiert (bräuchte einen Connection-Pinning-Dispatcher). |
+
 ### Kern-App (2026-06) — Security-Härtung
 
 | Thema | Änderung |
 |--------|----------|
 | **Verschlüsselte Widget-Passwörter** | Widget-Passwörter (AdGuard, Pi-hole, FRITZ!Box, Fritz-Energy, Selfstream/-Emby) werden mit **AES-256-GCM** versiegelt (`sdsec1:`-Präfix) — beim Speichern **und** beim ersten Laden bestehender Configs. Der Browser sieht nur noch Ciphertext; Plugin-Server entschlüsseln serverseitig. Schlüssel: `SELFDASHBOARD_CALENDAR_KEY` / `<dataDir>/.calendar-key`. |
-| **SSRF-Schutz überall** | Alle Proxy-Plugins lösen DNS auf und blocken Loopback / Link-Local / Cloud-Metadata (inkl. IPv4-mapped IPv6). Private LAN-IPs bleiben standardmäßig erlaubt (`SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS=1` zum Blocken). Geblockte Anfragen liefern `blocked_url` (HTTP 400). |
+| **SSRF-Schutz überall** | Alle Proxy-Plugins lösen DNS auf und blocken Loopback / Link-Local / Cloud-Metadata (inkl. IPv4-mapped IPv6). Geblockte Anfragen liefern `blocked_url` (HTTP 400). _Hinweis: seit 2026-07 sind private LAN-IPs **standardmäßig geblockt** — `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1` erlaubt sie wieder (siehe Eintrag oben)._ |
 | **TOTP-Replay-Schutz** | Jeder TOTP-Code/Step gilt nur **einmal** (neue Spalte `totp_last_step`, automatische Migration). |
 | **Non-root-Container** | App läuft als UID **1001**; Entrypoint chownt `/app/data` + `/app/plugins/custom` beim Start (Opt-out `SELFDASHBOARD_SKIP_CHOWN=1`) und setzt Leserechte auf `/crowdsec-data` (Opt-out `SELFDASHBOARD_FIX_CROWDSEC_PERMS=0`). |
 | **Image-Build** | `npm ci` (reproduzierbar), `HEALTHCHECK` auf `/api/auth/setup-status`, Plugin-ID-Validierung bei Store-Installs, gescopetes TLS-Handling für selbstsignierte FRITZ!-Zertifikate (kein globales `NODE_TLS_REJECT_UNAUTHORIZED` mehr). |

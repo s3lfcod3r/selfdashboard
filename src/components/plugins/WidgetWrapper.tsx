@@ -44,8 +44,18 @@ export function WidgetWrapper({ instance, editMode, layoutMode = 'desktop' }: Pr
   const [copyOpen, setCopyOpen] = useState(false)
   const [copiedTo, setCopiedTo] = useState<string | null>(null)
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null)
-  const { activeDashboard, dashboards, copyPluginToDashboard, removePlugin, updatePluginConfig, updatePluginLayout, updatePluginLayoutPhone, updatePluginLayoutTablet, locale } =
-    useDashboardStore()
+  // Granulare Selektoren statt useDashboardStore() ohne Selektor: sonst
+  // re-rendert JEDES Widget bei jeder Store-Änderung (DashboardGrid-Muster).
+  // Aktionen sind in Zustand stabile Referenzen → einzelne Selektoren genügen.
+  const activeDashboard = useDashboardStore((s) => s.activeDashboard)
+  const dashboards = useDashboardStore((s) => s.dashboards)
+  const copyPluginToDashboard = useDashboardStore((s) => s.copyPluginToDashboard)
+  const removePlugin = useDashboardStore((s) => s.removePlugin)
+  const updatePluginConfig = useDashboardStore((s) => s.updatePluginConfig)
+  const updatePluginLayout = useDashboardStore((s) => s.updatePluginLayout)
+  const updatePluginLayoutPhone = useDashboardStore((s) => s.updatePluginLayoutPhone)
+  const updatePluginLayoutTablet = useDashboardStore((s) => s.updatePluginLayoutTablet)
+  const locale = useDashboardStore((s) => s.locale)
   const volumePhase = useSyncExternalStore(
     subscribePluginVolumeLoad,
     getPluginVolumeLoadPhase,

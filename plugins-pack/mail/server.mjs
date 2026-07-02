@@ -288,7 +288,7 @@ function isTrashMailbox(path2, flags) {
   if (flags?.has("\\Trash")) return true;
   const lower = path2.toLowerCase();
   const leaf = (path2.includes("/") ? path2.split("/").pop() : path2) ?? path2;
-  const trashNames = ["trash", "papierkorb", "deleted", "gel\xF6scht", "geloescht"];
+  const trashNames = ["trash", "papierkorb", "deleted", "gel\xF6scht", "gel\xF6scht"];
   return trashNames.includes(lower) || trashNames.includes(leaf.toLowerCase());
 }
 var MAILPLUS_SKIP_SUFFIX = /* @__PURE__ */ new Set([
@@ -1093,9 +1093,13 @@ function isPrivateLanIp(ip) {
   if (a === 192 && b === 168) return true;
   return false;
 }
+function isTruthyEnv(v) {
+  const s = v?.trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes";
+}
 function blockPrivateLanUrls() {
-  const v = process.env.SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS?.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+  if (isTruthyEnv(process.env.SELFDASHBOARD_ALLOW_PRIVATE_URLS)) return false;
+  return true;
 }
 var UnsafeOutboundUrlError = class extends Error {
   constructor(message) {

@@ -55,9 +55,24 @@ function isPrivateLanIp(ip: string): boolean {
   return false
 }
 
+function isTruthyEnv(v: string | undefined): boolean {
+  const s = v?.trim().toLowerCase()
+  return s === '1' || s === 'true' || s === 'yes'
+}
+
+/**
+ * Opt-OUT SSRF policy for private LAN IPs (10/8, 172.16/12, 192.168/16).
+ *
+ * Default: private IPs are BLOCKED. Homelab admins who deliberately point plugins
+ * at internal LAN services (Pi-hole, AdGuard, Home Assistant, Hue Bridge, NAS …)
+ * MUST opt back in with:
+ *   SELFDASHBOARD_ALLOW_PRIVATE_URLS=1
+ *
+ * Keep in sync with src/lib/security/ssrf.ts.
+ */
 function blockPrivateLanUrls(): boolean {
-  const v = process.env.SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS?.trim().toLowerCase()
-  return v === '1' || v === 'true' || v === 'yes'
+  if (isTruthyEnv(process.env.SELFDASHBOARD_ALLOW_PRIVATE_URLS)) return false
+  return true
 }
 
 export class UnsafeOutboundUrlError extends Error {

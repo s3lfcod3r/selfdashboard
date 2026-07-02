@@ -330,8 +330,7 @@ function Settings({ config, onChange }: PluginSettingsProps) {
 
   useEffect(() => {
     if (configured) void load()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured])
+  }, [configured, load])
 
   const setHidden = (ain: string, visible: boolean) => {
     const cur = parseIdSet(config.hidden)

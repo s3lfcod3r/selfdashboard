@@ -273,14 +273,34 @@ function Widget({ config }: PluginWidgetProps) {
     }
   }, [teamId, keyId, syncNowPlaying])
 
-  // Smooth progress ticking between events while playing.
+  // Smooth progress ticking between events while playing — but only while the
+  // widget is actually visible. Pausing on a hidden/background tab avoids a
+  // pointless 1s state update (and re-render) when nobody can see it.
   useEffect(() => {
     if (!playing) return
-    const t = setInterval(() => {
+    let timer: ReturnType<typeof setInterval> | null = null
+    const tick = () => {
       const inst = instRef.current
       if (inst) setProgress(inst.currentPlaybackTime || 0)
-    }, 1000)
-    return () => clearInterval(t)
+    }
+    const start = () => {
+      if (timer !== null) return
+      tick()
+      timer = setInterval(tick, 1000)
+    }
+    const stop = () => {
+      if (timer !== null) {
+        clearInterval(timer)
+        timer = null
+      }
+    }
+    const sync = () => (document.hidden ? stop() : start())
+    sync()
+    document.addEventListener('visibilitychange', sync)
+    return () => {
+      stop()
+      document.removeEventListener('visibilitychange', sync)
+    }
   }, [playing])
 
   const authorize = useCallback(async () => {

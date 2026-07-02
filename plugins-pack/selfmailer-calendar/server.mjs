@@ -58,9 +58,13 @@ function isPrivateLanIp(ip) {
   if (a === 192 && b === 168) return true;
   return false;
 }
+function isTruthyEnv(v) {
+  const s = v?.trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes";
+}
 function blockPrivateLanUrls() {
-  const v = process.env.SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS?.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+  if (isTruthyEnv(process.env.SELFDASHBOARD_ALLOW_PRIVATE_URLS)) return false;
+  return true;
 }
 var UnsafeOutboundUrlError = class extends Error {
   constructor(message) {
