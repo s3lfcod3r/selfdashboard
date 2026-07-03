@@ -198,4 +198,15 @@
     Required="false"
     Mask="false"></Config>
 
+  <Config
+    Name="LAN-/Private-IPs erlauben (im Heimnetz empfohlen)"
+    Target="SELFDASHBOARD_ALLOW_PRIVATE_URLS"
+    Default="1"
+    Mode=""
+    Description="Wofür: Plugins/Widgets dürfen Dienste auf privaten LAN-IPs (192.168.x, 10.x, 172.16-31.x) erreichen — z. B. AdGuard, Pi-hole, FRITZ!, SelfMailer, Home Assistant. Seit 07/2026 sind private Ziele aus Sicherheitsgründen (SSRF-Schutz gegen bösartige Kalender-/iframe-URLs) standardmäßig blockiert. Im Heimnetz auf 1 lassen — sonst scheitern LAN-Widgets mit 'private_ip_blocked'/'blocked_url'. Leeren oder 0 = strikt blockieren (nur öffentliche Adressen)."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">1</Config>
+
 </Container>

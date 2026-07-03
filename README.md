@@ -444,6 +444,7 @@ Ideal for a kitchen display, wall tablet, or shared screen on your LAN.
 | `SELFDASHBOARD_AUTH_RESET_PASSWORD` | — | One-shot admin password reset on container start (see **Login & multi-user**) |
 | `SELFDASHBOARD_ENABLE_ENV_RESET` | off | In **production** (`NODE_ENV=production`, the default in the official image) the env password reset is **ignored** unless this is set to `1`. Outside production it is always allowed. Safety net so a forgotten `NODE_ENV` cannot leave the reset path silently active. |
 | `SELFDASHBOARD_SECRET_SALT` | built-in | Optional KDF salt for credential encryption. Leave unset to use the default. If set, pin it from the very first start and **never change it** (like `SELFDASHBOARD_SECRET_KEY`) — changing it makes existing encrypted credentials unreadable. |
+| `SELFDASHBOARD_ALLOW_PRIVATE_URLS` | off (private IPs **blocked**) | Set `1` to let plugins reach **private/LAN IPs** (`10/8`, `172.16/12`, `192.168/16`). Since **2026-07** private targets are blocked by default (SSRF protection against user-supplied calendar/iframe URLs pointing at internal hosts). **Home-lab setups that point AdGuard, Pi-hole, FRITZ!, SelfMailer, Home Assistant … at LAN addresses must set this to `1`** — otherwise those widgets fail with `private_ip_blocked` / `blocked_url`. (Legacy `SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS` is no longer needed.) |
 
 ---
 
@@ -464,6 +465,7 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 - **Internal identity headers** (`x-sd-user-id` / `x-sd-role`) are set on the request for route handlers only, are **stripped from any client-supplied request**, and are **no longer echoed on responses**, so they cannot be spoofed or leaked.
 - **Env password reset hardened:** in production the env reset is ignored unless `SELFDASHBOARD_ENABLE_ENV_RESET=1` is explicitly set.
 - **CalDAV** now resolves and re-checks the target IP before connecting (DNS-rebinding protection), matching IMAP/FRITZ!.
+- **Outbound SSRF is opt-out for private IPs:** requests to **private/LAN addresses are blocked by default** so a user-supplied calendar/iframe URL cannot probe internal hosts. Home-lab admins who intentionally monitor LAN services (AdGuard, Pi-hole, FRITZ!, SelfMailer …) re-enable access with **`SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`**.
 
 **Operator responsibilities / when exposing publicly:**
 - **Use HTTPS and set `SELFDASHBOARD_SECURE_COOKIES=1`.** The default is off so plain-HTTP LAN setups keep working — but over the internet, session cookies must be Secure.
@@ -481,6 +483,7 @@ SelfDashboard is built for a trusted home LAN. A security review (2026-06) harde
 | Problem | Solution |
 |---|---|
 | Dashboard not loading | Check logs: `docker logs selfdashboard` |
+| **Plugin / mail fails with `blocked_url` / `private_ip_blocked`** | The target service runs on a **private LAN IP** (e.g. `192.168.x`), which is blocked by default since **2026-07**. Add **`SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`** to the container and recreate it. Affects AdGuard, Pi-hole, FRITZ!, SelfMailer and any other LAN-hosted backend. |
 | **500 error after update** (`SQLITE_READONLY` in logs) | The container runs **non-root** (PUID/PGID, default 99/100). The entrypoint fixes volume ownership automatically on start; if you set `SELFDASHBOARD_SKIP_CHOWN=1`, run `chown -R <PUID>:<PGID>` on your appdata folder yourself. |
 | **CrowdSec: `unable to open database file`** (often after nightly backups) | Set the container's **PUID/PGID to the same values as your CrowdSec container** (Unraid default 99/100). Then SelfDashboard reads `crowdsec.db` as the owner — permanently, no chmod. |
 | **Plugin shows `401` / `stats_failed` / auth error** (AdGuard, Pi-hole, FRITZ!, …) although credentials are correct | The encryption key changed. **Fix once:** set a fixed **`SELFDASHBOARD_SECRET_KEY`** (long random string) in Docker, restart, then re-enter the plugin's password in its settings and **Save**. The key never changes again → stays working. (On an older core image, also set `SELFDASHBOARD_CALENDAR_KEY` to the **same** value until you pull the new `:latest`.) |
@@ -955,6 +958,7 @@ Für Küchendisplay, Wand-Tablet oder gemeinsamen Bildschirm im LAN.
 | `SELFDASHBOARD_AUTH_RESET_PASSWORD` | — | Einmal-Passwort-Reset beim Container-Start (siehe **Login & Mehrbenutzer**) |
 | `SELFDASHBOARD_ENABLE_ENV_RESET` | aus | In **Produktion** (`NODE_ENV=production`, Standard im offiziellen Image) wird der Env-Passwort-Reset **ignoriert**, außer dies steht auf `1`. Außerhalb von Produktion immer erlaubt. Schutznetz, falls `NODE_ENV` vergessen wurde. |
 | `SELFDASHBOARD_SECRET_SALT` | eingebaut | Optionaler KDF-Salt für die Credential-Verschlüsselung. Leer lassen = Standard. Wenn gesetzt, von Anfang an festlegen und **nie ändern** (wie `SELFDASHBOARD_SECRET_KEY`) — eine Änderung macht bestehende verschlüsselte Zugangsdaten unlesbar. |
+| `SELFDASHBOARD_ALLOW_PRIVATE_URLS` | aus (private IPs **blockiert**) | `1` = Plugins dürfen **private/LAN-IPs** erreichen (`10/8`, `172.16/12`, `192.168/16`). Seit **07/2026** sind private Ziele standardmäßig blockiert (SSRF-Schutz gegen vom Nutzer eingegebene Kalender-/iframe-URLs auf interne Hosts). **Wer AdGuard, Pi-hole, FRITZ!, SelfMailer, Home Assistant … über LAN-Adressen einbindet, muss dies auf `1` setzen** — sonst scheitern diese Widgets mit `private_ip_blocked` / `blocked_url`. (Das alte `SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS` wird nicht mehr benötigt.) |
 
 ---
 
@@ -975,6 +979,7 @@ SelfDashboard ist für ein vertrauenswürdiges Heimnetz gebaut. Ein Security-Rev
 - **Interne Identitäts-Header** (`x-sd-user-id` / `x-sd-role`) werden nur am Request für die Route-Handler gesetzt, aus **eingehenden Client-Requests entfernt** und **nicht mehr in Responses** zurückgegeben — kein Spoofing, kein Leak.
 - **Env-Passwort-Reset gehärtet:** in Produktion wird der Env-Reset ignoriert, außer `SELFDASHBOARD_ENABLE_ENV_RESET=1` ist explizit gesetzt.
 - **CalDAV** löst jetzt die Ziel-IP auf und prüft sie vor dem Verbinden (DNS-Rebinding-Schutz), analog zu IMAP/FRITZ!.
+- **Ausgehender SSRF-Schutz ist Opt-out für private IPs:** Anfragen an **private/LAN-Adressen sind standardmäßig blockiert**, damit eine vom Nutzer eingegebene Kalender-/iframe-URL keine internen Hosts abfragen kann. Wer LAN-Dienste bewusst einbindet (AdGuard, Pi-hole, FRITZ!, SelfMailer …), gibt den Zugriff mit **`SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`** wieder frei.
 
 **Betreiber-Verantwortung / bei öffentlicher Erreichbarkeit:**
 - **HTTPS nutzen und `SELFDASHBOARD_SECURE_COOKIES=1` setzen.** Standard ist aus, damit reine HTTP-LAN-Setups funktionieren — über das Internet müssen Session-Cookies aber Secure sein.
@@ -992,6 +997,7 @@ SelfDashboard ist für ein vertrauenswürdiges Heimnetz gebaut. Ein Security-Rev
 | Problem | Lösung |
 |---|---|
 | Dashboard lädt nicht | Logs prüfen: `docker logs selfdashboard` |
+| **Plugin / E-Mail scheitert mit `blocked_url` / `private_ip_blocked`** | Der Zieldienst läuft auf einer **privaten LAN-IP** (z. B. `192.168.x`), die seit **07/2026** standardmäßig blockiert ist. Variable **`SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`** am Container ergänzen und ihn neu erstellen. Betrifft AdGuard, Pi-hole, FRITZ!, SelfMailer und jeden anderen LAN-Dienst. |
 | **500-Fehler nach Update** (`SQLITE_READONLY` im Log) | Der Container läuft **non-root** (PUID/PGID, Standard 99/100). Der Entrypoint korrigiert die Volume-Rechte beim Start automatisch; bei `SELFDASHBOARD_SKIP_CHOWN=1` selbst `chown -R <PUID>:<PGID>` auf den Appdata-Ordner ausführen. |
 | **CrowdSec: `unable to open database file`** (oft nach nächtlichem Backup) | **PUID/PGID des Containers auf dieselben Werte wie dein CrowdSec-Container** setzen (Unraid-Standard 99/100). Dann liest SelfDashboard die `crowdsec.db` als Eigentümer — dauerhaft, ohne chmod. |
 | CrowdSec-Widget: `crowdsec.db nicht gefunden` | **CrowdSec Data (optional)** im Template setzen (Host-Ordner mit `crowdsec.db` → `/crowdsec-data:ro`) oder Mount weglassen und Widget entfernen, wenn du CrowdSec nicht nutzt |
