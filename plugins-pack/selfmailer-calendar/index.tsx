@@ -225,7 +225,8 @@ function Widget({ config }: PluginWidgetProps) {
   const showTitle = config.showTitle !== false
   const allowAdd = config.showAdd !== false
   const title = config.title === undefined ? (de ? 'Kalender' : 'Calendar') : str(config.title)
-  const defaultTarget = str(config.defaultTarget) || 'local'
+  // Standard 'primary' = Hauptkalender (★) automatisch vorwählen statt „Lokal".
+  const defaultTarget = str(config.defaultTarget) || 'primary'
   const refreshMs = Math.max(60, num(config.refreshSeconds) || 300) * 1000
   const configView: 'month' | 'agenda' = str(config.view) === 'agenda' ? 'agenda' : 'month'
 
@@ -334,7 +335,10 @@ function Widget({ config }: PluginWidgetProps) {
     try {
       const t = await fetchTargets(base, token)
       setTargets(t)
-      if (!t.some((x) => x.key === fTarget)) {
+      // Standard 'primary' → Hauptkalender (★) vorwählen; ein ungültiges Ziel
+      // fällt ebenfalls auf den Hauptkalender (sonst erstes) zurück. Ein gültig
+      // gesetztes Ziel des Nutzers bleibt unangetastet.
+      if (fTarget === 'primary' || !t.some((x) => x.key === fTarget)) {
         const primary = t.find((x) => x.primary) ?? t[0]
         if (primary) setFTarget(primary.key)
       }
@@ -1319,7 +1323,8 @@ function Settings({ config, onChange }: PluginSettingsProps) {
       <div>
         <label style={lbl}>{de ? 'Standard-Ziel-Kalender' : 'Default target calendar'}</label>
         {targets && targets.length > 0 ? (
-          <select style={inp} value={str(config.defaultTarget) || 'local'} onChange={(e) => onChange('defaultTarget', e.target.value)}>
+          <select style={inp} value={str(config.defaultTarget) || 'primary'} onChange={(e) => onChange('defaultTarget', e.target.value)}>
+            <option value="primary">{de ? 'Automatisch: Hauptkalender ★' : 'Automatic: primary calendar ★'}</option>
             {targets.map((t) => (
               <option key={t.key} value={t.key}>
                 {t.label}
@@ -1396,7 +1401,7 @@ export const meta: PluginMeta = {
     { key: 'base', label: 'SelfMailer Basis-URL', type: 'text', defaultValue: '' },
     { key: 'token', label: 'Token', type: 'text', defaultValue: '' },
     { key: 'days', label: 'Zeitraum (Tage)', type: 'number', defaultValue: 30 },
-    { key: 'defaultTarget', label: 'Standard-Ziel-Kalender', type: 'text', defaultValue: 'local' },
+    { key: 'defaultTarget', label: 'Standard-Ziel-Kalender', type: 'text', defaultValue: 'primary' },
     { key: 'refreshSeconds', label: 'Aktualisierung (Sek.)', type: 'number', defaultValue: 300 },
     { key: 'showAdd', label: 'Termine anlegen erlauben', type: 'boolean', defaultValue: true },
     { key: 'showTitle', label: 'Titel anzeigen', type: 'boolean', defaultValue: true },
