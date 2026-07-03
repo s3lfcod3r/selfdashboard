@@ -40,6 +40,20 @@ function isTrashMailbox(path: string, flags?: Set<string>): boolean {
   return trashNames.includes(lower) || trashNames.includes(leaf.toLowerCase())
 }
 
+// Virtuelle Gmail-Label-Ordner: "Alle Nachrichten" (\All), "Wichtig"
+// (\Important) und "Markiert" (\Flagged) enthalten Kopien von Mails, die schon
+// im echten Ordner (INBOX etc.) liegen. Beim Zählen über ALLE Ordner sonst
+// doppelt gezählt → Badge zeigt 2 statt 1. Erkennung per SPECIAL-USE-Flag
+// (zuverlässig) plus Namensheuristik (DE+EN) als Fallback.
+const GMAIL_VIRTUAL_NAMES = new Set([
+  'all mail', 'alle nachrichten', 'important', 'wichtig', 'starred', 'markiert',
+])
+function isVirtualGmailMailbox(path: string, flags?: Set<string>): boolean {
+  if (flags?.has('\\All') || flags?.has('\\Important') || flags?.has('\\Flagged')) return true
+  const leaf = (path.includes('/') ? path.split('/').pop() : path) ?? path
+  return GMAIL_VIRTUAL_NAMES.has(leaf.toLowerCase())
+}
+
 const MAILPLUS_SKIP_SUFFIX = new Set([
   'sent', 'gesendet', 'drafts', 'entwürfe', 'entwurfe', 'trash', 'papierkorb',
   'junk', 'spam', 'archive', 'archiv',
@@ -154,7 +168,10 @@ function resolveScanPaths(boxes: ListedBox[], mailbox: string): { paths: string[
     }
   }
 
-  const all = boxes.filter(b => !isTrashMailbox(b.path, b.flags)).map(b => b.path)
+  const all = boxes
+    .filter(b => !isTrashMailbox(b.path, b.flags))
+    .filter(b => !isVirtualGmailMailbox(b.path, b.flags))
+    .map(b => b.path)
   return { paths: all, mode: 'all-except-trash' }
 }
 

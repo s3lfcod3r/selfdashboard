@@ -291,6 +291,19 @@ function isTrashMailbox(path2, flags) {
   const trashNames = ["trash", "papierkorb", "deleted", "gel\xF6scht", "gel\xF6scht"];
   return trashNames.includes(lower) || trashNames.includes(leaf.toLowerCase());
 }
+var GMAIL_VIRTUAL_NAMES = /* @__PURE__ */ new Set([
+  "all mail",
+  "alle nachrichten",
+  "important",
+  "wichtig",
+  "starred",
+  "markiert"
+]);
+function isVirtualGmailMailbox(path2, flags) {
+  if (flags?.has("\\All") || flags?.has("\\Important") || flags?.has("\\Flagged")) return true;
+  const leaf = (path2.includes("/") ? path2.split("/").pop() : path2) ?? path2;
+  return GMAIL_VIRTUAL_NAMES.has(leaf.toLowerCase());
+}
 var MAILPLUS_SKIP_SUFFIX = /* @__PURE__ */ new Set([
   "sent",
   "gesendet",
@@ -394,7 +407,7 @@ function resolveScanPaths(boxes, mailbox) {
       }
     }
   }
-  const all = boxes.filter((b) => !isTrashMailbox(b.path, b.flags)).map((b) => b.path);
+  const all = boxes.filter((b) => !isTrashMailbox(b.path, b.flags)).filter((b) => !isVirtualGmailMailbox(b.path, b.flags)).map((b) => b.path);
   return { paths: all, mode: "all-except-trash" };
 }
 function planMailboxScan(boxes, mailbox) {
