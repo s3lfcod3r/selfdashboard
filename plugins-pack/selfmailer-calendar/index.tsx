@@ -124,6 +124,31 @@ function localDateKey(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+// Schutz gegen Endlos-Spannen (kaputte Daten): max. Tage, die ein Termin verteilt wird.
+const MAX_SPAN_DAYS = 62
+
+/** Alle lokalen Tages-Keys (yyyy-MM-dd), die ein Termin überspannt — End-Tag inklusive.
+    So erscheint z. B. eine Urlaubswoche an JEDEM Tag, nicht nur am Starttag. */
+function spanKeys(ev: Ev): string[] {
+  const start = new Date(ev.start)
+  if (Number.isNaN(start.getTime())) return []
+  let end = ev.end ? new Date(ev.end) : start
+  if (Number.isNaN(end.getTime())) end = start
+  // Zeit-Termine: Ende exakt um Mitternacht zählt nicht mehr zum Folgetag.
+  if (!ev.all_day && end.getTime() > start.getTime() && end.getHours() === 0 && end.getMinutes() === 0) {
+    end = new Date(end.getTime() - 60000)
+  }
+  // Auf Tagesbasis iterieren (12:00 als DST-sicherer Anker).
+  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 12, 0, 0, 0)
+  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 12, 0, 0, 0)
+  const keys: string[] = []
+  while (cur.getTime() <= last.getTime() && keys.length < MAX_SPAN_DAYS) {
+    keys.push(localDateKey(cur))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return keys.length ? keys : [localDateKey(start)]
+}
+
 /** Lokale Uhrzeit HH:MM (für die Vorbelegung des Bearbeiten-Formulars). */
 function localHM(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
@@ -455,24 +480,27 @@ function Widget({ config }: PluginWidgetProps) {
   }, [allCals, events])
 
   const grouped = useMemo(() => {
+    // Mehrtägige Termine unter JEDEM überspannten Tag auflisten (nicht nur Starttag).
     const out = new Map<string, Ev[]>()
     for (const ev of shownEvents) {
-      const key = localDateKey(new Date(ev.start))
-      const arr = out.get(key) ?? []
-      arr.push(ev)
-      out.set(key, arr)
+      for (const key of spanKeys(ev)) {
+        const arr = out.get(key) ?? []
+        arr.push(ev)
+        out.set(key, arr)
+      }
     }
     return [...out.entries()].sort((a, b) => a[0].localeCompare(b[0]))
   }, [shownEvents])
 
-  // Tag → Termine (für das Monatsraster); je Tag nach Startzeit sortiert.
+  // Tag → Termine (für das Monatsraster); mehrtägige Termine an jedem Tag, je Tag nach Startzeit sortiert.
   const eventsByDay = useMemo(() => {
     const m = new Map<string, Ev[]>()
     for (const ev of shownEvents) {
-      const key = localDateKey(new Date(ev.start))
-      const arr = m.get(key) ?? []
-      arr.push(ev)
-      m.set(key, arr)
+      for (const key of spanKeys(ev)) {
+        const arr = m.get(key) ?? []
+        arr.push(ev)
+        m.set(key, arr)
+      }
     }
     for (const arr of m.values()) arr.sort((a, b) => a.start.localeCompare(b.start))
     return m
@@ -1392,7 +1420,7 @@ export const meta: PluginMeta = {
   name: 'SelfMailer Kalender',
   description:
     'Kommende Termine aus SelfMailer anzeigen UND neue anlegen — direkt in SelfMailer mit automatischem Google-Push. Quelle: SelfMailer-Server (Basis-URL + Token).',
-  version: '1.7.0',
+  version: '1.9.0',
   author: 'SelfDashboard',
   category: 'productivity',
   icon: '📅',
