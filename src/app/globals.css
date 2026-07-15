@@ -69,10 +69,9 @@
   --accent:      #6366f1;
 }
 
-/* Nicht-Self-Themes (inkl. „Self Klassisch") behalten ihren eigenen, flachen
-   Look: kein Teal-Bühnen-Glow, keine Verlaufs-/Lift-Aufwertung. Letztere hängen
-   ausschließlich an [data-theme="self"] und greifen hier ohnehin nicht. */
-[data-theme="self-classic"],
+/* Nicht-Self-Themes behalten ihren eigenen, flachen Look: kein Teal-Bühnen-Glow,
+   keine Verlaufs-/Lift-Aufwertung. Letztere hängen ausschließlich an
+   [data-theme="self"] und greifen hier ohnehin nicht. */
 [data-theme="dark"],
 [data-theme="light"],
 [data-theme="nord"],

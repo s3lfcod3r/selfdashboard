@@ -1,6 +1,6 @@
 import type { Locale } from '@/lib/i18n'
 
-export type ThemeId = 'self' | 'self-classic' | 'dark' | 'light' | 'nord' | 'catppuccin' | 'dracula' | 'solarized'
+export type ThemeId = 'self' | 'dark' | 'light' | 'nord' | 'catppuccin' | 'dracula' | 'solarized'
 
 export interface Theme {
   id: ThemeId
