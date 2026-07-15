@@ -8,6 +8,22 @@ export const themes: Theme[] = [
       background: '#080c11',
       surface: '#161b22',
       'surface-2': '#1c2333',
+      // Hairline-Rand (Brand-Kit / SelfMediaHub). Muss hier stehen, da ThemeProvider
+      // die Farbe inline setzt und den globals.css-Wert sonst überschreibt.
+      border: 'rgba(157, 189, 208, 0.12)',
+      text: '#eef4f7',
+      'text-muted': '#8a9caa',
+      accent: '#33a78c',
+    },
+  },
+  {
+    // Altes flaches Self-Design — bleibt als Rückfall-Option wählbar.
+    id: 'self-classic',
+    name: 'Self Klassisch',
+    colors: {
+      background: '#080c11',
+      surface: '#161b22',
+      'surface-2': '#1c2333',
       border: '#233140',
       text: '#eef4f7',
       'text-muted': '#8a9caa',

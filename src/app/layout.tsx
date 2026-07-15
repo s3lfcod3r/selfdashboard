@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Exo_2, Orbitron } from 'next/font/google'
+import { Exo_2, Orbitron, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { LogCapture } from '@/components/layout/LogCapture'
@@ -10,6 +10,8 @@ import { CorePluginSettingsInit } from '@/components/settings/CorePluginSettings
 const exo2 = Exo_2({ subsets: ['latin'], display: 'swap', variable: '--font-exo2' })
 // Self wordmark font (logo lettering "Self…") — Orbitron 800, per Self Brand-Kit.
 const orbitron = Orbitron({ subsets: ['latin'], weight: ['800'], display: 'swap', variable: '--font-orbitron' })
+// Self mono font (numbers, labels, status, badges) — IBM Plex Mono, per Self Brand-Kit / SelfMediaHub.
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['400', '500', '600'], display: 'swap', variable: '--font-plex-mono' })
 
 export const metadata: Metadata = {
   title: 'SelfDashboard',
@@ -28,7 +30,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${exo2.variable} ${orbitron.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${exo2.variable} ${orbitron.variable} ${plexMono.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <CorePluginSettingsInit />
         <LogCapture />

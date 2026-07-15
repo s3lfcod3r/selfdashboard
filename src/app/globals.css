@@ -9,24 +9,53 @@
   --background:  #080c11;
   --surface:     #161b22;
   --surface-2:   #1c2333;
-  --border:      #233140;
+  --border:      rgba(157, 189, 208, 0.12);
   --text:        #eef4f7;
   --text-muted:  #8a9caa;
   --accent:      #33a78c;
   /* Wortmarke: „Self" = Eis-Blau (Self Brand-Kit --self-ice). Default für alle dunklen Themes. */
   --brand-self:  #9dbdd0;
   --font-ui:     var(--font-exo2), 'Inter', 'DM Sans', system-ui, sans-serif;
+  --font-mono:   var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+
+  /* ── Self Brand-Kit — erweiterte Design-Tokens (Referenz: SelfMediaHub) ──
+     Nutzbar von allen Komponenten; überschrieben je Theme unten. */
+  --section:       #0d1117;                        /* Zwischen-Ebene (bg-1) für Verläufe */
+  --accent-bright: #43d3ad;                        /* Teal Hover / Highlight */
+  --accent-deep:   #1f7763;                        /* Teal Tiefe / Verläufe */
+  --accent-cyan:   #00e5c8;                         /* Live/Signal-Akzent */
+  --ice:           #9dbdd0;
+  --ice-bright:    #bcd9e9;
+  --line:          rgba(157, 189, 208, 0.10);       /* Hairline ruhig */
+  --line-strong:   rgba(157, 189, 208, 0.22);       /* Hairline interaktiv */
+  --ok:            #3fb950;
+  --bad:           #f85149;
+  --warn:          #d29922;
+  --radius:        12px;
+  --radius-sm:     8px;
+  --glow-teal:     0 0 60px -12px rgba(51, 167, 140, 0.45);
+  --ease:          cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast:      150ms;
+  --dur:           300ms;
+  /* Teal-Radial-Glow der Bühne (SelfMediaHub-Signatur). Andere Themes setzen ihn auf transparent. */
+  --stage-glow:    radial-gradient(1200px 600px at 85% -10%, rgba(51, 167, 140, 0.10), transparent 60%);
 }
 
 /* Self — Markenthema (= Standard via :root, auch explizit wählbar) */
 [data-theme="self"] {
-  --background:  #080c11;
-  --surface:     #161b22;
-  --surface-2:   #1c2333;
-  --border:      #233140;
-  --text:        #eef4f7;
-  --text-muted:  #8a9caa;
-  --accent:      #33a78c;
+  --background:    #080c11;
+  --surface:       #161b22;
+  --surface-2:     #1c2333;
+  --section:       #0d1117;
+  --border:        rgba(157, 189, 208, 0.12);
+  --text:          #eef4f7;
+  --text-muted:    #8a9caa;
+  --accent:        #33a78c;
+  --accent-bright: #43d3ad;
+  --accent-deep:   #1f7763;
+  --line:          rgba(157, 189, 208, 0.10);
+  --line-strong:   rgba(157, 189, 208, 0.22);
+  --stage-glow:    radial-gradient(1200px 600px at 85% -10%, rgba(51, 167, 140, 0.10), transparent 60%);
 }
 
 /* Dark (Indigo) — das bisherige Standard-Theme, bleibt erhalten & wählbar */
@@ -38,6 +67,19 @@
   --text:        #e8eaf0;
   --text-muted:  #6b7280;
   --accent:      #6366f1;
+}
+
+/* Nicht-Self-Themes (inkl. „Self Klassisch") behalten ihren eigenen, flachen
+   Look: kein Teal-Bühnen-Glow, keine Verlaufs-/Lift-Aufwertung. Letztere hängen
+   ausschließlich an [data-theme="self"] und greifen hier ohnehin nicht. */
+[data-theme="self-classic"],
+[data-theme="dark"],
+[data-theme="light"],
+[data-theme="nord"],
+[data-theme="catppuccin"],
+[data-theme="dracula"],
+[data-theme="solarized"] {
+  --stage-glow: none;
 }
 
 [data-theme="light"] {
@@ -105,6 +147,14 @@ html, body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Bühnen-Glow (SelfMediaHub-Signatur) — fest am Viewport, scrollt nicht mit.
+   --stage-glow ist nur im Self-Theme gesetzt, sonst `none`. */
+body {
+  background-image: var(--stage-glow, none);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
 /* ── Scrollbar (Self-Markenfarben) ─────────────────────────── */
 /* Firefox + Standard + Android-WebView respektieren scrollbar-color/-width. */
 html {
@@ -156,8 +206,8 @@ html {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: var(--radius);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s var(--ease);
 }
 
 .card:hover {
@@ -169,12 +219,12 @@ html {
 .widget-panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 0.5rem;
   height: 100%;
   display: flex;
   flex-direction: column;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.3s var(--ease), transform 0.3s var(--ease);
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
@@ -192,6 +242,28 @@ html {
 }
 
 .widget-panel:hover::before { opacity: 1; }
+
+/* ── Self-Theme — SelfMediaHub-Feinschliff (nur wenn Self aktiv) ──
+   Sanfter Flächen-Verlauf (bg-2 → bg-1) + Hover-Lift mit Teal-Glow. */
+[data-theme="self"] .widget-panel,
+:root:not([data-theme]) .widget-panel {
+  background: linear-gradient(180deg, var(--surface), var(--section));
+}
+
+[data-theme="self"] .widget-panel:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 14px 30px -18px rgba(0, 0, 0, 0.8), var(--glow-teal);
+  transform: translateY(-3px);
+}
+
+[data-theme="self"] .card {
+  background: linear-gradient(180deg, var(--surface), var(--section));
+}
+
+[data-theme="self"] .card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 30px -18px rgba(0, 0, 0, 0.8), var(--glow-teal);
+}
 
 /* ── Accent Button ─────────────────────────────────────────── */
 .btn-accent {
@@ -211,6 +283,15 @@ html {
 
 .btn-accent:hover { opacity: 0.88; }
 .btn-accent:active { transform: scale(0.97); }
+
+/* Self-Theme: Primär-Aktion als Teal-Verlauf mit dunklem Text (Brand-Kit .btn-primary). */
+[data-theme="self"] .btn-accent {
+  background: linear-gradient(180deg, var(--accent), var(--accent-deep));
+  color: #05110d;
+  font-weight: 600;
+}
+[data-theme="self"] .btn-accent:hover { opacity: 1; filter: brightness(1.08); }
+[data-theme="self"] .btn-ghost:hover { border-color: var(--accent); color: var(--text); }
 
 .btn-ghost {
   background: transparent;
@@ -415,3 +496,20 @@ html {
 .sd-widget-load-spin {
   animation: sd-widget-load-spin 0.9s linear infinite;
 }
+
+/* ── Self Brand-Kit — Text-Utilities (opt-in) ──────────────── */
+.self-mono { font-family: var(--font-mono); }
+.self-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.self-text-gradient {
+  background: linear-gradient(120deg, var(--ice-bright), var(--accent-bright));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.self-glow { box-shadow: var(--glow-teal); }
