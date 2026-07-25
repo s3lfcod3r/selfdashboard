@@ -111,6 +111,14 @@ export const PLUGIN_META_CATALOG: Record<string, PluginCatalogEntry> = {
     de: 'Sendungsverfolgung für DHL, Hermes und DPD — kostenlos, ohne API-Key. Mehrere Pakete mit Status, letztem Scan, voraussichtlicher Zustellung und Direktlink zum Anbieter. Drei Dichtestufen. API: /api/plugins/parcel/track.',
     en: 'Parcel tracking for DHL, Hermes and DPD — free, no API key. Multiple parcels with status, last scan, estimated delivery and a direct link to the carrier. Three density levels. API: /api/plugins/parcel/track.',
   },
+  'shelly-3em': {
+    de: 'Shelly Pro 3EM / 3EM: 3-Phasen-Hausmessung über die lokale RPC-API. Live-Leistung je Phase L1/L2/L3, Gesamtleistung mit Bezug/Einspeisung und optionaler kWh-Verlauf (heute/7 Tage/30 Tage). Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-3em.',
+    en: 'Shelly Pro 3EM / 3EM: 3-phase whole-house measurement via the local RPC API. Live per-phase power L1/L2/L3, total power with import/export and an optional kWh history (today/7 days/30 days). No cloud, no API key. API: /api/plugins/shelly-3em.',
+  },
+  'shelly-plug': {
+    de: 'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf. Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-plug.',
+    en: 'Shelly Plug PM Gen3 / Plug S Gen3 (and other Gen2+ plugs): live power, voltage/current, temperature and on/off switching straight from the dashboard. Optional kWh history. No cloud, no API key. API: /api/plugins/shelly-plug.',
+  },
   pihole: {
     de: 'Pi-hole-v6-Statistik wie im Web-Dashboard (Anfragen, blockiert, Anteil, Domains auf Listen). Blocking per Klick. Daten via /api/plugins/pihole.',
     en: 'Pi-hole v6 stats like the web dashboard (queries, blocked, share, domains on lists). Toggle blocking with one click. Data via /api/plugins/pihole.',

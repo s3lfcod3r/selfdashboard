@@ -38,6 +38,8 @@ Each plugin has a **README with German and English** sections:
 | [SelfMailer](selfmailer/README.md) | `selfmailer` |
 | [Selfstream](selfstream/README.md) | `selfstream` |
 | [Selfstream · Emby · Jellyfin](selfstream-emby/README.md) | `selfstream-emby` |
+| [Shelly 3EM](shelly-3em/README.md) | `shelly-3em` |
+| [Shelly Plug](shelly-plug/README.md) | `shelly-plug` |
 | [Spotify](spotify/README.md) | `spotify` |
 | [Speedtest Tracker](speedtest-tracker/README.md) | `speedtest-tracker` |
 | [TrueNAS](truenas/README.md) | `truenas` |
