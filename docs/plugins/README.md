@@ -15,6 +15,7 @@ Each plugin has a **README with German and English** sections:
 | [Clock](clock/README.md) | `clock` |
 | [CrowdSec](crowdsec/README.md) | `crowdsec` |
 | [Docker](docker/README.md) | `docker` |
+| [Dreame](dreame/README.md) | `dreame` |
 | [Email](mail/README.md) | `mail` |
 | [Emby](emby/README.md) | `emby` |
 | [FRITZ! Energy](fritz-energy/README.md) | `fritz-energy` |

@@ -213,6 +213,7 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 | 🕐 | [Clock](plugins-pack/clock/README.md) | Utility | Time, date, timezone |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/crowdsec.png" width="22"/> | [CrowdSec](plugins-pack/crowdsec/README.md) | Security | Alerts, bans, world map (optional) |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/docker.png" width="22"/> | [Docker](plugins-pack/docker/README.md) | System | Containers via socket |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dreame.png" width="22"/> | [Dreame](plugins-pack/dreame/README.md) | Utility | Robot vacuum status + start/pause/dock (cloud) **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png" width="22"/> | [Emby](plugins-pack/emby/README.md) | Media | Active sessions |
 | 📈 | [FRITZ! WAN](plugins-pack/fritzbox/README.md) | Network | Throughput chart |
 | ⚡ | [FRITZ! Energy](plugins-pack/fritz-energy/README.md) | Network | Smart plug kWh |
@@ -728,6 +729,7 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 | 🕐 | [Uhr](plugins-pack/clock/README.md) | Utility | Zeit, Datum, Zeitzone |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/crowdsec.png" width="22"/> | [CrowdSec](plugins-pack/crowdsec/README.md) | Sicherheit | Alerts, Banns, Weltkarte (optional) |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/docker.png" width="22"/> | [Docker](plugins-pack/docker/README.md) | System | Container per Socket |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dreame.png" width="22"/> | [Dreame](plugins-pack/dreame/README.md) | Utility | Saugroboter-Status + Start/Pause/Basis (Cloud) **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/emby.png" width="22"/> | [Emby](plugins-pack/emby/README.md) | Media | Aktive Sessions |
 | 📈 | [FRITZ! Internet](plugins-pack/fritzbox/README.md) | Netzwerk | WAN-Durchsatz-Kurve |
 | ⚡ | [FRITZ! Energie](plugins-pack/fritz-energy/README.md) | Netzwerk | Steckdose kWh/W |

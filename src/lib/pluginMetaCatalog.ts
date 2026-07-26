@@ -111,6 +111,10 @@ export const PLUGIN_META_CATALOG: Record<string, PluginCatalogEntry> = {
     de: 'Sendungsverfolgung für DHL, Hermes und DPD — kostenlos, ohne API-Key. Mehrere Pakete mit Status, letztem Scan, voraussichtlicher Zustellung und Direktlink zum Anbieter. Drei Dichtestufen. API: /api/plugins/parcel/track.',
     en: 'Parcel tracking for DHL, Hermes and DPD — free, no API key. Multiple parcels with status, last scan, estimated delivery and a direct link to the carrier. Three density levels. API: /api/plugins/parcel/track.',
   },
+  dreame: {
+    de: 'Dreame Saugroboter (Dreamehome-Cloud): Akku, Zustand, Fehler und Reinigungs-Statistik anzeigen und Start / Pause / zur Basis schalten. Login mit E-Mail+Passwort (verschlüsselt, danach Refresh-Token). Cloud-basiert (Beta).',
+    en: 'Dreame robot vacuums (Dreamehome cloud): show battery, state, error and cleaning stats and send start / pause / return-to-dock. Log in with email+password (encrypted, then refresh token). Cloud-based (beta).',
+  },
   muell: {
     nameDe: 'Müllabfuhr',
     nameEn: 'Waste Collection',
