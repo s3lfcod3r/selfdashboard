@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-07-25T08:23:40.641Z",
+  "generatedAt": "2026-07-26T11:40:32.405Z",
   "plugins": [
     {
       "id": "adguard",
@@ -380,6 +380,25 @@
         "server.mjs"
       ],
       "hasServer": true
+    },
+    {
+      "id": "muell",
+      "name": "Müllabfuhr",
+      "description": "Müll-Abholkalender: pro Tonne (Bio, Rest, Gelb, Papier …) Wochentag oder 14-tägig/4-wöchentlich mit Referenztermin eintragen. Zeigt die nächste Abholung mit Countdown und markiert „heute/morgen rausstellen“. Komplett lokal, kein Server.",
+      "version": "1.0.0",
+      "author": "SelfDashboard",
+      "category": "utility",
+      "icon": "🗑️",
+      "defaultLayout": {
+        "w": 3,
+        "h": 4,
+        "minW": 2,
+        "minH": 2
+      },
+      "files": [
+        "plugin.json",
+        "widget.js"
+      ]
     },
     {
       "id": "npm",

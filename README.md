@@ -227,6 +227,7 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/nginx-proxy-manager.png" width="22"/> | [Nginx Proxy Manager](plugins-pack/npm/README.md) | Network | Proxy hosts overview **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/openmediavault.png" width="22"/> | [OpenMediaVault](plugins-pack/openmediavault/README.md) | Storage | System info via RPC **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/opnsense.png" width="22"/> | [OPNsense](plugins-pack/opnsense/README.md) | Network | Version, gateways **(Beta)** |
+| 🗑️ | [Waste Collection](plugins-pack/muell/README.md) | Utility | Bin pickup calendar, next-up countdown, local |
 | 📦 | [Parcel Tracking](plugins-pack/parcel/README.md) | Utility | DHL / Hermes / DPD tracking, no API key |
 | <img src="plugins-pack/hue/icon.svg" width="22"/> | [Philips Hue](plugins-pack/hue/README.md) | Utility | Lights & rooms control **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/pi-hole.png" width="22"/> | [Pi-hole](plugins-pack/pihole/README.md) | Network | Pi-hole v6 stats |
@@ -741,6 +742,7 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/nginx-proxy-manager.png" width="22"/> | [Nginx Proxy Manager](plugins-pack/npm/README.md) | Netzwerk | Proxy-Hosts-Übersicht **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/openmediavault.png" width="22"/> | [OpenMediaVault](plugins-pack/openmediavault/README.md) | Storage | Systeminfo per RPC **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/opnsense.png" width="22"/> | [OPNsense](plugins-pack/opnsense/README.md) | Netzwerk | Version, Gateways **(Beta)** |
+| 🗑️ | [Müllabfuhr](plugins-pack/muell/README.md) | Utility | Abholkalender pro Tonne, Countdown, komplett lokal |
 | 📦 | [Paketverfolgung](plugins-pack/parcel/README.md) | Utility | Sendungsverfolgung DHL / Hermes / DPD, ohne API-Key |
 | <img src="plugins-pack/hue/icon.svg" width="22"/> | [Philips Hue](plugins-pack/hue/README.md) | Utility | Lampen & Räume steuern **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/pi-hole.png" width="22"/> | [Pi-hole](plugins-pack/pihole/README.md) | Netzwerk | DNS-Statistik v6 |

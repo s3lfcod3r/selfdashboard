@@ -111,6 +111,12 @@ export const PLUGIN_META_CATALOG: Record<string, PluginCatalogEntry> = {
     de: 'Sendungsverfolgung für DHL, Hermes und DPD — kostenlos, ohne API-Key. Mehrere Pakete mit Status, letztem Scan, voraussichtlicher Zustellung und Direktlink zum Anbieter. Drei Dichtestufen. API: /api/plugins/parcel/track.',
     en: 'Parcel tracking for DHL, Hermes and DPD — free, no API key. Multiple parcels with status, last scan, estimated delivery and a direct link to the carrier. Three density levels. API: /api/plugins/parcel/track.',
   },
+  muell: {
+    nameDe: 'Müllabfuhr',
+    nameEn: 'Waste Collection',
+    de: 'Müll-Abholkalender: pro Tonne (Bio, Rest, Gelb, Papier …) Wochentag oder 14-tägig/4-wöchentlich mit Referenztermin. Zeigt die nächste Abholung mit Countdown und markiert „heute/morgen rausstellen“. Komplett lokal, kein Server.',
+    en: 'Bin collection calendar: set each bin (general, bio, recycling, paper …) to a weekday or every 2/4 weeks via a reference date. Shows the next pickup with a countdown and flags “put it out today/tomorrow”. Fully local, no server.',
+  },
   'shelly-3em': {
     de: 'Shelly Pro 3EM / 3EM: 3-Phasen-Hausmessung über die lokale RPC-API. Live-Leistung je Phase L1/L2/L3, Gesamtleistung mit Bezug/Einspeisung und optionaler kWh-Verlauf (heute/7 Tage/30 Tage). Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-3em.',
     en: 'Shelly Pro 3EM / 3EM: 3-phase whole-house measurement via the local RPC API. Live per-phase power L1/L2/L3, total power with import/export and an optional kWh history (today/7 days/30 days). No cloud, no API key. API: /api/plugins/shelly-3em.',

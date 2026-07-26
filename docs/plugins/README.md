@@ -25,6 +25,7 @@ Each plugin has a **README with German and English** sections:
 | [Homematic / RaspberryMatic](homematic/README.md) | `homematic` |
 | [Iframe](iframe/README.md) | `iframe` |
 | [Jellyfin](jellyfin/README.md) | `jellyfin` |
+| [Müllabfuhr](muell/README.md) | `muell` |
 | [Nginx Proxy Manager](npm/README.md) | `npm` |
 | [OPNsense](opnsense/README.md) | `opnsense` |
 | [OpenMediaVault](openmediavault/README.md) | `openmediavault` |
