@@ -23,9 +23,82 @@ type DeviceResult = {
   error?: number | null
   cleaningTime?: number | null
   cleanedArea?: number | null
+  consumables?: Consumables
+}
+
+type Consumables = {
+  mainBrush?: number | null
+  sideBrush?: number | null
+  filter?: number | null
+  sensor?: number | null
+  mopPad?: number | null
 }
 
 type Cmd = 'start' | 'pause' | 'dock'
+
+// Dreame fault/warning codes → readable text. `warn` = care/emptying reminder
+// (amber); otherwise a real error (red). Unknown codes fall back to a number.
+type Fault = { de: string; en: string; warn: boolean }
+const FAULTS: Record<number, Fault> = {
+  1: { de: 'Angehoben', en: 'Lifted', warn: true },
+  2: { de: 'Absturzsensor prüfen', en: 'Check cliff sensor', warn: true },
+  3: { de: 'Stoßstange klemmt', en: 'Bumper stuck', warn: false },
+  8: { de: 'Staubbehälter fehlt', en: 'Dust bin missing', warn: true },
+  9: { de: 'Wassertank/Behälter prüfen', en: 'Check tank/bin', warn: true },
+  10: { de: 'Frischwassertank leer — auffüllen', en: 'Clean-water tank empty', warn: true },
+  11: { de: 'Staubbehälter voll — leeren', en: 'Dust bin full', warn: true },
+  12: { de: 'Hauptbürste blockiert — reinigen', en: 'Main brush stuck', warn: true },
+  13: { de: 'Seitenbürste blockiert — reinigen', en: 'Side brush stuck', warn: true },
+  14: { de: 'Lüfter blockiert', en: 'Fan blocked', warn: false },
+  20: { de: 'Akku niedrig', en: 'Battery low', warn: true },
+  21: { de: 'Ladefehler', en: 'Charging fault', warn: false },
+  47: { de: 'Roboter blockiert', en: 'Robot blocked', warn: true },
+  48: { de: 'Laser/LDS-Fehler', en: 'Laser/LDS error', warn: false },
+  51: { de: 'Filter reinigen', en: 'Clean filter', warn: true },
+  56: { de: 'Laser-Sensor prüfen', en: 'Check laser sensor', warn: false },
+  68: { de: 'Wischmopp entfernen', en: 'Remove mop', warn: true },
+  75: { de: 'Akku leer — abgeschaltet', en: 'Battery empty — off', warn: true },
+  80: { de: 'Roboter steckt fest', en: 'Robot stuck', warn: true },
+  85: { de: 'Wischmopp-Sitz prüfen', en: 'Check mop install', warn: true },
+  86: { de: 'Schmutzwassertank voll — leeren', en: 'Dirty-water tank full', warn: true },
+  90: { de: 'Roboter steckt fest', en: 'Robot stuck', warn: true },
+  101: { de: 'Staubbehälter voll — leeren', en: 'Dust bin full', warn: true },
+  102: { de: 'Staubbehälter offen', en: 'Dust bin open', warn: true },
+  103: { de: 'Staubbehälter offen', en: 'Dust bin open', warn: true },
+  104: { de: 'Staubbehälter voll — leeren', en: 'Dust bin full', warn: true },
+  105: { de: 'Wassertank prüfen', en: 'Check water tank', warn: true },
+  107: { de: 'Frischwassertank leer — auffüllen', en: 'Clean-water tank empty', warn: true },
+  111: { de: 'Wischpad prüfen', en: 'Check mop pad', warn: true },
+  112: { de: 'Wischpad nass — trocknen', en: 'Mop pad wet — dry it', warn: true },
+  114: { de: 'Wischpad reinigen', en: 'Clean mop pad', warn: true },
+  116: { de: 'Frischwasser im Dock auffüllen', en: 'Refill dock clean water', warn: true },
+  117: { de: 'Station getrennt', en: 'Station disconnected', warn: true },
+  118: { de: 'Schmutzwasser im Dock leeren', en: 'Empty dock dirty water', warn: true },
+  120: { de: 'Kein Wischmopp in Station', en: 'No mop in station', warn: true },
+  121: { de: 'Staubbeutel voll — leeren', en: 'Dust bag full', warn: true },
+  123: { de: 'Selbsttest fehlgeschlagen', en: 'Self-test failed', warn: false },
+  126: { de: 'Wischmopp nicht erkannt', en: 'Mop not detected', warn: true },
+}
+
+function faultInfo(code: number, de: boolean): { text: string; warn: boolean } {
+  const f = FAULTS[code]
+  if (f) return { text: de ? f.de : f.en, warn: f.warn }
+  return { text: de ? `Meldung ${code}` : `Notice ${code}`, warn: true }
+}
+
+const CONSUMABLE_LABELS: { key: keyof Consumables; de: string; en: string }[] = [
+  { key: 'mainBrush', de: 'Hauptbürste', en: 'Main brush' },
+  { key: 'sideBrush', de: 'Seitenbürste', en: 'Side brush' },
+  { key: 'filter', de: 'Filter', en: 'Filter' },
+  { key: 'mopPad', de: 'Wischpad', en: 'Mop pad' },
+  { key: 'sensor', de: 'Sensoren', en: 'Sensors' },
+]
+
+function lifeColor(pct: number): string {
+  if (pct <= 10) return '#ef4444'
+  if (pct <= 25) return '#f59e0b'
+  return '#22c55e'
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -322,7 +395,10 @@ function RobotCard({
   const color = device.online ? STATUS_COLOR[status] : 'var(--text-muted)'
   const battery = device.battery
   const charging = device.charging === 1 || device.charging === 5
-  const hasError = device.online && typeof device.error === 'number' && device.error > 0
+  const fault = device.online && typeof device.error === 'number' && device.error > 0 ? faultInfo(device.error, de) : null
+  const care = CONSUMABLE_LABELS.map((c) => ({ ...c, pct: device.consumables?.[c.key] })).filter(
+    (c) => typeof c.pct === 'number',
+  ) as { key: keyof Consumables; de: string; en: string; pct: number }[]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `4px solid ${color}` }}>
@@ -343,9 +419,21 @@ function RobotCard({
         <span style={{ fontSize: 'clamp(13px, 4cqmin, 16px)', fontWeight: 800, color }}>
           {device.online ? statusLabel(status, de) : de ? 'Offline' : 'Offline'}
         </span>
-        {hasError ? (
-          <span style={{ fontSize: 'clamp(9px, 2.3cqmin, 10.5px)', fontWeight: 600, color: '#ef4444' }}>
-            {de ? `Fehler ${device.error}` : `Error ${device.error}`}
+        {fault ? (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '2px 8px',
+              borderRadius: 999,
+              fontSize: 'clamp(9px, 2.3cqmin, 10.5px)',
+              fontWeight: 700,
+              color: fault.warn ? '#f59e0b' : '#ef4444',
+              background: fault.warn ? 'rgba(245,158,11,0.14)' : 'rgba(239,68,68,0.14)',
+            }}
+          >
+            {fault.warn ? '⚠' : '✕'} {fault.text}
           </span>
         ) : null}
       </div>
@@ -358,6 +446,22 @@ function RobotCard({
           {device.cleaningTime != null ? (
             <Stat label={de ? 'Dauer' : 'Time'} value={de ? `${Math.round(device.cleaningTime)} Min` : `${Math.round(device.cleaningTime)} min`} />
           ) : null}
+        </div>
+      ) : null}
+
+      {care.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+          <span style={{ fontSize: 'clamp(8px, 2cqmin, 9.5px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+            {de ? 'Pflege' : 'Care'}
+          </span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
+            {care.map((c) => (
+              <span key={c.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'clamp(9px, 2.2cqmin, 10.5px)', color: 'var(--text-muted)' }}>
+                {de ? c.de : c.en}
+                <span style={{ fontWeight: 700, color: lifeColor(c.pct) }}>{Math.round(c.pct)}%</span>
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -485,7 +589,7 @@ export const meta: PluginMeta = {
   category: 'utility',
   icon: '🤖',
   iconUrl: 'https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/dreame/logo-d.svg',
-  version: '1.0.0',
+  version: '1.1.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
   configSchema: [
     { key: 'email', label: 'E-Mail', type: 'text', defaultValue: '' },

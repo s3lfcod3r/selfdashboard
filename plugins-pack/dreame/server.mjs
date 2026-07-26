@@ -242,7 +242,14 @@ var ACTION = {
   pause: { siid: 2, aiid: 2 },
   dock: { siid: 3, aiid: 1 }
 };
-var ALL_PROPS = Object.values(PROP);
+var CONSUMABLE = {
+  mainBrush: { siid: 9, piid: 2 },
+  sideBrush: { siid: 10, piid: 2 },
+  filter: { siid: 11, piid: 1 },
+  sensor: { siid: 16, piid: 1 },
+  mopPad: { siid: 18, piid: 1 }
+};
+var ALL_PROPS = [...Object.values(PROP), ...Object.values(CONSUMABLE)];
 function normalizeStatus(code) {
   if ([1, 7, 9, 12, 25, 26, 27, 37, 38].includes(code)) return "cleaning";
   if ([5, 10, 17, 18, 28, 31].includes(code)) return "returning";
@@ -404,7 +411,14 @@ async function readDevice(country, tokens, device, signal) {
     status: normalizeStatus(stateCode),
     error: numOr(val(PROP.error), 0),
     cleaningTime: numOr(val(PROP.cleanTime), null),
-    cleanedArea: numOr(val(PROP.cleanArea), null)
+    cleanedArea: numOr(val(PROP.cleanArea), null),
+    consumables: {
+      mainBrush: numOr(val(CONSUMABLE.mainBrush), null),
+      sideBrush: numOr(val(CONSUMABLE.sideBrush), null),
+      filter: numOr(val(CONSUMABLE.filter), null),
+      sensor: numOr(val(CONSUMABLE.sensor), null),
+      mopPad: numOr(val(CONSUMABLE.mopPad), null)
+    }
   };
 }
 async function handlePost(req) {

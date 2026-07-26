@@ -59,7 +59,15 @@ const ACTION = {
   pause: { siid: 2, aiid: 2 },
   dock: { siid: 3, aiid: 1 },
 }
-const ALL_PROPS = Object.values(PROP)
+// Consumable remaining-life in % (care reminders).
+const CONSUMABLE = {
+  mainBrush: { siid: 9, piid: 2 },
+  sideBrush: { siid: 10, piid: 2 },
+  filter: { siid: 11, piid: 1 },
+  sensor: { siid: 16, piid: 1 },
+  mopPad: { siid: 18, piid: 1 },
+}
+const ALL_PROPS = [...Object.values(PROP), ...Object.values(CONSUMABLE)]
 
 /** Normalize a raw state code into a coarse status the widget can style. */
 function normalizeStatus(code: number): string {
@@ -271,6 +279,13 @@ async function readDevice(country: string, tokens: DreameTokens, device: DreameD
     error: numOr(val(PROP.error), 0),
     cleaningTime: numOr(val(PROP.cleanTime), null),
     cleanedArea: numOr(val(PROP.cleanArea), null),
+    consumables: {
+      mainBrush: numOr(val(CONSUMABLE.mainBrush), null),
+      sideBrush: numOr(val(CONSUMABLE.sideBrush), null),
+      filter: numOr(val(CONSUMABLE.filter), null),
+      sensor: numOr(val(CONSUMABLE.sensor), null),
+      mopPad: numOr(val(CONSUMABLE.mopPad), null),
+    },
   }
 }
 
