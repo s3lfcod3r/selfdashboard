@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-07-26T12:13:06.657Z",
+  "generatedAt": "2026-07-26T12:56:46.623Z",
   "plugins": [
     {
       "id": "adguard",
@@ -170,7 +170,7 @@
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "🤖",
-      "iconUrl": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/dreame.png",
+      "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/dreame/icon.svg",
       "defaultLayout": {
         "w": 3,
         "h": 4,
@@ -180,6 +180,7 @@
       "files": [
         "plugin.json",
         "widget.js",
+        "icon.svg",
         "server.mjs"
       ],
       "hasServer": true

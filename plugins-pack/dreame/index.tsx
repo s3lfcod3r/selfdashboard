@@ -484,6 +484,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'utility',
   icon: '🤖',
+  iconUrl: 'https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/dreame/icon.svg',
   version: '1.0.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
   configSchema: [
