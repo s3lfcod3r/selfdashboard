@@ -384,7 +384,7 @@ function mapError(e) {
 }
 function parseCountry(v) {
   const c = str(v).toLowerCase();
-  return /^[a-z]{2,3}$/.test(c) ? c : "de";
+  return /^[a-z]{2,3}$/.test(c) ? c : "eu";
 }
 async function readDevice(country, tokens, device, signal) {
   const readings = await dreameGetProperties(country, tokens, device, ALL_PROPS, signal);

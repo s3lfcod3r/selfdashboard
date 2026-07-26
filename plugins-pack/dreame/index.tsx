@@ -176,7 +176,7 @@ function Widget({ config }: PluginWidgetProps) {
   const cfg = config as Record<string, unknown>
   const email = str(cfg.email)
   const password = str(cfg.password)
-  const country = str(cfg.country) || 'de'
+  const country = str(cfg.country) || 'eu'
   const creds = useMemo(() => ({ email, password, country }), [email, password, country])
   const configured = Boolean(email && password)
   const allowControl = cfg.allowControl !== false
@@ -445,11 +445,11 @@ function Settings({ config, onChange }: PluginSettingsProps) {
         <label style={{ display: 'block', fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{de ? 'Dreamehome-Konto' : 'Dreamehome account'}</label>
         <input style={{ ...inp, marginBottom: 6 }} type="email" autoComplete="off" value={str(cfg.email)} placeholder={de ? 'E-Mail' : 'Email'} onChange={(e) => onChange('email', e.target.value)} />
         <input style={{ ...inp, marginBottom: 6 }} type="password" autoComplete="new-password" value={str(cfg.password)} placeholder={de ? 'Passwort' : 'Password'} onChange={(e) => onChange('password', e.target.value)} />
-        <input style={inp} value={cfg.country === undefined ? 'de' : str(cfg.country)} placeholder={de ? 'Region (z. B. de, eu)' : 'Region (e.g. de, eu)'} onChange={(e) => onChange('country', e.target.value)} />
+        <input style={inp} value={cfg.country === undefined ? 'eu' : str(cfg.country)} placeholder={de ? 'Region (z. B. eu)' : 'Region (e.g. eu)'} onChange={(e) => onChange('country', e.target.value)} />
         <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.5 }}>
           {de
-            ? 'Login mit E-Mail+Passwort aus der Dreamehome-App (nicht Google/Apple). Passwort wird verschlüsselt gespeichert; danach nutzt das Plugin einen Refresh-Token. Region für Deutschland: de.'
-            : 'Log in with the email+password from the Dreamehome app (not Google/Apple). The password is stored encrypted; afterwards the plugin uses a refresh token. Region for Germany: de.'}
+            ? 'Login mit E-Mail+Passwort aus der Dreamehome-App (nicht Google/Apple). Passwort wird verschlüsselt gespeichert; danach nutzt das Plugin einen Refresh-Token. Region für Deutschland/Europa: eu.'
+            : 'Log in with the email+password from the Dreamehome app (not Google/Apple). The password is stored encrypted; afterwards the plugin uses a refresh token. Region for Germany/Europe: eu.'}
         </p>
       </div>
 
@@ -490,7 +490,7 @@ export const meta: PluginMeta = {
   configSchema: [
     { key: 'email', label: 'E-Mail', type: 'text', defaultValue: '' },
     { key: 'password', label: 'Passwort', type: 'password', defaultValue: '' },
-    { key: 'country', label: 'Region', type: 'text', defaultValue: 'de' },
+    { key: 'country', label: 'Region', type: 'text', defaultValue: 'eu' },
     { key: 'allowControl', label: 'Steuern erlauben', type: 'boolean', defaultValue: true },
     { key: 'showTitle', label: 'Titel anzeigen', type: 'boolean', defaultValue: true },
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Dreame' },

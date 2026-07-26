@@ -21,7 +21,7 @@ mehr haben.
    - **E-Mail + Passwort** deines Dreamehome-Kontos.
      Wichtig: ein echtes Passwort-Konto — **nicht** „Mit Google/Apple anmelden".
      Falls du SSO nutzt, setze in der App einmal ein Passwort.
-   - **Region:** für Deutschland `de`.
+   - **Region:** für Deutschland/Europa `eu` (der `eu`-Cluster; ein Host `de` existiert nicht).
 2. „Steuern erlauben" nach Wunsch.
 
 ## Sicherheit
@@ -35,7 +35,7 @@ mehr haben.
 
 ## Technik
 
-- Cloud: `https://<region>.iot.dreame.tech:13267` (Dreames eigene, Alibaba-
+- Cloud: `https://<region>.iot.dreame.tech:13267` (Region z. B. `eu`; Dreames eigene, Alibaba-
   gehostete IoT-Cloud — nicht Xiaomi, nicht Tuya).
 - OAuth2 (Passwort- bzw. Refresh-Grant) → `device/listV2` →
   MIOT `get_properties` / `action` über `device/sendCommand`.
@@ -54,7 +54,7 @@ paused/ready/error), error code, cleaned area & time, and start / pause / dock
 buttons (optional).
 
 **Setup:** enter your Dreamehome **email + password** (a real password account,
-not Google/Apple SSO) and **region** (`de` for Germany). The password is stored
+not Google/Apple SSO) and **region** (`eu` for Germany/Europe). The password is stored
 encrypted and only used for the first login; afterwards a refresh token is used.
 
 **Beta:** unofficial cloud API (ported from `Tasshack/dreame-vacuum`), cloud-only,
