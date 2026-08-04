@@ -244,8 +244,11 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const title = cfg.title === undefined ? 'Shelly Plug' : str(cfg.title)
   const canEdit = Boolean(instanceId)
 
+  const confirmSwitch = cfg.confirmSwitch !== false
   const [results, setResults] = useState<DeviceResult[] | null>(null)
   const [pending, setPending] = useState<Record<string, boolean>>({})
+  const [confirming, setConfirming] = useState<Record<string, boolean>>({})
+  const [powerHist, setPowerHist] = useState<Record<string, number[]>>({})
   const busyRef = useRef(false)
   const { ref: shellRef, active } = usePollingActive<HTMLDivElement>()
 
@@ -275,6 +278,16 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
         const data = await fetchStatus(devices, password, track, signal)
         if (signal.aborted || data == null) return
         setResults(data)
+        // Keep a short rolling buffer of live power per device for the sparkline.
+        setPowerHist((prev) => {
+          const next = { ...prev }
+          for (const r of data) {
+            if (r.online && typeof r.power === 'number') {
+              next[r.id] = (next[r.id] ?? []).concat(Math.max(0, r.power)).slice(-40)
+            }
+          }
+          return next
+        })
       } finally {
         busyRef.current = false
       }
@@ -310,6 +323,26 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
     },
     [password, refresh],
   )
+
+  // Turning ON is harmless → immediate. Turning OFF asks for confirmation first
+  // (so a stray tap can't kill e.g. the PC), unless the user disabled it.
+  const requestToggle = useCallback(
+    (device: Device, current: boolean) => {
+      if (current && confirmSwitch) setConfirming((c) => ({ ...c, [device.id]: true }))
+      else void toggle(device, current)
+    },
+    [confirmSwitch, toggle],
+  )
+  const confirmOff = useCallback(
+    (device: Device) => {
+      setConfirming((c) => ({ ...c, [device.id]: false }))
+      void toggle(device, true)
+    },
+    [toggle],
+  )
+  const cancelOff = useCallback((device: Device) => {
+    setConfirming((c) => ({ ...c, [device.id]: false }))
+  }, [])
 
   const shell: CSSProperties = {
     height: '100%',
@@ -365,7 +398,11 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
             showHistory={track}
             allowSwitch={allowSwitch}
             pending={Boolean(pending[d.id])}
-            onToggle={toggle}
+            confirming={Boolean(confirming[d.id])}
+            history={powerHist[d.id]}
+            onToggle={requestToggle}
+            onConfirm={confirmOff}
+            onCancel={cancelOff}
           />
         ))}
       </div>
@@ -386,7 +423,11 @@ function PlugRow({
   showHistory,
   allowSwitch,
   pending,
+  confirming,
+  history,
   onToggle,
+  onConfirm,
+  onCancel,
 }: {
   device: Device
   result: DeviceResult | undefined
@@ -394,7 +435,11 @@ function PlugRow({
   showHistory: boolean
   allowSwitch: boolean
   pending: boolean
+  confirming: boolean
+  history?: number[]
   onToggle: (d: Device, current: boolean) => void
+  onConfirm: (d: Device) => void
+  onCancel: (d: Device) => void
 }) {
   const loading = result === undefined
   const offline = result != null && !result.online
@@ -409,10 +454,32 @@ function PlugRow({
         <span style={{ fontSize: 'clamp(11px, 3cqmin, 13px)', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }} title={name}>
           {name}
         </span>
-        {allowSwitch && !offline && !loading ? (
+        {allowSwitch && !offline && !loading && !confirming ? (
           <Toggle on={on} pending={pending} disabled={result?.output == null} onClick={() => onToggle(device, on)} de={de} />
         ) : null}
       </div>
+
+      {confirming ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 9px', borderRadius: 10, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.4)' }}>
+          <span style={{ fontSize: 'clamp(10px, 2.6cqmin, 12px)', fontWeight: 600, color: 'var(--text)', flex: 1, minWidth: 0 }}>
+            {de ? `„${name}" ausschalten?` : `Turn “${name}” off?`}
+          </span>
+          <button
+            type="button"
+            onClick={() => onConfirm(device)}
+            style={{ border: 'none', borderRadius: 7, padding: '5px 12px', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 'clamp(10px, 2.6cqmin, 12px)', cursor: 'pointer' }}
+          >
+            {de ? 'Aus' : 'Off'}
+          </button>
+          <button
+            type="button"
+            onClick={() => onCancel(device)}
+            style={{ border: '1px solid var(--border)', borderRadius: 7, padding: '5px 12px', background: 'transparent', color: 'var(--text-muted)', fontWeight: 600, fontSize: 'clamp(10px, 2.6cqmin, 12px)', cursor: 'pointer' }}
+          >
+            {de ? 'Abbrechen' : 'Cancel'}
+          </button>
+        </div>
+      ) : null}
 
       {loading ? (
         <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{de ? 'Wird geladen…' : 'Loading…'}</span>
@@ -443,6 +510,8 @@ function PlugRow({
             ) : null}
           </div>
 
+          {on && history && history.length >= 2 ? <Sparkline values={history} /> : null}
+
           {showHistory && result?.energy ? (
             <div style={{ display: 'flex', gap: 12, marginTop: 1 }}>
               <EnergyStat label={de ? 'Heute' : 'Today'} value={result.energy.today} de={de} />
@@ -452,6 +521,29 @@ function PlugRow({
         </>
       )}
     </div>
+  )
+}
+
+/** Tiny live power sparkline from a rolling buffer of recent readings. */
+function Sparkline({ values }: { values: number[] }) {
+  const w = 100
+  const h = 26
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = max - min || 1
+  const n = values.length
+  const line = values
+    .map((v, i) => {
+      const x = n === 1 ? 0 : (i / (n - 1)) * w
+      const y = h - ((v - min) / range) * (h - 4) - 2
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height={26} style={{ display: 'block', marginTop: 2 }} aria-hidden>
+      <polygon points={`0,${h} ${line} ${w},${h}`} fill="var(--accent)" opacity="0.13" />
+      <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
   )
 }
 
@@ -567,6 +659,11 @@ function Settings({ config, onChange }: PluginSettingsProps) {
         {de ? 'Schalten erlauben (An/Aus-Schalter anzeigen)' : 'Allow switching (show on/off toggle)'}
       </label>
 
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer', opacity: allowSwitch ? 1 : 0.5 }}>
+        <input type="checkbox" disabled={!allowSwitch} checked={cfg.confirmSwitch !== false} onChange={(e) => onChange('confirmSwitch', e.target.checked)} />
+        {de ? 'Vor dem Ausschalten nachfragen' : 'Confirm before turning off'}
+      </label>
+
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
         <input type="checkbox" checked={track} onChange={(e) => onChange('trackHistory', e.target.checked)} />
         {de ? 'Verlauf speichern (kWh heute / 7 Tage / 30 Tage)' : 'Store history (kWh today / 7d / 30d)'}
@@ -599,12 +696,13 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.0.0',
+  version: '1.1.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
     { key: 'password', label: 'Passwort', type: 'password', defaultValue: '' },
     { key: 'allowSwitch', label: 'Schalten erlauben', type: 'boolean', defaultValue: true },
+    { key: 'confirmSwitch', label: 'Ausschalten bestätigen', type: 'boolean', defaultValue: true },
     { key: 'trackHistory', label: 'Verlauf speichern', type: 'boolean', defaultValue: true },
     { key: 'showTitle', label: 'Titel anzeigen', type: 'boolean', defaultValue: true },
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Shelly Plug' },
