@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-08-04T14:04:45.562Z",
+  "generatedAt": "2026-08-04T14:10:33.228Z",
   "plugins": [
     {
       "id": "adguard",
@@ -713,7 +713,7 @@
       "id": "shelly-plug",
       "name": "Shelly Plug",
       "description": "Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf. Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-plug.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "SelfDashboard",
       "category": "system",
       "icon": "🔌",

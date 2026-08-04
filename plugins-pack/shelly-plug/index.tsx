@@ -510,7 +510,7 @@ function PlugRow({
             ) : null}
           </div>
 
-          {on && history && history.length >= 2 ? <Sparkline values={history} /> : null}
+          {on && history && history.length >= 2 ? <Sparkline values={history} de={de} /> : null}
 
           {showHistory && result?.energy ? (
             <div style={{ display: 'flex', gap: 12, marginTop: 1 }}>
@@ -524,12 +524,14 @@ function PlugRow({
   )
 }
 
-/** Tiny live power sparkline from a rolling buffer of recent readings. */
-function Sparkline({ values }: { values: number[] }) {
+/** Live power sparkline from a rolling buffer, with a hover tooltip that reads
+ * out the power at the point under the mouse. */
+function Sparkline({ values, de }: { values: number[]; de: boolean }) {
   const w = 100
   const h = 30
   const top = 4
   const bottom = h - 3
+  const RH = 34 // rendered pixel height
   const rawMin = Math.min(...values)
   const rawMax = Math.max(...values)
   // Scale to the actual range with headroom so a near-constant load still shows
@@ -540,33 +542,75 @@ function Sparkline({ values }: { values: number[] }) {
   const range = max - min || 1
   const n = values.length
 
-  const pts = values.map((v, i) => {
-    const x = n === 1 ? 0 : (i / (n - 1)) * w
-    const y = bottom - ((v - min) / range) * (bottom - top)
-    return [x, y] as [number, number]
-  })
+  const [hover, setHover] = useState<number | null>(null)
+
+  const yFor = (v: number) => bottom - ((v - min) / range) * (bottom - top)
+  const xFor = (i: number) => (n === 1 ? 0 : (i / (n - 1)) * w)
 
   // Smooth the line through segment midpoints (quadratic) for a nicer curve.
-  let line = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`
-  for (let i = 1; i < pts.length; i++) {
-    const [x0, y0] = pts[i - 1]
-    const [x1, y1] = pts[i]
+  let line = `M ${xFor(0).toFixed(1)} ${yFor(values[0]).toFixed(1)}`
+  for (let i = 1; i < n; i++) {
+    const x0 = xFor(i - 1)
+    const y0 = yFor(values[i - 1])
+    const x1 = xFor(i)
+    const y1 = yFor(values[i])
     line += ` Q ${x0.toFixed(1)} ${y0.toFixed(1)} ${((x0 + x1) / 2).toFixed(1)} ${((y0 + y1) / 2).toFixed(1)}`
   }
-  const last = pts[pts.length - 1]
-  line += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`
+  line += ` L ${xFor(n - 1).toFixed(1)} ${yFor(values[n - 1]).toFixed(1)}`
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const frac = (e.clientX - rect.left) / rect.width
+    setHover(Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1)))))
+  }
+
+  const hv = hover != null ? values[hover] : null
+  const hx = hover != null ? xFor(hover) : 0
+  const hyPx = hover != null ? (yFor(values[hover]) / h) * RH : 0
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height={34} style={{ display: 'block', marginTop: 2, overflow: 'visible' }} aria-hidden>
-      <defs>
-        <linearGradient id="shellyPlugSpark" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.35" />
-          <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={`${line} L ${w} ${h} L 0 ${h} Z`} fill="url(#shellyPlugSpark)" stroke="none" />
-      <path d={line} fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-    </svg>
+    <div
+      style={{ position: 'relative', width: '100%', height: RH, marginTop: 2, cursor: 'crosshair' }}
+      onMouseMove={onMove}
+      onMouseLeave={() => setHover(null)}
+    >
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height={RH} style={{ display: 'block' }} aria-hidden>
+        <defs>
+          <linearGradient id="shellyPlugSpark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--accent)" stopOpacity="0.35" />
+            <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={`${line} L ${w} ${h} L 0 ${h} Z`} fill="url(#shellyPlugSpark)" stroke="none" />
+        <path d={line} fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+
+      {hover != null && hv != null ? (
+        <>
+          <div style={{ position: 'absolute', left: `${hx}%`, top: 0, bottom: 0, width: 1, background: 'var(--accent)', opacity: 0.5, transform: 'translateX(-0.5px)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', left: `${hx}%`, top: hyPx, width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', transform: 'translate(-50%, -50%)', boxShadow: '0 0 0 2px var(--surface)', pointerEvents: 'none' }} />
+          <div
+            style={{
+              position: 'absolute',
+              left: `${Math.max(8, Math.min(92, hx))}%`,
+              top: -3,
+              transform: 'translate(-50%, -100%)',
+              background: 'var(--text)',
+              color: 'var(--surface)',
+              fontSize: 10,
+              fontWeight: 700,
+              padding: '1px 6px',
+              borderRadius: 5,
+              whiteSpace: 'nowrap',
+              pointerEvents: 'none',
+            }}
+          >
+            {fmtPower(hv, de)}
+          </div>
+        </>
+      ) : null}
+    </div>
   )
 }
 
@@ -719,7 +763,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.1.1',
+  version: '1.1.2',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
