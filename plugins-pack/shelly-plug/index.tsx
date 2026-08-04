@@ -527,22 +527,45 @@ function PlugRow({
 /** Tiny live power sparkline from a rolling buffer of recent readings. */
 function Sparkline({ values }: { values: number[] }) {
   const w = 100
-  const h = 26
-  const max = Math.max(...values, 1)
-  const min = Math.min(...values, 0)
+  const h = 30
+  const top = 4
+  const bottom = h - 3
+  const rawMin = Math.min(...values)
+  const rawMax = Math.max(...values)
+  // Scale to the actual range with headroom so a near-constant load still shows
+  // its wobble instead of being pinned to the top over a big empty area.
+  const pad = Math.max((rawMax - rawMin) * 0.35, rawMax * 0.06, 1)
+  const min = rawMin - pad
+  const max = rawMax + pad
   const range = max - min || 1
   const n = values.length
-  const line = values
-    .map((v, i) => {
-      const x = n === 1 ? 0 : (i / (n - 1)) * w
-      const y = h - ((v - min) / range) * (h - 4) - 2
-      return `${x.toFixed(1)},${y.toFixed(1)}`
-    })
-    .join(' ')
+
+  const pts = values.map((v, i) => {
+    const x = n === 1 ? 0 : (i / (n - 1)) * w
+    const y = bottom - ((v - min) / range) * (bottom - top)
+    return [x, y] as [number, number]
+  })
+
+  // Smooth the line through segment midpoints (quadratic) for a nicer curve.
+  let line = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1]
+    const [x1, y1] = pts[i]
+    line += ` Q ${x0.toFixed(1)} ${y0.toFixed(1)} ${((x0 + x1) / 2).toFixed(1)} ${((y0 + y1) / 2).toFixed(1)}`
+  }
+  const last = pts[pts.length - 1]
+  line += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height={26} style={{ display: 'block', marginTop: 2 }} aria-hidden>
-      <polygon points={`0,${h} ${line} ${w},${h}`} fill="var(--accent)" opacity="0.13" />
-      <polyline points={line} fill="none" stroke="var(--accent)" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height={34} style={{ display: 'block', marginTop: 2, overflow: 'visible' }} aria-hidden>
+      <defs>
+        <linearGradient id="shellyPlugSpark" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.35" />
+          <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={`${line} L ${w} ${h} L 0 ${h} Z`} fill="url(#shellyPlugSpark)" stroke="none" />
+      <path d={line} fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
@@ -696,7 +719,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.1.0',
+  version: '1.1.1',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
