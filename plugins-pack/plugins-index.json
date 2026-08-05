@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-08-05T16:46:38.854Z",
+  "generatedAt": "2026-08-05T17:39:28.899Z",
   "plugins": [
     {
       "id": "adguard",
@@ -166,7 +166,7 @@
       "id": "dreame",
       "name": "Dreame",
       "description": "Dreame Saugroboter (Dreamehome-Cloud): Akku, Zustand, Fehler und Reinigungs-Statistik anzeigen und Start / Pause / zur Basis schalten. Login mit E-Mail+Passwort (verschlüsselt gespeichert, danach Refresh-Token). Cloud-basiert, kein lokaler Zugriff. (Beta) API: /api/plugins/dreame.",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "🤖",

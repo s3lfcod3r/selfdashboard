@@ -257,7 +257,24 @@ function Widget({ config }: PluginWidgetProps) {
   const showTitle = cfg.showTitle !== false
   const title = cfg.title === undefined ? 'Dreame' : str(cfg.title)
 
-  const [devices, setDevices] = useState<DeviceResult[] | null>(null)
+  // Show the last-known devices immediately on (re)load, then refresh in the
+  // background — the cloud call is slow, so this makes the tile feel instant.
+  // sessionStorage survives a page reload (cleared only when the tab closes).
+  const cacheKey = `sd:dreame:${country}:${email}`
+  const [devices, setDevices] = useState<DeviceResult[] | null>(() => {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const raw = sessionStorage.getItem(cacheKey)
+        if (raw) {
+          const parsed = JSON.parse(raw) as { devices?: unknown }
+          if (Array.isArray(parsed.devices)) return parsed.devices as DeviceResult[]
+        }
+      }
+    } catch {
+      /* ignore corrupt cache */
+    }
+    return null
+  })
   const [errCode, setErrCode] = useState<string | null>(null)
   const [pending, setPending] = useState<Record<string, boolean>>({})
   const busyRef = useRef(false)
@@ -277,6 +294,13 @@ function Widget({ config }: PluginWidgetProps) {
         } else {
           setErrCode(null)
           setDevices(res.devices)
+          try {
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem(cacheKey, JSON.stringify({ devices: res.devices }))
+            }
+          } catch {
+            /* storage full / disabled — ignore */
+          }
         }
       } finally {
         busyRef.current = false
@@ -589,7 +613,7 @@ export const meta: PluginMeta = {
   category: 'utility',
   icon: '🤖',
   iconUrl: 'https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/dreame/logo-d.svg',
-  version: '1.1.1',
+  version: '1.1.2',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
   configSchema: [
     { key: 'email', label: 'E-Mail', type: 'text', defaultValue: '' },
