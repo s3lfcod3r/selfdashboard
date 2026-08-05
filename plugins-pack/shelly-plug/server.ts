@@ -121,8 +121,10 @@ async function handleStatus(devices: ShellyDevice[], password: string, track: bo
 }
 
 async function handleSwitch(device: ShellyDevice, on: boolean, password: string, signal: AbortSignal): Promise<Response> {
-  const base = normalizeShellyBase(device.ip)
   try {
+    // Inside the try so a malformed IP is mapped to a clean error like the
+    // status path, instead of throwing uncaught through the handler.
+    const base = normalizeShellyBase(device.ip)
     await shellyRpc(base, `Switch.Set?id=0&on=${on ? 'true' : 'false'}`, password, signal)
     return Response.json({ ok: true, output: on })
   } catch (e) {

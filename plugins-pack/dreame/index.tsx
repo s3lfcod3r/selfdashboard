@@ -589,7 +589,7 @@ export const meta: PluginMeta = {
   category: 'utility',
   icon: '🤖',
   iconUrl: 'https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/dreame/logo-d.svg',
-  version: '1.1.0',
+  version: '1.1.1',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 3 },
   configSchema: [
     { key: 'email', label: 'E-Mail', type: 'text', defaultValue: '' },

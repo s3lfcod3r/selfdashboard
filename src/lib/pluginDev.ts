@@ -50,7 +50,7 @@ export async function pluginApiJson<T>(
 ): Promise<T> {
   const url = path.startsWith('/api/')
     ? path
-    : `/api/plugins/${pluginId}${path.startsWith('/') ? path : `/${path}`}`
+    : `/api/plugins/${pluginId}${path && path !== '/' ? (path.startsWith('/') ? path : `/${path}`) : ''}`
   const { timeoutMs, signal: outerSignal, ...rest } = init ?? {}
   const { signal, cleanup } = fetchAbortSignal(outerSignal ?? undefined, timeoutMs)
   try {
@@ -120,7 +120,7 @@ export async function pluginApiJsonWithStale<T>(
 ): Promise<T> {
   const url = path.startsWith('/api/')
     ? path
-    : `/api/plugins/${pluginId}${path.startsWith('/') ? path : `/${path}`}`
+    : `/api/plugins/${pluginId}${path && path !== '/' ? (path.startsWith('/') ? path : `/${path}`) : ''}`
   const staleMaxAgeMs = init?.staleMaxAgeMs ?? 60_000
   const cached = readStaleApiCache<T>(url, staleMaxAgeMs)
   if (cached !== null) {

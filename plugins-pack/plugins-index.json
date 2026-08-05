@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-08-05T13:32:40.462Z",
+  "generatedAt": "2026-08-05T16:46:38.854Z",
   "plugins": [
     {
       "id": "adguard",
@@ -166,7 +166,7 @@
       "id": "dreame",
       "name": "Dreame",
       "description": "Dreame Saugroboter (Dreamehome-Cloud): Akku, Zustand, Fehler und Reinigungs-Statistik anzeigen und Start / Pause / zur Basis schalten. Login mit E-Mail+Passwort (verschlüsselt gespeichert, danach Refresh-Token). Cloud-basiert, kein lokaler Zugriff. (Beta) API: /api/plugins/dreame.",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "🤖",
@@ -713,7 +713,7 @@
       "id": "shelly-plug",
       "name": "Shelly Plug",
       "description": "Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf. Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-plug.",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "author": "SelfDashboard",
       "category": "system",
       "icon": "🔌",

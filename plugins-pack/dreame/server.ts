@@ -304,8 +304,10 @@ async function handlePost(req: Request): Promise<Response> {
 
   const ac = new AbortController()
   const timer = setTimeout(() => ac.abort(), DREAME_TIMEOUT_MS)
+  let acctKey: string | undefined
   try {
     const { key, tokens } = await ensureTokens(email, password, country, ac.signal)
+    acctKey = key
 
     if (body.action === 'command') {
       const cmd = str(body.cmd)
@@ -333,6 +335,10 @@ async function handlePost(req: Request): Promise<Response> {
     )
     return Response.json({ devices: results })
   } catch (e) {
+    // A 401 mid-poll (token rejected by the cloud, e.g. the phone app logged in
+    // concurrently) → drop the cached token so the next request re-authenticates
+    // via the stored refresh token instead of reusing the dead token for ~1h.
+    if (e instanceof DreameAuthError && e.message !== 'missing_credentials' && acctKey) cache.delete(acctKey)
     const code = mapError(e)
     if (code !== 'timeout') void logPluginApiFailure(PLUGIN_ID, str(body.action) || 'status', code)
     const httpStatus = code === 'auth_failed' || code === 'missing_credentials' ? 401 : 502

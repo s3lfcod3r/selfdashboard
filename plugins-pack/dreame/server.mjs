@@ -434,8 +434,10 @@ async function handlePost(req) {
   if (!email) return Response.json({ error: "missing_credentials" }, { status: 400 });
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), DREAME_TIMEOUT_MS);
+  let acctKey;
   try {
     const { key, tokens } = await ensureTokens(email, password, country, ac.signal);
+    acctKey = key;
     if (body.action === "command") {
       const cmd = str(body.cmd);
       const did = str(body.did);
@@ -460,6 +462,7 @@ async function handlePost(req) {
     );
     return Response.json({ devices: results });
   } catch (e) {
+    if (e instanceof DreameAuthError && e.message !== "missing_credentials" && acctKey) cache.delete(acctKey);
     const code = mapError(e);
     if (code !== "timeout") void logPluginApiFailure(PLUGIN_ID, str(body.action) || "status", code);
     const httpStatus = code === "auth_failed" || code === "missing_credentials" ? 401 : 502;

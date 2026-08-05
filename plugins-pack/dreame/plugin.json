@@ -2,7 +2,7 @@
   "id": "dreame",
   "name": "Dreame",
   "description": "Dreame Saugroboter (Dreamehome-Cloud): Akku, Zustand, Fehler und Reinigungs-Statistik anzeigen und Start / Pause / zur Basis schalten. Login mit E-Mail+Passwort (verschlüsselt gespeichert, danach Refresh-Token). Cloud-basiert, kein lokaler Zugriff. (Beta) API: /api/plugins/dreame.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "SelfDashboard",
   "category": "utility",
   "icon": "🤖",

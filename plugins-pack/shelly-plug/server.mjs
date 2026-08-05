@@ -466,8 +466,8 @@ async function handleStatus(devices, password, track, signal) {
   return Response.json({ devices: settled.map((s) => s.result) });
 }
 async function handleSwitch(device, on, password, signal) {
-  const base = normalizeShellyBase(device.ip);
   try {
+    const base = normalizeShellyBase(device.ip);
     await shellyRpc(base, `Switch.Set?id=0&on=${on ? "true" : "false"}`, password, signal);
     return Response.json({ ok: true, output: on });
   } catch (e) {
