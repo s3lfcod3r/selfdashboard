@@ -257,7 +257,7 @@ async function handleListGet(req) {
         if (c.State === "running" && CONTAINER_ID_RE.test(id)) runningIds.push(id);
       }
       const unique = [...new Set(runningIds)];
-      const statsArray = await poolMap(unique, 8, async (id) => ({ id, stats: await fetchContainerStats(id) }));
+      const statsArray = await poolMap(unique, 16, async (id) => ({ id, stats: await fetchContainerStats(id) }));
       const byId = new Map(statsArray.map((x) => [x.id, x.stats]));
       for (const c of arr) {
         const id = typeof c.Id === "string" ? c.Id : "";
