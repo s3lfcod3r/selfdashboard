@@ -1,6 +1,7 @@
 import { logPluginApiFailure } from '@/lib/pluginLogServer'
 import { openSealedSecret } from '@/lib/secretCrypto'
 import { assertSafeOutboundUrlResolved, UnsafeOutboundUrlError } from '@/lib/security/ssrf'
+import { createPluginServerCache } from '@/lib/pluginServerCache'
 import type { PluginServerContext } from '@/lib/pluginServerRegistry'
 import {
   fetchFritzBoxByteCountersOnly,
@@ -12,6 +13,15 @@ export const dynamic = 'force-dynamic'
 
 const FETCH_TIMEOUT_MS = 18_000
 const MAX_BODY_BYTES = 12_000
+
+// Short-lived cache for the heavy full summary (~19 TR-064 calls). The `lite`
+// byte-counter path (live throughput graph) is intentionally NOT cached so the
+// graph stays real-time. TTL keeps repeat dashboard loads instant without
+// showing meaningfully stale status.
+const summaryCache = createPluginServerCache({
+  ttlMs: Math.max(0, Number(process.env.FRITZBOX_SUMMARY_CACHE_MS) || 8_000),
+  maxEntries: 8,
+})
 
 function clampStr(v: unknown, max: number): string {
   if (typeof v !== 'string') return ''
@@ -71,15 +81,19 @@ export async function handleFritzboxPluginRequest(req: Request): Promise<Respons
       })
     }
 
+    const cacheKey = `${baseUrl}|${username}`
+    const cached = summaryCache.get(cacheKey) as Record<string, unknown> | null
+    if (cached) {
+      return Response.json({ ok: true, ...cached, cached: true })
+    }
+
     const summary = await fetchFritzBoxSummary(
       { baseUrl, username, password, insecureTls },
       ac.signal,
     )
-    return Response.json({
-      ok: true,
-      ...summary,
-      fetchedAt: new Date().toISOString(),
-    })
+    const payload = { ...summary, fetchedAt: new Date().toISOString() }
+    summaryCache.set(cacheKey, payload)
+    return Response.json({ ok: true, ...payload })
   } catch (e) {
     const name = e instanceof Error ? e.name : ''
     const msg = e instanceof Error ? e.message : String(e)
