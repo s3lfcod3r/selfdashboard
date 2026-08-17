@@ -2,6 +2,11 @@ version: '3.9'
 
 services:
   selfdashboard:
+    # Sicherheitshinweis: Dieser Container ist sehr mächtig (kann Docker, FRITZ!Box,
+    # Smart-Home steuern). ':latest' + Watchtower-Autoupdate rollt neue Images ohne
+    # menschliches OK aus. Für einen so mächtigen Container: erwäge eine feste
+    # Version zu pinnen (z. B. :v2.1.0) und bewusst zu aktualisieren, und/oder das
+    # Watchtower-Label unten zu entfernen (Updates dann manuell freigeben).
     image: ghcr.io/s3lfcod3r/selfdashboard:latest
     container_name: selfdashboard
     restart: unless-stopped
@@ -15,8 +20,20 @@ services:
       # zeigt (Pi-hole, AdGuard, Home Assistant, Hue, NAS, LAN-CalDAV/ICS …),
       # muss privaten Zugriff hier wieder freischalten:
       # - SELFDASHBOARD_ALLOW_PRIVATE_URLS=1
+      # EMPFOHLEN: festen Schlüssel setzen, damit verschlüsselte Zugangsdaten NICHT
+      # nur am automatisch erzeugten .calendar-key im Daten-Volume hängen (geht der
+      # Schlüssel verloren, sind alle gespeicherten Zugangsdaten unrettbar). Wert im
+      # Passwort-Manager sichern. Erzeugen z. B.:  openssl rand -base64 32
+      # - SELFDASHBOARD_SECRET_KEY=hier-langen-zufallswert-einsetzen
+      # AKTIVIEREN, wenn das Dashboard über HTTPS erreicht wird (z. B. lokaler
+      # Reverse-Proxy): setzt das Secure-Flag am Session-Cookie. Bei reinem HTTP/LAN
+      # AUS lassen, sonst wird das Login-Cookie nicht gesendet.
+      # - SELFDASHBOARD_SECURE_COOKIES=1
     volumes:
-      # Persist dashboard config across container restarts
+      # Persist dashboard config across container restarts.
+      # BACKUP: dieses Volume enthält auth.db, den verschlüsselten Dashboard-Stand
+      # UND den .calendar-key — ins Backup aufnehmen, idealerweise offline/
+      # unveränderbar (Ransomware auf dem Mount verlöre sonst Daten UND Schlüssel).
       - selfdashboard-data:/app/data
       # Plugins (Store / ZIP) — required for widgets
       - ./plugins-data:/app/plugins/custom
@@ -29,6 +46,8 @@ services:
       # Optional: CrowdSec widget — read-only crowdsec.db (only if CrowdSec runs on this host)
       # - /mnt/user/appdata/crowdsec/data:/crowdsec-data:ro
     labels:
+      # Autoupdate via Watchtower. Zeile entfernen, um manuell zu aktualisieren
+      # (für diesen mächtigen Container empfohlen — siehe Image-Hinweis oben).
       - "com.centurylinklabs.watchtower.enable=true"
 
 volumes:

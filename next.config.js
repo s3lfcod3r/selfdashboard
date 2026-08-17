@@ -26,10 +26,11 @@ const nextConfig = {
     '/*': ['./node_modules/better-sqlite3/**/*'],
   },
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: '**' },
-      { protocol: 'http', hostname: '**' },
-    ],
+    // Disable the built-in image optimizer: /_next/image with remotePatterns
+    // '**' was an open fetch proxy (SSRF/DoS against LAN/metadata hosts). With
+    // unoptimized, images load directly client-side (no server-side fetch),
+    // which also removes that request load from the server.
+    unoptimized: true,
   },
   webpack: (config) => {
     config.resolve.alias['@plugins'] = pluginsRoot

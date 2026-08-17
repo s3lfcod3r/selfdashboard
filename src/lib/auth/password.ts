@@ -24,7 +24,9 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 export function validatePasswordStrength(password: string): string | null {
-  if (password.length < 8) return 'password_too_short'
+  // Minimum 12 (only enforced when setting/changing a password; existing logins
+  // are unaffected). Longer minimum meaningfully raises offline-cracking cost.
+  if (password.length < 12) return 'password_too_short'
   if (password.length > 128) return 'password_too_long'
   return null
 }

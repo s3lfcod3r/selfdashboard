@@ -30,6 +30,11 @@ const SEALED_PLUGIN_CONFIG_KEYS: Record<string, readonly string[]> = {
   homematic: ['password'],
   'fritz-smarthome': ['password'],
   'bambu-cam': ['accessCode'],
+  // Server-proxied plugins (their server.ts unseals via openSealedSecret) —
+  // safe to seal at rest. Direct-fetch plugins must NOT be added here.
+  'shelly-plug': ['password'],
+  'shelly-3em': ['password'],
+  dreame: ['password'],
 }
 
 type PluginLike = { pluginId?: unknown; config?: unknown }
