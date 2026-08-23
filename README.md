@@ -239,7 +239,7 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 | 📺 | [Selfstream](plugins-pack/selfstream/README.md) | Media | Live IPTV |
 | 📺 | [Selfstream · Emby · Jellyfin](plugins-pack/selfstream-emby/README.md) | Media | Combined stream list |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png" width="22"/> | [Shelly 3EM](plugins-pack/shelly-3em/README.md) | System | 3-phase power, import/export, kWh history |
-| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png" width="22"/> | [Shelly Plug](plugins-pack/shelly-plug/README.md) | System | Plug power + on/off switch, kWh history |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png" width="22"/> | [Shelly Plug](plugins-pack/shelly-plug/README.md) | System | Several plugs per tile, power + on/off switch, kWh today / this month |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/spotify.png" width="22"/> | [Spotify](plugins-pack/spotify/README.md) | Media | Now playing, controls, seek, volume, search & device picker |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/speedtest-tracker.png" width="22"/> | [Speedtest Tracker](plugins-pack/speedtest-tracker/README.md) | Network | Latest down/up/ping **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/truenas.png" width="22"/> | [TrueNAS](plugins-pack/truenas/README.md) | Storage | System + pool status **(Beta)** |
@@ -755,7 +755,7 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 | 📺 | [Selfstream](plugins-pack/selfstream/README.md) | Media | IPTV-Streams live |
 | 📺 | [Selfstream · Emby · Jellyfin](plugins-pack/selfstream-emby/README.md) | Media | Kombinierte Stream-Liste |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png" width="22"/> | [Shelly 3EM](plugins-pack/shelly-3em/README.md) | System | 3-Phasen-Leistung, Bezug/Einspeisung, kWh-Verlauf |
-| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png" width="22"/> | [Shelly Plug](plugins-pack/shelly-plug/README.md) | System | Steckdosen-Leistung + An/Aus-Schalter, kWh-Verlauf |
+| <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png" width="22"/> | [Shelly Plug](plugins-pack/shelly-plug/README.md) | System | Mehrere Steckdosen je Kachel, Leistung + An/Aus, kWh heute / laufender Monat |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/spotify.png" width="22"/> | [Spotify](plugins-pack/spotify/README.md) | Media | Aktueller Titel, Steuerung, Seek, Lautstärke, Suche & Gerätewahl |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/speedtest-tracker.png" width="22"/> | [Speedtest Tracker](plugins-pack/speedtest-tracker/README.md) | Netzwerk | Letzter Down/Up/Ping **(Beta)** |
 | <img src="https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/truenas.png" width="22"/> | [TrueNAS](plugins-pack/truenas/README.md) | Storage | System + Pool-Status **(Beta)** |

@@ -10,8 +10,10 @@ import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProp
 // Types — mirror the normalized shape from server.ts.
 // ---------------------------------------------------------------------------
 
-type Device = { id: string; name: string; ip: string }
+/** `password` is optional and per-device; empty means "use the shared one". */
+type Device = { id: string; name: string; ip: string; password?: string }
 
+/** `month` is the calendar month (resets on the 1st), not a rolling 30 days. */
 type EnergyReading = { today: number; week: number; month: number }
 
 type DeviceResult = {
@@ -71,7 +73,10 @@ function parseDevices(raw: unknown): Device[] {
     .map((d): Device | null => {
       if (typeof d !== 'object' || d === null) return null
       const o = d as Record<string, unknown>
-      return { id: str(o.id) || newId(), name: str(o.name), ip: str(o.ip) }
+      const dev: Device = { id: str(o.id) || newId(), name: str(o.name), ip: str(o.ip) }
+      // Kept verbatim, not trimmed: a password may start or end with a space.
+      if (typeof o.password === 'string' && o.password) dev.password = o.password
+      return dev
     })
     .filter((d): d is Device => d !== null)
 }
@@ -86,6 +91,15 @@ function fmtPower(w: number, de: boolean): string {
 
 function fmtKwh(kwh: number, de: boolean): string {
   return `${kwh.toLocaleString(de ? 'de-DE' : 'en-GB', { maximumFractionDigits: kwh < 10 ? 2 : 1 })} kWh`
+}
+
+/**
+ * Short name of the current month ("Aug", "Sep") as the label for the calendar
+ * month figure. Naming the month says "this resets on the 1st" without needing
+ * a caption, and stays narrow enough for a small tile.
+ */
+function monthLabel(de: boolean): string {
+  return new Date().toLocaleDateString(de ? 'de-DE' : 'en-GB', { month: 'short' })
 }
 
 function errorText(code: string | undefined, de: boolean): string {
@@ -515,7 +529,7 @@ function PlugRow({
           {showHistory && result?.energy ? (
             <div style={{ display: 'flex', gap: 12, marginTop: 1 }}>
               <EnergyStat label={de ? 'Heute' : 'Today'} value={result.energy.today} de={de} />
-              <EnergyStat label={de ? '30 Tage' : '30 days'} value={result.energy.month} de={de} />
+              <EnergyStat label={monthLabel(de)} value={result.energy.month} de={de} />
             </div>
           ) : null}
         </>
@@ -695,14 +709,24 @@ function Settings({ config, onChange }: PluginSettingsProps) {
 
       <div>
         <label style={{ display: 'block', fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{de ? 'Steckdosen' : 'Plugs'}</label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {devices.map((d) => (
-            <div key={d.id} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input style={{ ...inp, flex: 1 }} value={d.name} placeholder={de ? 'Name' : 'Name'} onChange={(e) => update(d.id, { name: e.target.value })} />
-              <input style={{ ...inp, flex: 1 }} value={d.ip} placeholder={de ? 'IP / Host' : 'IP / host'} onChange={(e) => update(d.id, { ip: e.target.value })} />
-              <button type="button" onClick={() => remove(d.id)} title={de ? 'Entfernen' : 'Remove'} aria-label={de ? 'Entfernen' : 'Remove'} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, lineHeight: 0 }}>
-                <IconTrash size={15} />
-              </button>
+            <div key={d.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input style={{ ...inp, flex: 1 }} value={d.name} placeholder={de ? 'Name' : 'Name'} onChange={(e) => update(d.id, { name: e.target.value })} />
+                <input style={{ ...inp, flex: 1 }} value={d.ip} placeholder={de ? 'IP / Host' : 'IP / host'} onChange={(e) => update(d.id, { ip: e.target.value })} />
+                <button type="button" onClick={() => remove(d.id)} title={de ? 'Entfernen' : 'Remove'} aria-label={de ? 'Entfernen' : 'Remove'} style={{ border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, lineHeight: 0 }}>
+                  <IconTrash size={15} />
+                </button>
+              </div>
+              <input
+                style={{ ...inp, fontSize: 11.5, marginRight: 27 }}
+                type="password"
+                autoComplete="new-password"
+                value={d.password ?? ''}
+                placeholder={de ? 'eigenes Passwort (leer = gemeinsames unten)' : 'own password (empty = shared one below)'}
+                onChange={(e) => update(d.id, { password: e.target.value })}
+              />
             </div>
           ))}
         </div>
@@ -714,10 +738,12 @@ function Settings({ config, onChange }: PluginSettingsProps) {
       </div>
 
       <div>
-        <label style={{ display: 'block', fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{de ? 'Passwort (nur wenn Geräte-Auth aktiv)' : 'Password (only if device auth enabled)'}</label>
-        <input style={inp} type="password" value={str(cfg.password)} placeholder={de ? 'leer lassen, wenn keine Auth' : 'leave empty if no auth'} onChange={(e) => onChange('password', e.target.value)} />
+        <label style={{ display: 'block', fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{de ? 'Gemeinsames Passwort (nur wenn Geräte-Auth aktiv)' : 'Shared password (only if device auth enabled)'}</label>
+        <input style={inp} type="password" autoComplete="new-password" value={str(cfg.password)} placeholder={de ? 'leer lassen, wenn keine Auth' : 'leave empty if no auth'} onChange={(e) => onChange('password', e.target.value)} />
         <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.5 }}>
-          {de ? 'Benutzer ist bei Shelly immer „admin". Das Passwort wird verschlüsselt gespeichert.' : 'The Shelly user is always “admin”. The password is stored encrypted.'}
+          {de
+            ? 'Gilt für alle Steckdosen ohne eigenes Passwort. Benutzer ist bei Shelly immer „admin". Hinweis: in der Dashboard-Konfiguration derzeit unverschlüsselt abgelegt, nur für angemeldete Nutzer zugänglich.'
+            : 'Applies to every plug without its own password. The Shelly user is always “admin”. Note: currently kept unencrypted in the dashboard config, accessible to logged-in users only.'}
         </p>
       </div>
 
@@ -733,7 +759,7 @@ function Settings({ config, onChange }: PluginSettingsProps) {
 
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
         <input type="checkbox" checked={track} onChange={(e) => onChange('trackHistory', e.target.checked)} />
-        {de ? 'Verlauf speichern (kWh heute / 7 Tage / 30 Tage)' : 'Store history (kWh today / 7d / 30d)'}
+        {de ? 'Verlauf speichern (kWh heute / laufender Monat)' : 'Store history (kWh today / current month)'}
       </label>
 
       <div>
@@ -758,12 +784,12 @@ export const meta: PluginMeta = {
   id: 'shelly-plug',
   name: 'Shelly Plug',
   description:
-    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf. Ohne Cloud, ohne API-Key.',
+    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf (heute / laufender Monat), Passwort je Steckdose. Ohne Cloud, ohne API-Key.',
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.1.3',
+  version: '1.2.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },

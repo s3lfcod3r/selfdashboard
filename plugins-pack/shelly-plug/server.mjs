@@ -194,6 +194,7 @@ var ShellyAuthError = class extends Error {
   }
 };
 var SHELLY_TIMEOUT_MS = 8e3;
+var MAX_PASSWORD_LEN = 2e3;
 function str(v) {
   return typeof v === "string" ? v.trim() : v != null ? String(v).trim() : "";
 }
@@ -209,6 +210,16 @@ function mapShellyError(e) {
   if (e instanceof Error && e.name === "AbortError") return "timeout";
   return "unreachable";
 }
+function toDevice(raw) {
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw;
+  const ip = str(o.ip);
+  if (!ip) return null;
+  const dev = { id: str(o.id) || ip, name: str(o.name), ip };
+  const password = typeof o.password === "string" ? o.password.slice(0, MAX_PASSWORD_LEN) : "";
+  if (password) dev.password = password;
+  return dev;
+}
 function parseDevices(raw, maxDevices) {
   let arr = raw;
   if (typeof raw === "string") {
@@ -219,20 +230,10 @@ function parseDevices(raw, maxDevices) {
     }
   }
   if (!Array.isArray(arr)) return [];
-  return arr.slice(0, maxDevices).map((d) => {
-    if (typeof d !== "object" || d === null) return null;
-    const o = d;
-    const ip = str(o.ip);
-    if (!ip) return null;
-    return { id: str(o.id) || ip, name: str(o.name), ip };
-  }).filter((d) => d !== null);
+  return arr.slice(0, maxDevices).map(toDevice).filter((d) => d !== null);
 }
 function parseOneDevice(raw) {
-  if (typeof raw !== "object" || raw === null) return null;
-  const o = raw;
-  const ip = str(o.ip);
-  if (!ip) return null;
-  return { id: str(o.id) || ip, name: str(o.name), ip };
+  return toDevice(raw);
 }
 function normalizeShellyBase(raw) {
   const s = (raw ?? "").trim();
@@ -322,6 +323,12 @@ function startOfToday() {
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
+function startOfMonth() {
+  const d = /* @__PURE__ */ new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 function historyPath(pluginId) {
   return join3(dataDir(), "plugins", pluginId, "energy.json");
 }
@@ -383,11 +390,10 @@ function recordEnergy(pluginId, samples) {
   }
   writeHistory(pluginId, data);
 }
-function windowKwh(pluginId, deviceKey, counter, sinceMs) {
-  const arr = readHistory(pluginId)[deviceKey] ?? [];
+function sumWindow(snaps, counter, sinceMs) {
   let prev = null;
   let wh = 0;
-  for (const snap of arr) {
+  for (const snap of snaps) {
     const v = snap.c[counter];
     if (typeof v !== "number") continue;
     if (snap.t < sinceMs) {
@@ -399,19 +405,22 @@ function windowKwh(pluginId, deviceKey, counter, sinceMs) {
   }
   return wh / 1e3;
 }
-function energyWindows(pluginId, deviceKey, counter) {
-  const now = Date.now();
-  return {
-    today: windowKwh(pluginId, deviceKey, counter, startOfToday()),
-    week: windowKwh(pluginId, deviceKey, counter, now - 7 * DAY_MS),
-    month: windowKwh(pluginId, deviceKey, counter, now - 30 * DAY_MS)
-  };
+function windowsKwh(pluginId, deviceKey, counter, since) {
+  const snaps = readHistory(pluginId)[deviceKey] ?? [];
+  const out = {};
+  for (const name of Object.keys(since)) {
+    out[name] = sumWindow(snaps, counter, since[name]);
+  }
+  return out;
 }
 
 // plugins-pack/shelly-plug/server.ts
 var dynamic = "force-dynamic";
 var PLUGIN_ID = "shelly-plug";
 var MAX_DEVICES = 16;
+function devicePassword(dev, fallback) {
+  return dev.password ? openSealedSecret(dev.password) : fallback;
+}
 async function readDevice(dev, password, signal) {
   const base = normalizeShellyBase(dev.ip);
   const st = await shellyRpc(base, "Switch.GetStatus?id=0", password, signal);
@@ -433,7 +442,7 @@ async function handleStatus(devices, password, track, signal) {
   const settled = await Promise.all(
     devices.map(async (dev) => {
       try {
-        return await readDevice(dev, password, signal);
+        return await readDevice(dev, devicePassword(dev, password), signal);
       } catch (e) {
         const code = mapShellyError(e);
         if (code !== "timeout") void logPluginApiFailure(PLUGIN_ID, "status", `${code}:${dev.id}`);
@@ -458,9 +467,11 @@ async function handleStatus(devices, password, track, signal) {
       if (energyWh != null) samples[result.id] = { e: energyWh };
     }
     if (Object.keys(samples).length > 0) recordEnergy(PLUGIN_ID, samples);
+    const now = Date.now();
+    const since = { today: startOfToday(), week: now - 7 * DAY_MS, month: startOfMonth() };
     for (const { result } of settled) {
       if (!result.online) continue;
-      result.energy = energyWindows(PLUGIN_ID, result.id, "e");
+      result.energy = windowsKwh(PLUGIN_ID, result.id, "e", since);
     }
   }
   return Response.json({ devices: settled.map((s) => s.result) });
@@ -492,7 +503,7 @@ async function handlePost(req) {
       const device = parseOneDevice(body.device);
       if (!device) return Response.json({ error: "invalid_target" }, { status: 400 });
       if (typeof body.on !== "boolean") return Response.json({ error: "invalid_state" }, { status: 400 });
-      return await handleSwitch(device, body.on, password, ac.signal);
+      return await handleSwitch(device, body.on, devicePassword(device, password), ac.signal);
     }
     const devices = parseDevices(body.devices, MAX_DEVICES);
     if (devices.length === 0) return Response.json({ error: "no_devices" }, { status: 400 });

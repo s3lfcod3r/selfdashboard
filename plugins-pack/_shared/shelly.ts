@@ -28,7 +28,21 @@ export class ShellyAuthError extends Error {
 
 export const SHELLY_TIMEOUT_MS = 8_000
 
-export type ShellyDevice = { id: string; name: string; ip: string }
+/**
+ * A configured device. `password` is optional and per-device; devices without
+ * one fall back to the plugin-wide password, so existing single-password setups
+ * keep working untouched.
+ *
+ * Like the plugin-wide password, it is stored **plaintext-at-rest**: pack
+ * plugins are deliberately excluded from the host's seal allowlist (see the
+ * NOTE in src/lib/widgetSecrets.ts — sealing them broke their login). The value
+ * is still run through openSealedSecret(), which passes plaintext through
+ * unchanged, so nothing here has to change if sealing is enabled later.
+ */
+export type ShellyDevice = { id: string; name: string; ip: string; password?: string }
+
+/** Upper bound for a stored per-device secret; a sealed blob also fits. */
+const MAX_PASSWORD_LEN = 2000
 
 // ---------------------------------------------------------------------------
 // Shared value/parse helpers (used by both plugin servers — keep them here so a
@@ -60,6 +74,20 @@ export function mapShellyError(e: unknown): string {
   return 'unreachable'
 }
 
+/** Normalize one entry of the configured device list, or null if unusable. */
+function toDevice(raw: unknown): ShellyDevice | null {
+  if (typeof raw !== 'object' || raw === null) return null
+  const o = raw as Record<string, unknown>
+  const ip = str(o.ip)
+  if (!ip) return null
+  const dev: ShellyDevice = { id: str(o.id) || ip, name: str(o.name), ip }
+  // Kept verbatim, not trimmed: a password may legitimately start or end with
+  // a space, and it may be a sealed blob that the caller opens.
+  const password = typeof o.password === 'string' ? o.password.slice(0, MAX_PASSWORD_LEN) : ''
+  if (password) dev.password = password
+  return dev
+}
+
 /** Parse a device list (array or JSON string) into a bounded, validated list. */
 export function parseDevices(raw: unknown, maxDevices: number): ShellyDevice[] {
   let arr: unknown = raw
@@ -73,23 +101,13 @@ export function parseDevices(raw: unknown, maxDevices: number): ShellyDevice[] {
   if (!Array.isArray(arr)) return []
   return arr
     .slice(0, maxDevices)
-    .map((d): ShellyDevice | null => {
-      if (typeof d !== 'object' || d === null) return null
-      const o = d as Record<string, unknown>
-      const ip = str(o.ip)
-      if (!ip) return null
-      return { id: str(o.id) || ip, name: str(o.name), ip }
-    })
+    .map(toDevice)
     .filter((d): d is ShellyDevice => d !== null)
 }
 
 /** Parse a single device object (for the switch action). */
 export function parseOneDevice(raw: unknown): ShellyDevice | null {
-  if (typeof raw !== 'object' || raw === null) return null
-  const o = raw as Record<string, unknown>
-  const ip = str(o.ip)
-  if (!ip) return null
-  return { id: str(o.id) || ip, name: str(o.name), ip }
+  return toDevice(raw)
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +244,11 @@ export async function shellyRpc<T = Record<string, unknown>>(
 type CounterSnap = { t: number; c: Record<string, number> }
 type HistoryFile = Record<string, CounterSnap[]>
 
-/** Keep ~40 days so a 30-day window always has a baseline before it. */
+/**
+ * Keep ~40 days so a 30-day window always has a baseline before it. This also
+ * covers the calendar month: on the 31st the month start is 30 days back, and
+ * the baseline snapshot just before it still falls inside the retention.
+ */
 const MAX_AGE_MS = 40 * 24 * 60 * 60 * 1000
 /** Don't persist snapshots faster than this, whatever the poll interval. */
 const MIN_GAP_MS = 60 * 1000
@@ -239,6 +261,18 @@ export const DAY_MS = 24 * 60 * 60 * 1000
 /** Local midnight today, in epoch ms (container timezone). */
 export function startOfToday(): number {
   const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
+
+/**
+ * Local midnight on the 1st of the current month, in epoch ms (container
+ * timezone). Used for the calendar-month figure, which resets to 0 on the 1st —
+ * unlike the rolling 30-day window, it lines up with an electricity bill.
+ */
+export function startOfMonth(): number {
+  const d = new Date()
+  d.setDate(1)
   d.setHours(0, 0, 0, 0)
   return d.getTime()
 }
@@ -325,15 +359,16 @@ export function recordEnergy(pluginId: string, samples: Record<string, Record<st
 }
 
 /**
- * kWh accumulated on `counter` for `deviceKey` since `sinceMs`, summing only
- * positive step deltas. The last snapshot before the window seeds the baseline
- * so the first in-window step is measured from the window start.
+ * kWh on `counter` from `sinceMs` onwards, over snapshots already in memory.
+ * Only positive step deltas count, so a counter reset (device reboot, firmware
+ * update, factory reset) never yields a negative or absurd figure. The last
+ * snapshot before the window seeds the baseline, so the first in-window step is
+ * measured from the window start rather than from zero.
  */
-export function windowKwh(pluginId: string, deviceKey: string, counter: string, sinceMs: number): number {
-  const arr = readHistory(pluginId)[deviceKey] ?? []
+function sumWindow(snaps: CounterSnap[], counter: string, sinceMs: number): number {
   let prev: number | null = null
   let wh = 0
-  for (const snap of arr) {
+  for (const snap of snaps) {
     const v = snap.c[counter]
     if (typeof v !== 'number') continue
     if (snap.t < sinceMs) {
@@ -346,6 +381,33 @@ export function windowKwh(pluginId: string, deviceKey: string, counter: string, 
   return wh / 1000
 }
 
+/** kWh accumulated on `counter` for `deviceKey` since `sinceMs`. */
+export function windowKwh(pluginId: string, deviceKey: string, counter: string, sinceMs: number): number {
+  return sumWindow(readHistory(pluginId)[deviceKey] ?? [], counter, sinceMs)
+}
+
+/**
+ * Several windows for one device from a SINGLE history read. Prefer this over
+ * repeated windowKwh() calls: readHistory() parses the whole energy.json every
+ * time, so N windows × M devices on a 10-second poll is a lot of wasted work on
+ * a file that holds ~40 days of snapshots.
+ *
+ * `since` maps a caller-chosen window name → its start in epoch ms.
+ */
+export function windowsKwh<K extends string>(
+  pluginId: string,
+  deviceKey: string,
+  counter: string,
+  since: Record<K, number>,
+): Record<K, number> {
+  const snaps = readHistory(pluginId)[deviceKey] ?? []
+  const out = {} as Record<K, number>
+  for (const name of Object.keys(since) as K[]) {
+    out[name] = sumWindow(snaps, counter, since[name])
+  }
+  return out
+}
+
 /** Convenience: today / last 7 days / last 30 days kWh for a counter. */
 export function energyWindows(
   pluginId: string,
@@ -353,9 +415,9 @@ export function energyWindows(
   counter: string,
 ): { today: number; week: number; month: number } {
   const now = Date.now()
-  return {
-    today: windowKwh(pluginId, deviceKey, counter, startOfToday()),
-    week: windowKwh(pluginId, deviceKey, counter, now - 7 * DAY_MS),
-    month: windowKwh(pluginId, deviceKey, counter, now - 30 * DAY_MS),
-  }
+  return windowsKwh(pluginId, deviceKey, counter, {
+    today: startOfToday(),
+    week: now - 7 * DAY_MS,
+    month: now - 30 * DAY_MS,
+  })
 }

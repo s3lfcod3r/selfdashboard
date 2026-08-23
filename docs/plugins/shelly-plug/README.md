@@ -1,22 +1,45 @@
 # Shelly Plug
 
-Einzelne Steckdosen mit **Shelly Plug PM Gen3 / Plug S Gen3** (und anderen
-Gen2+ Steckdosen) überwachen **und schalten** — direkt über die lokale RPC-API,
-ohne Cloud, ohne API-Key.
+**Shelly Plug PM Gen3 / Plug S Gen3** (und andere Gen2+ Steckdosen) überwachen
+**und schalten** — direkt über die lokale RPC-API, ohne Cloud, ohne API-Key.
+
+Eine Kachel zeigt **mehrere Steckdosen untereinander** (bis zu 16), je eine
+Zeile pro Gerät.
 
 ## Was es zeigt
 
-- **Momentanleistung** (W), Spannung, Strom und Geräte-Temperatur.
-- **An/Aus-Schalter** direkt in der Kachel (optional abschaltbar).
-- Optionaler **kWh-Verlauf**: heute, 7 Tage, 30 Tage.
+Pro Steckdose:
+
+- **Name** und **Momentanleistung** (W), dazu Spannung, Strom und
+  Geräte-Temperatur.
+- **An/Aus-Schalter** direkt in der Zeile (optional abschaltbar).
+- Optionaler **kWh-Verlauf**: **heute** und **laufender Monat**.
+
+Der Monatswert ist der **Kalendermonat** — er springt am 1. auf 0 zurück und ist
+damit mit der Stromrechnung vergleichbar. Die Beschriftung nennt den Monat
+(„Aug“, „Sep“), damit das ohne Erklärung erkennbar ist.
 
 ## Einrichtung
 
 1. Shelly Plug ins WLAN bringen und die **IP-Adresse** notieren.
-2. Widget hinzufügen → Einstellungen → Steckdose(n) mit **Name + IP** eintragen.
+2. Widget hinzufügen → Einstellungen → Steckdosen mit **Name + IP** eintragen,
+   eine Zeile je Gerät.
 3. Nur falls am Gerät die **Authentifizierung** aktiv ist: Passwort eintragen
    (Benutzer ist bei Shelly immer `admin`). Sonst leer lassen.
-4. „Schalten erlauben" und „Verlauf speichern" nach Wunsch.
+4. „Schalten erlauben“ und „Verlauf speichern“ nach Wunsch.
+
+### Passwörter
+
+Zwei Ebenen, damit beide Fälle sauber funktionieren:
+
+- **Gemeinsames Passwort** (unten im Dialog) — gilt für alle Steckdosen, die
+  kein eigenes haben. Der Normalfall, wenn überall dasselbe Passwort gesetzt ist.
+- **Passwort je Steckdose** (Feld unter jeder Zeile) — hat Vorrang. Nötig, wenn
+  die Geräte unterschiedliche Passwörter haben.
+
+> **Ablage:** Beide Passwörter stehen derzeit **unverschlüsselt** in der
+> Dashboard-Konfiguration, zugänglich nur für angemeldete Nutzer. Grund und
+> Historie stehen in `src/lib/widgetSecrets.ts`.
 
 > **LAN-Zugriff:** Der SelfDashboard-Server ruft das Gerät direkt im Heimnetz
 > auf. Dazu muss am Container `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1` gesetzt sein,
@@ -30,20 +53,32 @@ ohne Cloud, ohne API-Key.
 - Status: `Switch.GetStatus?id=0` (`apower`, `voltage`, `current`,
   `aenergy.total`, `temperature.tC`, `output`).
 - Schalten: `Switch.Set?id=0&on=true|false`.
+- Auth: HTTP Digest (RFC 7616, SHA-256), Benutzer fest `admin`.
 - Verlauf: Zählerstands-Schnappschüsse im Daten-Volume; kWh je Zeitfenster =
-  Summe positiver Deltas (zählerreset-fest).
+  Summe positiver Deltas (zählerreset-fest). Aufbewahrung ~40 Tage, die letzten
+  2 Tage minutengenau, älteres stündlich ausgedünnt.
+
+> Der Verlauf beginnt mit der Einrichtung — **rückwirkend gibt es keine Daten**.
+> Direkt nach dem Einbau steht beim Monatswert 0.
 
 ---
 
 # Shelly Plug (English)
 
-Monitor **and switch** individual sockets with the **Shelly Plug PM Gen3 /
-Plug S Gen3** (and other Gen2+ plugs) via the local RPC API — no cloud, no key.
+Monitor **and switch** sockets with the **Shelly Plug PM Gen3 / Plug S Gen3**
+(and other Gen2+ plugs) via the local RPC API — no cloud, no key. One tile lists
+**up to 16 plugs**, one row each.
 
-**Shows:** live power (W), voltage, current, device temperature, an on/off
-toggle (optional) and an optional kWh history (today / 7d / 30d).
+**Shows per plug:** name, live power (W), voltage, current, device temperature,
+an on/off toggle (optional) and an optional kWh history — **today** and the
+**current calendar month** (resets on the 1st; the label names the month).
 
-**Setup:** add each plug by name + IP in settings; set a password only if the
-device has authentication enabled (Shelly user is always `admin`). The container
-needs `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1` to reach LAN devices. Switching is
-restricted to logged-in dashboard users.
+**Setup:** add each plug by name + IP in settings. Passwords work on two levels:
+a **shared password** for all plugs, and an optional **per-plug password** that
+overrides it — needed when the devices use different passwords. The Shelly user
+is always `admin`. See the German section above for how the two passwords are
+stored.
+
+The container needs `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1` to reach LAN devices.
+Switching is restricted to logged-in dashboard users. History starts when you
+set the plugin up — there is no retroactive data.

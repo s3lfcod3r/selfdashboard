@@ -1,8 +1,8 @@
 {
   "id": "shelly-plug",
   "name": "Shelly Plug",
-  "description": "Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf. Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-plug.",
-  "version": "1.1.3",
+  "description": "Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf (heute / laufender Monat), Passwort je Steckdose. Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-plug.",
+  "version": "1.2.0",
   "author": "SelfDashboard",
   "category": "system",
   "icon": "🔌",

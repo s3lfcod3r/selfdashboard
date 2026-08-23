@@ -9,12 +9,17 @@
  * Body actions:
  *   { action?: 'status', devices, password?, track? }  → live readings for all
  *   { action: 'switch', device, on, password? }         → set one socket on/off
+ *
+ * `password` is the plugin-wide fallback. A device entry may carry its own
+ * `password`, which wins — sockets on different passwords work in one widget.
+ * Both are plaintext-at-rest (pack plugins are excluded from the host's seal
+ * allowlist) but only reachable by logged-in dashboard users.
  */
 import { logPluginApiFailure } from '../_shared/log'
 import { openSealedSecret } from '../_shared/secret-crypto'
 import type { PluginServerContext } from '../_shared/plugin-server-types'
 import {
-  energyWindows,
+  DAY_MS,
   mapShellyError,
   normalizeShellyBase,
   num,
@@ -24,7 +29,10 @@ import {
   type ShellyDevice,
   shellyRpc,
   SHELLY_TIMEOUT_MS,
+  startOfMonth,
+  startOfToday,
   str,
+  windowsKwh,
 } from '../_shared/shelly'
 
 export const dynamic = 'force-dynamic'
@@ -41,6 +49,10 @@ type ReqBody = {
   track?: boolean
 }
 
+/**
+ * kWh per window. `month` is the CALENDAR month (resets on the 1st), not a
+ * rolling 30 days — that is what lines up with an electricity bill.
+ */
 type EnergyReading = { today: number; week: number; month: number }
 
 type DeviceResult = {
@@ -54,6 +66,16 @@ type DeviceResult = {
   tempC: number | null
   energy?: EnergyReading
   error?: string
+}
+
+/**
+ * The password to use for one device: its own if configured, otherwise the
+ * plugin-wide one. Run through openSealedSecret either way — it returns sealed
+ * values decrypted and plaintext unchanged, so this keeps working whichever way
+ * the host stores them.
+ */
+function devicePassword(dev: ShellyDevice, fallback: string): string {
+  return dev.password ? openSealedSecret(dev.password) : fallback
 }
 
 /** Switch.GetStatus → readings + the cumulative Wh counter for history. */
@@ -85,7 +107,7 @@ async function handleStatus(devices: ShellyDevice[], password: string, track: bo
   const settled = await Promise.all(
     devices.map(async (dev) => {
       try {
-        return await readDevice(dev, password, signal)
+        return await readDevice(dev, devicePassword(dev, password), signal)
       } catch (e) {
         const code = mapShellyError(e)
         if (code !== 'timeout') void logPluginApiFailure(PLUGIN_ID, 'status', `${code}:${dev.id}`)
@@ -111,9 +133,12 @@ async function handleStatus(devices: ShellyDevice[], password: string, track: bo
       if (energyWh != null) samples[result.id] = { e: energyWh }
     }
     if (Object.keys(samples).length > 0) recordEnergy(PLUGIN_ID, samples)
+    // One history read per device covering all three windows — see windowsKwh.
+    const now = Date.now()
+    const since = { today: startOfToday(), week: now - 7 * DAY_MS, month: startOfMonth() }
     for (const { result } of settled) {
       if (!result.online) continue
-      result.energy = energyWindows(PLUGIN_ID, result.id, 'e')
+      result.energy = windowsKwh(PLUGIN_ID, result.id, 'e', since)
     }
   }
 
@@ -151,7 +176,7 @@ async function handlePost(req: Request): Promise<Response> {
       const device = parseOneDevice(body.device)
       if (!device) return Response.json({ error: 'invalid_target' }, { status: 400 })
       if (typeof body.on !== 'boolean') return Response.json({ error: 'invalid_state' }, { status: 400 })
-      return await handleSwitch(device, body.on, password, ac.signal)
+      return await handleSwitch(device, body.on, devicePassword(device, password), ac.signal)
     }
 
     const devices = parseDevices(body.devices, MAX_DEVICES)
