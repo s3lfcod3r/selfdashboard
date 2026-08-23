@@ -314,6 +314,7 @@ async function shellyRpc(base, rpcPath, password, signal) {
   return await res.json();
 }
 var MAX_AGE_MS = 40 * 24 * 60 * 60 * 1e3;
+var HISTORY_RETENTION_MS = MAX_AGE_MS;
 var MIN_GAP_MS = 60 * 1e3;
 var FINE_WINDOW_MS = 2 * 24 * 60 * 60 * 1e3;
 var HOUR_MS = 60 * 60 * 1e3;
@@ -413,11 +414,61 @@ function windowsKwh(pluginId, deviceKey, counter, since) {
   }
   return out;
 }
+function bucketStart(ms, unit) {
+  const d = new Date(ms);
+  if (unit === "day") d.setHours(0, 0, 0, 0);
+  else d.setMinutes(0, 0, 0);
+  return d.getTime();
+}
+function nextBucket(ms, unit) {
+  const d = new Date(ms);
+  if (unit === "day") {
+    d.setDate(d.getDate() + 1);
+    d.setHours(0, 0, 0, 0);
+  } else {
+    d.setHours(d.getHours() + 1, 0, 0, 0);
+  }
+  return d.getTime();
+}
+function countBuckets(fromMs, toMs, unit) {
+  let n = 0;
+  for (let t = bucketStart(fromMs, unit); t < toMs && n <= 1e5; t = nextBucket(t, unit)) n++;
+  return n;
+}
+function bucketsKwh(pluginId, deviceKey, counter, fromMs, toMs, unit) {
+  const out = [];
+  const slot = /* @__PURE__ */ new Map();
+  for (let t = bucketStart(fromMs, unit); t < toMs; t = nextBucket(t, unit)) {
+    slot.set(t, out.length);
+    out.push({ t, kwh: 0 });
+  }
+  if (out.length === 0) return out;
+  const snaps = readHistory(pluginId)[deviceKey] ?? [];
+  const wh = new Array(out.length).fill(0);
+  let prev = null;
+  for (const snap of snaps) {
+    const v = snap.c[counter];
+    if (typeof v !== "number") continue;
+    if (snap.t < fromMs) {
+      prev = v;
+      continue;
+    }
+    if (snap.t >= toMs) break;
+    if (prev != null && v >= prev) {
+      const i = slot.get(bucketStart(snap.t, unit));
+      if (i != null) wh[i] += v - prev;
+    }
+    prev = v;
+  }
+  for (let i = 0; i < out.length; i++) out[i].kwh = wh[i] / 1e3;
+  return out;
+}
 
 // plugins-pack/shelly-plug/server.ts
 var dynamic = "force-dynamic";
 var PLUGIN_ID = "shelly-plug";
 var MAX_DEVICES = 16;
+var MAX_BUCKETS = 1200;
 function devicePassword(dev, fallback) {
   return dev.password ? openSealedSecret(dev.password) : fallback;
 }
@@ -488,6 +539,39 @@ async function handleSwitch(device, on, password, signal) {
     return Response.json({ error: code }, { status });
   }
 }
+function handleHistory(body) {
+  const device = parseOneDevice(body.device);
+  if (!device) return Response.json({ error: "invalid_target" }, { status: 400 });
+  const unit = body.unit === "day" ? "day" : "hour";
+  const now = Date.now();
+  const rawFrom = Number(body.from);
+  const rawTo = Number(body.to);
+  if (!Number.isFinite(rawFrom) || !Number.isFinite(rawTo)) {
+    return Response.json({ error: "invalid_range" }, { status: 400 });
+  }
+  const oldest = now - HISTORY_RETENTION_MS;
+  const from = Math.max(oldest, Math.min(rawFrom, now));
+  const to = Math.max(from, Math.min(rawTo, now));
+  if (to <= from) return Response.json({ error: "invalid_range" }, { status: 400 });
+  const wanted = countBuckets(from, to, unit);
+  if (wanted > MAX_BUCKETS) {
+    return Response.json({ error: "range_too_large", maxBuckets: MAX_BUCKETS, buckets: wanted }, { status: 400 });
+  }
+  const buckets = bucketsKwh(PLUGIN_ID, device.id, "e", from, to, unit);
+  const total = buckets.reduce((sum, b) => sum + b.kwh, 0);
+  const peak = buckets.reduce((max, b) => b.kwh > max ? b.kwh : max, 0);
+  return Response.json({
+    id: device.id,
+    unit,
+    from,
+    to,
+    clamped: from !== rawFrom || to !== rawTo,
+    oldest,
+    total,
+    peak,
+    buckets
+  });
+}
 async function handlePost(req) {
   let body;
   try {
@@ -495,6 +579,7 @@ async function handlePost(req) {
   } catch {
     return Response.json({ error: "invalid_json" }, { status: 400 });
   }
+  if (body.action === "history") return handleHistory(body);
   const password = openSealedSecret(str(body.password));
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), SHELLY_TIMEOUT_MS);

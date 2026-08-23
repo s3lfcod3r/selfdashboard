@@ -9,6 +9,7 @@
  * Body actions:
  *   { action?: 'status', devices, password?, track? }  → live readings for all
  *   { action: 'switch', device, on, password? }         → set one socket on/off
+ *   { action: 'history', device, from, to, unit }       → kWh per hour or day
  *
  * `password` is the plugin-wide fallback. A device entry may carry its own
  * `password`, which wins — sockets on different passwords work in one widget.
@@ -19,7 +20,11 @@ import { logPluginApiFailure } from '../_shared/log'
 import { openSealedSecret } from '../_shared/secret-crypto'
 import type { PluginServerContext } from '../_shared/plugin-server-types'
 import {
+  type BucketUnit,
+  bucketsKwh,
+  countBuckets,
   DAY_MS,
+  HISTORY_RETENTION_MS,
   mapShellyError,
   normalizeShellyBase,
   num,
@@ -40,13 +45,23 @@ export const dynamic = 'force-dynamic'
 const PLUGIN_ID = 'shelly-plug'
 const MAX_DEVICES = 16
 
+/**
+ * Upper bound on buckets per history request. 40 days of hourly buckets is 960,
+ * so this allows the full retention at the finer unit while still refusing an
+ * absurd range that would build a huge array and a huge response.
+ */
+const MAX_BUCKETS = 1200
+
 type ReqBody = {
-  action?: 'status' | 'switch'
+  action?: 'status' | 'switch' | 'history'
   devices?: unknown
   device?: unknown
   on?: unknown
   password?: string
   track?: boolean
+  from?: unknown
+  to?: unknown
+  unit?: unknown
 }
 
 /**
@@ -160,6 +175,53 @@ async function handleSwitch(device: ShellyDevice, on: boolean, password: string,
   }
 }
 
+/**
+ * Consumption per hour or per day for one device over a free range.
+ *
+ * Purely a read of the local history file — no device call, so it answers even
+ * while the plug is unplugged, and it needs no password.
+ */
+function handleHistory(body: ReqBody): Response {
+  const device = parseOneDevice(body.device)
+  if (!device) return Response.json({ error: 'invalid_target' }, { status: 400 })
+
+  const unit: BucketUnit = body.unit === 'day' ? 'day' : 'hour'
+  const now = Date.now()
+  const rawFrom = Number(body.from)
+  const rawTo = Number(body.to)
+  if (!Number.isFinite(rawFrom) || !Number.isFinite(rawTo)) {
+    return Response.json({ error: 'invalid_range' }, { status: 400 })
+  }
+
+  // Clamp to what the store can actually answer: nothing older than the
+  // retention, nothing in the future. Report the clamped range back so the UI
+  // can show what was really used instead of silently lying.
+  const oldest = now - HISTORY_RETENTION_MS
+  const from = Math.max(oldest, Math.min(rawFrom, now))
+  const to = Math.max(from, Math.min(rawTo, now))
+  if (to <= from) return Response.json({ error: 'invalid_range' }, { status: 400 })
+
+  const wanted = countBuckets(from, to, unit)
+  if (wanted > MAX_BUCKETS) {
+    return Response.json({ error: 'range_too_large', maxBuckets: MAX_BUCKETS, buckets: wanted }, { status: 400 })
+  }
+
+  const buckets = bucketsKwh(PLUGIN_ID, device.id, 'e', from, to, unit)
+  const total = buckets.reduce((sum, b) => sum + b.kwh, 0)
+  const peak = buckets.reduce((max, b) => (b.kwh > max ? b.kwh : max), 0)
+  return Response.json({
+    id: device.id,
+    unit,
+    from,
+    to,
+    clamped: from !== rawFrom || to !== rawTo,
+    oldest,
+    total,
+    peak,
+    buckets,
+  })
+}
+
 async function handlePost(req: Request): Promise<Response> {
   let body: ReqBody
   try {
@@ -167,6 +229,9 @@ async function handlePost(req: Request): Promise<Response> {
   } catch {
     return Response.json({ error: 'invalid_json' }, { status: 400 })
   }
+
+  // Answered from the local history file — no device call, no password needed.
+  if (body.action === 'history') return handleHistory(body)
 
   const password = openSealedSecret(str(body.password))
   const ac = new AbortController()

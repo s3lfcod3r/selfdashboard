@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { usePluginLocale } from '@/lib/pluginLocale'
 import { usePollingActive } from '@/hooks/usePollingActive'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
@@ -269,6 +270,8 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const [pending, setPending] = useState<Record<string, boolean>>({})
   const [confirming, setConfirming] = useState<Record<string, boolean>>({})
   const [powerHist, setPowerHist] = useState<Record<string, number[]>>({})
+  /** Device id whose detail popup is open, or null. */
+  const [openId, setOpenId] = useState<string | null>(null)
   const busyRef = useRef(false)
   const { ref: shellRef, active } = usePollingActive<HTMLDivElement>()
 
@@ -389,6 +392,7 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   }
 
   const byId = new Map((results ?? []).map((r) => [r.id, r]))
+  const openDevice = openId ? (devices.find((d) => d.id === openId) ?? null) : null
 
   // With the kWh column a cell needs more room, so ask for wider columns when
   // history is on. That alone keeps the row readable: auto-fit only opens a
@@ -448,6 +452,7 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
               onToggle={requestToggle}
               onConfirm={confirmOff}
               onCancel={cancelOff}
+              onOpen={(dev) => setOpenId(dev.id)}
             />
           ))}
         </ul>
@@ -471,6 +476,18 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
           ))}
         </div>
       )}
+
+      {openDevice ? (
+        <DetailModal
+          device={openDevice}
+          result={byId.get(openDevice.id)}
+          de={de}
+          allowSwitch={allowSwitch}
+          pending={Boolean(pending[openDevice.id])}
+          onToggle={requestToggle}
+          onClose={() => setOpenId(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -518,6 +535,8 @@ function CompactRow({
   onToggle: (d: Device, current: boolean) => void
   onConfirm: (d: Device) => void
   onCancel: (d: Device) => void
+  /** Click anywhere but the dot opens the detail popup. */
+  onOpen: (d: Device) => void
 }) {
   const loading = result === undefined
   const offline = result != null && !result.online
@@ -556,8 +575,17 @@ function CompactRow({
   }
 
   return (
-    <li title={title} style={{ listStyle: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+    <li title={`${title} — ${de ? 'klicken für Details' : 'click for details'}`} style={{ listStyle: 'none', margin: 0, padding: 0, minWidth: 0 }}>
       <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onOpen(device)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onOpen(device)
+          }
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -569,6 +597,7 @@ function CompactRow({
           fontSize: 'clamp(11px, 3.4cqw, 13px)',
           lineHeight: 1.15,
           minHeight: 19,
+          cursor: 'pointer',
         }}
       >
         {canSwitch ? (
@@ -577,7 +606,11 @@ function CompactRow({
             role="switch"
             aria-checked={on}
             disabled={pending}
-            onClick={() => onToggle(device, on)}
+            // The dot switches; the rest of the row opens the popup.
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle(device, on)
+            }}
             aria-label={on ? (de ? `${name} ausschalten` : `Turn ${name} off`) : de ? `${name} einschalten` : `Turn ${name} on`}
             style={{ ...dotStyle, cursor: pending ? 'not-allowed' : 'pointer' }}
           />
@@ -603,7 +636,10 @@ function CompactRow({
           <span style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
             <button
               type="button"
-              onClick={() => onConfirm(device)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onConfirm(device)
+              }}
               title={de ? 'Ausschalten' : 'Turn off'}
               style={{ border: 'none', borderRadius: 4, padding: '1px 6px', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: '0.82em', cursor: 'pointer', lineHeight: 1.3 }}
             >
@@ -611,7 +647,10 @@ function CompactRow({
             </button>
             <button
               type="button"
-              onClick={() => onCancel(device)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onCancel(device)
+              }}
               title={de ? 'Abbrechen' : 'Cancel'}
               style={{ border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px', background: 'transparent', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82em', cursor: 'pointer', lineHeight: 1.3 }}
             >
@@ -656,6 +695,317 @@ function CompactRow({
         )}
       </div>
     </li>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Detail popup — live values plus consumption over a freely chosen range.
+// ---------------------------------------------------------------------------
+
+type HistoryResponse = {
+  unit: BucketUnit
+  from: number
+  to: number
+  clamped?: boolean
+  oldest: number
+  total: number
+  peak: number
+  buckets: { t: number; kwh: number }[]
+  error?: string
+  maxBuckets?: number
+}
+
+type BucketUnit = 'hour' | 'day'
+
+const HOUR_MS = 3_600_000
+const DAY_MS = 24 * HOUR_MS
+
+/** `datetime-local` wants local wall-clock without a timezone suffix. */
+function toLocalInput(ms: number): string {
+  const d = new Date(ms)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+function fromLocalInput(v: string): number {
+  const ms = new Date(v).getTime()
+  return Number.isFinite(ms) ? ms : NaN
+}
+
+function fmtBucketLabel(t: number, unit: BucketUnit, de: boolean): string {
+  const loc = de ? 'de-DE' : 'en-GB'
+  return unit === 'hour'
+    ? new Date(t).toLocaleString(loc, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : new Date(t).toLocaleDateString(loc, { weekday: 'short', day: '2-digit', month: '2-digit' })
+}
+
+/** Bars scaled to the peak. Plain SVG — no chart library in the bundle. */
+function BarChart({ buckets, peak, unit, de }: { buckets: { t: number; kwh: number }[]; peak: number; unit: BucketUnit; de: boolean }) {
+  if (buckets.length === 0) return null
+  const H = 120
+  const gap = buckets.length > 120 ? 0 : 1
+  const bw = 100 / buckets.length
+  const scale = peak > 0 ? peak : 1
+  const ticks = [0, Math.floor(buckets.length / 2), buckets.length - 1]
+
+  return (
+    <div>
+      <svg viewBox={`0 0 100 ${H}`} preserveAspectRatio="none" style={{ width: '100%', height: 120, display: 'block' }} role="img" aria-label={de ? 'Verbrauch je Zeitraum' : 'Consumption per period'}>
+        <line x1={0} y1={H - 0.5} x2={100} y2={H - 0.5} stroke="var(--border)" strokeWidth={0.5} vectorEffect="non-scaling-stroke" />
+        {buckets.map((b, i) => {
+          const h = b.kwh > 0 ? Math.max(1.5, (b.kwh / scale) * (H - 6)) : 0
+          if (h === 0) return null
+          return (
+            <rect
+              key={b.t}
+              x={i * bw + gap / 2}
+              y={H - h}
+              width={Math.max(0.2, bw - gap)}
+              height={h}
+              fill="var(--accent, #22c55e)"
+              opacity={0.85}
+            >
+              <title>{`${fmtBucketLabel(b.t, unit, de)} · ${fmtKwh(b.kwh, de)}`}</title>
+            </rect>
+          )
+        })}
+      </svg>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10, color: 'var(--text-muted)' }}>
+        {ticks.map((i, n) => (
+          <span key={n} style={{ whiteSpace: 'nowrap' }}>{buckets[i] ? fmtBucketLabel(buckets[i].t, unit, de) : ''}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function DetailModal({
+  device,
+  result,
+  de,
+  allowSwitch,
+  pending,
+  onToggle,
+  onClose,
+}: {
+  device: Device
+  result: DeviceResult | undefined
+  de: boolean
+  allowSwitch: boolean
+  pending: boolean
+  onToggle: (d: Device, current: boolean) => void
+  onClose: () => void
+}) {
+  const name = device.name || device.ip
+  const [unit, setUnit] = useState<BucketUnit>('hour')
+  const [from, setFrom] = useState(() => toLocalInput(Date.now() - DAY_MS))
+  const [to, setTo] = useState(() => toLocalInput(Date.now()))
+  const [showChart, setShowChart] = useState(true)
+  const [showList, setShowList] = useState(false)
+  const [data, setData] = useState<HistoryResponse | null>(null)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(
+    async (f: number, t: number, u: BucketUnit) => {
+      setLoading(true)
+      setError('')
+      try {
+        const res = await fetch('/api/plugins/shelly-plug', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'history', device, from: f, to: t, unit: u }),
+          cache: 'no-store',
+        })
+        const json = (await res.json()) as HistoryResponse
+        if (!res.ok || json.error) {
+          setData(null)
+          setError(
+            json.error === 'range_too_large'
+              ? de
+                ? `Zeitraum zu groß für diese Auflösung (max. ${json.maxBuckets} Werte). Auf Tage umschalten oder Zeitraum kürzen.`
+                : `Range too large for this resolution (max. ${json.maxBuckets} points). Switch to days or shorten it.`
+              : de
+                ? 'Verlauf konnte nicht geladen werden.'
+                : 'Could not load history.',
+          )
+          return
+        }
+        setData(json)
+      } catch {
+        setData(null)
+        setError(de ? 'Verlauf konnte nicht geladen werden.' : 'Could not load history.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [device, de],
+  )
+
+  // Initial load, and whenever the resolution changes.
+  useEffect(() => {
+    const f = fromLocalInput(from)
+    const t = fromLocalInput(to)
+    if (Number.isFinite(f) && Number.isFinite(t)) void load(f, t, unit)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unit])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const apply = () => {
+    const f = fromLocalInput(from)
+    const t = fromLocalInput(to)
+    if (!Number.isFinite(f) || !Number.isFinite(t) || t <= f) {
+      setError(de ? 'Bitte einen gültigen Zeitraum wählen (bis nach von).' : 'Pick a valid range (end after start).')
+      return
+    }
+    void load(f, t, unit)
+  }
+
+  const preset = (ms: number, u: BucketUnit) => {
+    const now = Date.now()
+    setFrom(toLocalInput(now - ms))
+    setTo(toLocalInput(now))
+    setUnit(u)
+    void load(now - ms, now, u)
+  }
+
+  const online = result?.online === true
+  const on = result?.output === true
+  const oldestLabel = data ? new Date(data.oldest).toLocaleDateString(de ? 'de-DE' : 'en-GB') : ''
+
+  const chip: CSSProperties = {
+    border: '1px solid var(--border)',
+    borderRadius: 6,
+    padding: '3px 9px',
+    background: 'transparent',
+    color: 'var(--text-muted)',
+    fontSize: 11,
+    fontWeight: 600,
+    cursor: 'pointer',
+  }
+  const chipOn: CSSProperties = { ...chip, background: 'var(--accent)', borderColor: 'var(--accent)', color: '#fff' }
+  const stat: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 1 }
+  const statLbl: CSSProperties = { fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }
+  const statVal: CSSProperties = { fontSize: 14, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label={name}
+        style={{ width: 'min(620px, 96vw)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface, #1b1b1f)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.45)' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: !online ? '#ef4444' : on ? '#22c55e' : 'var(--text-muted)' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>{device.ip}{result?.error ? ` · ${errorText(result.error, de)}` : ''}</p>
+          </div>
+          {allowSwitch && online && result?.output != null ? (
+            <Toggle on={on} pending={pending} disabled={false} onClick={() => onToggle(device, on)} de={de} />
+          ) : null}
+          <button type="button" onClick={onClose} title={de ? 'Schließen' : 'Close'} aria-label={de ? 'Schließen' : 'Close'} style={{ ...chip, width: 28, height: 28, fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+            ×
+          </button>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 10, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+          <div style={stat}><span style={statLbl}>{de ? 'Leistung' : 'Power'}</span><span style={{ ...statVal, color: on ? 'var(--accent)' : 'var(--text)' }}>{online ? fmtPower(result?.power ?? 0, de) : '—'}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Spannung' : 'Voltage'}</span><span style={statVal}>{online && result?.voltage != null ? `${result.voltage.toFixed(1)} V` : '—'}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Strom' : 'Current'}</span><span style={statVal}>{online && result?.current != null ? `${result.current.toFixed(2)} A` : '—'}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Temperatur' : 'Temp.'}</span><span style={statVal}>{online && result?.tempC != null ? `${result.tempC.toFixed(1)} °C` : '—'}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Heute' : 'Today'}</span><span style={statVal}>{result?.energy ? fmtKwh(result.energy.today, de) : '—'}</span></div>
+          <div style={stat}><span style={statLbl}>{monthLabel(de)}</span><span style={statVal}>{result?.energy ? fmtKwh(result.energy.month, de) : '—'}</span></div>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <button type="button" style={chip} onClick={() => preset(DAY_MS, 'hour')}>{de ? '24 Std' : '24 h'}</button>
+          <button type="button" style={chip} onClick={() => preset(7 * DAY_MS, 'day')}>{de ? '7 Tage' : '7 days'}</button>
+          <button type="button" style={chip} onClick={() => preset(30 * DAY_MS, 'day')}>{de ? '30 Tage' : '30 days'}</button>
+          <span style={{ width: 1, height: 18, background: 'var(--border)', margin: '0 2px' }} />
+          <button type="button" style={unit === 'hour' ? chipOn : chip} onClick={() => setUnit('hour')}>{de ? 'Stunden' : 'Hours'}</button>
+          <button type="button" style={unit === 'day' ? chipOn : chip} onClick={() => setUnit('day')}>{de ? 'Tage' : 'Days'}</button>
+          <span style={{ flex: 1 }} />
+          <button type="button" style={showChart ? chipOn : chip} onClick={() => setShowChart((v) => !v || !showList)}>{de ? 'Diagramm' : 'Chart'}</button>
+          <button type="button" style={showList ? chipOn : chip} onClick={() => setShowList((v) => !v || !showChart)}>{de ? 'Liste' : 'List'}</button>
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 190px', minWidth: 0 }}>
+            <label style={{ display: 'block', fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>{de ? 'Von' : 'From'}</label>
+            <input style={{ ...inp, fontSize: 12 }} type="datetime-local" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div style={{ flex: '1 1 190px', minWidth: 0 }}>
+            <label style={{ display: 'block', fontSize: 10.5, color: 'var(--text-muted)', marginBottom: 3 }}>{de ? 'Bis' : 'To'}</label>
+            <input style={{ ...inp, fontSize: 12 }} type="datetime-local" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <button type="button" onClick={apply} style={{ ...chipOn, padding: '7px 14px', fontSize: 12 }}>{de ? 'Anzeigen' : 'Show'}</button>
+        </div>
+
+        {error ? (
+          <p style={{ margin: 0, fontSize: 12, color: '#ef4444', lineHeight: 1.45 }}>{error}</p>
+        ) : null}
+
+        {loading ? (
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>{de ? 'Wird geladen…' : 'Loading…'}</p>
+        ) : data ? (
+          <>
+            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+              <div style={stat}><span style={statLbl}>{de ? 'Summe' : 'Total'}</span><span style={statVal}>{fmtKwh(data.total, de)}</span></div>
+              <div style={stat}><span style={statLbl}>{de ? (unit === 'hour' ? 'Spitze / Std' : 'Spitze / Tag') : unit === 'hour' ? 'Peak / hour' : 'Peak / day'}</span><span style={statVal}>{fmtKwh(data.peak, de)}</span></div>
+              <div style={stat}><span style={statLbl}>{de ? 'Werte' : 'Points'}</span><span style={statVal}>{data.buckets.length}</span></div>
+            </div>
+
+            {data.clamped ? (
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                {de
+                  ? `Zeitraum gekürzt — der Verlauf reicht nur bis ${oldestLabel} zurück.`
+                  : `Range shortened — history only reaches back to ${oldestLabel}.`}
+              </p>
+            ) : null}
+
+            {data.total === 0 ? (
+              <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                {de
+                  ? 'Für diesen Zeitraum liegen keine Verbrauchsdaten vor. Der Verlauf beginnt erst mit dem Einrichten des Plugins.'
+                  : 'No consumption recorded for this range. History only starts once the plugin is set up.'}
+              </p>
+            ) : null}
+
+            {showChart ? <BarChart buckets={data.buckets} peak={data.peak} unit={unit} de={de} /> : null}
+
+            {showList ? (
+              <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <tbody>
+                    {data.buckets.map((b) => (
+                      <tr key={b.t} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '5px 9px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{fmtBucketLabel(b.t, unit, de)}</td>
+                        <td style={{ padding: '5px 9px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: b.kwh > 0 ? 'var(--text)' : 'var(--text-muted)', fontWeight: b.kwh > 0 ? 600 : 400 }}>
+                          {fmtKwh(b.kwh, de)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -1010,12 +1360,12 @@ export const meta: PluginMeta = {
   id: 'shelly-plug',
   name: 'Shelly Plug',
   description:
-    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — kompakte Zeilenansicht mit Statuspunkt, Name und Momentanleistung, optional mehrspaltig. Umschaltbar auf Detailkarten mit Verlauf. kWh heute / laufender Monat, Passwort je Steckdose, An/Aus-Schalten. Ohne Cloud, ohne API-Key.',
+    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — kompakte Zeilenansicht mit Statuspunkt, Name und Momentanleistung. Klick auf eine Zeile öffnet ein Detail-Popup mit Live-Werten und Verbrauch über einen frei wählbaren Zeitraum (Stunden oder Tage, Diagramm und Liste). kWh heute / laufender Monat, Passwort je Steckdose, An/Aus-Schalten. Ohne Cloud, ohne API-Key.',
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.4.1',
+  version: '1.5.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },

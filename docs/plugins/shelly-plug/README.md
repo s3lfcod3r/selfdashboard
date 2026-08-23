@@ -23,6 +23,32 @@ Steckdosen oder wenn du die Kurve sehen willst.
 
 Punktfarben: grün = an, grau = aus, rot = nicht erreichbar.
 
+## Detail-Popup
+
+**Ein Klick auf eine Zeile** öffnet ein Fenster mit allem zu dieser Steckdose —
+die Kachel selbst bleibt unverändert. Der Punkt schaltet weiterhin, geklickt
+wird also überall sonst in der Zeile.
+
+Im Popup:
+
+- **Live-Werte**: Leistung, Spannung, Strom, Gerätetemperatur, heute und
+  laufender Monat. Der Schalter ist auch hier.
+- **Zeitraum frei wählbar** über Von/Bis, dazu Schnellwahl für 24 Stunden,
+  7 Tage und 30 Tage.
+- **Auflösung** umschaltbar zwischen **Stunden** und **Tagen**.
+- **Darstellung**: Diagramm und Liste lassen sich einzeln zu- und abschalten —
+  nur Diagramm, nur Liste oder beides. Eines von beiden bleibt immer an.
+- **Summe**, **Spitzenwert** je Stunde bzw. Tag und die Anzahl der Werte.
+
+Grenzen, die das Popup selbst anzeigt: Der Verlauf reicht **40 Tage** zurück,
+ältere Zeiträume werden auf diesen Rand gekürzt und das wird vermerkt. Über
+1200 Werte pro Abfrage lehnt der Server ab — 40 Tage stündlich sind 960, passt
+also; wer mehr will, schaltet auf Tage.
+
+Die Abfrage geht **nicht** ans Gerät, sondern nur an die gespeicherten
+Zählerstände. Sie funktioniert also auch, wenn die Steckdose gerade nicht
+erreichbar ist.
+
 ## Was es zeigt
 
 Pro Steckdose:
@@ -78,6 +104,10 @@ Zwei Ebenen, damit beide Fälle sauber funktionieren:
 - Status: `Switch.GetStatus?id=0` (`apower`, `voltage`, `current`,
   `aenergy.total`, `temperature.tC`, `output`).
 - Schalten: `Switch.Set?id=0&on=true|false`.
+- Popup-Verlauf: `POST /api/plugins/shelly-plug` mit
+  `{ action: 'history', device, from, to, unit: 'hour'|'day' }` — antwortet aus
+  der lokalen Verlaufsdatei, ohne Geräteaufruf und ohne Passwort. Töpfe richten
+  sich nach der lokalen Uhr (Tag = lokale Mitternacht).
 - Auth: HTTP Digest (RFC 7616, SHA-256), Benutzer fest `admin`.
 - Verlauf: Zählerstands-Schnappschüsse im Daten-Volume; kWh je Zeitfenster =
   Summe positiver Deltas (zählerreset-fest). Aufbewahrung ~40 Tage, die letzten
@@ -100,6 +130,12 @@ plugs up once the tile is wide enough; the dot doubles as the on/off button, and
 the month kWh sits beside the watts whenever history is on. When space runs
 short the *name* truncates — the figures always stay whole. *Detail* is the
 per-plug card with sparkline, voltage, current, temperature and today/month.
+
+**Click a row** to open a popup with the live readings and consumption over a
+freely chosen range: from/to pickers plus 24 h / 7 d / 30 d shortcuts, an
+hours-or-days resolution switch, and independent chart and list toggles. History
+reaches back 40 days; the popup reads the stored counters only, so it works even
+while the plug is offline.
 
 **Shows per plug:** name, live power (W), voltage, current, device temperature,
 an on/off toggle (optional) and an optional kWh history — **today** and the

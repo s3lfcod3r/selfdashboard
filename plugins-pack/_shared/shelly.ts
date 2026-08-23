@@ -250,6 +250,9 @@ type HistoryFile = Record<string, CounterSnap[]>
  * the baseline snapshot just before it still falls inside the retention.
  */
 const MAX_AGE_MS = 40 * 24 * 60 * 60 * 1000
+
+/** How far back history reaches — clients use it to bound a date picker. */
+export const HISTORY_RETENTION_MS = MAX_AGE_MS
 /** Don't persist snapshots faster than this, whatever the poll interval. */
 const MIN_GAP_MS = 60 * 1000
 /** Full 1-min resolution for the last 2 days; older samples thin to hourly. */
@@ -405,6 +408,91 @@ export function windowsKwh<K extends string>(
   for (const name of Object.keys(since) as K[]) {
     out[name] = sumWindow(snaps, counter, since[name])
   }
+  return out
+}
+
+/** One hour or one day of consumption. `t` is the bucket start in epoch ms. */
+export type EnergyBucket = { t: number; kwh: number }
+
+export type BucketUnit = 'hour' | 'day'
+
+/**
+ * Bucket boundaries follow the LOCAL clock, not fixed offsets from the epoch:
+ * a "day" must start at local midnight, and an hour boundary has to survive a
+ * DST switch. Date's setters handle both.
+ */
+function bucketStart(ms: number, unit: BucketUnit): number {
+  const d = new Date(ms)
+  if (unit === 'day') d.setHours(0, 0, 0, 0)
+  else d.setMinutes(0, 0, 0)
+  return d.getTime()
+}
+
+function nextBucket(ms: number, unit: BucketUnit): number {
+  const d = new Date(ms)
+  if (unit === 'day') {
+    d.setDate(d.getDate() + 1)
+    d.setHours(0, 0, 0, 0)
+  } else {
+    d.setHours(d.getHours() + 1, 0, 0, 0)
+  }
+  return d.getTime()
+}
+
+/** How many buckets a range would produce — for callers that cap the request. */
+export function countBuckets(fromMs: number, toMs: number, unit: BucketUnit): number {
+  let n = 0
+  for (let t = bucketStart(fromMs, unit); t < toMs && n <= 100_000; t = nextBucket(t, unit)) n++
+  return n
+}
+
+/**
+ * Consumption per hour or per day across a range, from a single history read.
+ *
+ * Each positive counter step is booked to the bucket of the LATER snapshot. At
+ * the stored resolution (one snapshot per minute for the last two days, one per
+ * hour beyond that) a step never spans more than one bucket in practice, so the
+ * error is bounded by one sampling interval at the boundary.
+ *
+ * Empty buckets are returned as 0 rather than omitted, so a caller can plot the
+ * range without filling gaps itself.
+ */
+export function bucketsKwh(
+  pluginId: string,
+  deviceKey: string,
+  counter: string,
+  fromMs: number,
+  toMs: number,
+  unit: BucketUnit,
+): EnergyBucket[] {
+  const out: EnergyBucket[] = []
+  const slot = new Map<number, number>()
+  for (let t = bucketStart(fromMs, unit); t < toMs; t = nextBucket(t, unit)) {
+    slot.set(t, out.length)
+    out.push({ t, kwh: 0 })
+  }
+  if (out.length === 0) return out
+
+  const snaps = readHistory(pluginId)[deviceKey] ?? []
+  const wh = new Array<number>(out.length).fill(0)
+  let prev: number | null = null
+  for (const snap of snaps) {
+    const v = snap.c[counter]
+    if (typeof v !== 'number') continue
+    if (snap.t < fromMs) {
+      // Seeds the baseline so the first in-range step is measured from the
+      // range start, not from zero.
+      prev = v
+      continue
+    }
+    if (snap.t >= toMs) break
+    if (prev != null && v >= prev) {
+      const i = slot.get(bucketStart(snap.t, unit))
+      if (i != null) wh[i] += v - prev
+    }
+    prev = v
+  }
+  for (let i = 0; i < out.length; i++) out[i].kwh = wh[i] / 1000
   return out
 }
 
