@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-08-23T16:44:10.099Z",
+  "generatedAt": "2026-08-23T17:04:58.610Z",
   "plugins": [
     {
       "id": "adguard",
@@ -713,7 +713,7 @@
       "id": "shelly-plug",
       "name": "Shelly Plug",
       "description": "Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — kompakte Zeilenansicht mit Statuspunkt, Name und Momentanleistung, optional mehrspaltig. Umschaltbar auf Detailkarten mit Verlauf. kWh heute / laufender Monat, Passwort je Steckdose. Ohne Cloud, ohne API-Key. API: /api/plugins/shelly-plug.",
-      "version": "1.3.1",
+      "version": "1.4.0",
       "author": "SelfDashboard",
       "category": "system",
       "icon": "🔌",
