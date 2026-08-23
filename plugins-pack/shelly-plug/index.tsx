@@ -445,6 +445,9 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
             // Never scroll sideways: a too-narrow row must clip the name, not
             // push the watt value out of the tile.
             overflowX: 'hidden',
+            // Reserve the scrollbar gutter — without it the bar sits on top of
+            // the right-aligned watt value as soon as the list needs scrolling.
+            scrollbarGutter: 'stable',
             display: 'grid',
             // Two columns as soon as the tile is wide enough, but only once
             // there are enough plugs for a second column to look deliberate.
@@ -1060,7 +1063,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.3.0',
+  version: '1.3.1',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
