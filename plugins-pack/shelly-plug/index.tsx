@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { usePluginLocale } from '@/lib/pluginLocale'
 import { usePollingActive } from '@/hooks/usePollingActive'
-import { useDashboardStore } from '@/lib/store'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -45,8 +44,13 @@ function num(v: unknown, d: number): number {
   return Number.isFinite(n) ? n : d
 }
 
+/**
+ * Poll interval in seconds, 0–300. **0 means off**: the widget still loads once
+ * when it appears, it just stops polling afterwards. Anything between 1 and 9 is
+ * allowed too — it hits the device hard, but that is the operator's call.
+ */
 function clampRefresh(v: unknown): number {
-  return Math.min(300, Math.max(10, Math.round(num(v, 10))))
+  return Math.min(300, Math.max(0, Math.round(num(v, 10))))
 }
 
 function newId(): string {
@@ -246,10 +250,9 @@ async function sendSwitch(device: Device, on: boolean, password: string): Promis
 function Widget({ config, instanceId }: PluginWidgetProps) {
   const { de } = usePluginLocale()
   const cfg = config as Record<string, unknown>
-  const updatePluginConfig = useDashboardStore((s) => s.updatePluginConfig)
-
-  const allDevices = useMemo(() => parseDevices(cfg.devices), [cfg.devices])
-  const devices = useMemo(() => allDevices.filter((d) => d.ip), [allDevices])
+  // Entries without an IP are half-finished rows from Settings — skip them here
+  // instead of showing a permanently unreachable plug.
+  const devices = useMemo(() => parseDevices(cfg.devices).filter((d) => d.ip), [cfg.devices])
   const password = str(cfg.password)
   const track = cfg.trackHistory !== false
   const allowSwitch = cfg.allowSwitch !== false
@@ -280,17 +283,6 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [shellRef])
-
-  const addDevice = useCallback(
-    (name: string, ip: string) => {
-      // Build from the unfiltered list so a half-finished (blank-IP) entry from
-      // Settings is not silently dropped when quick-adding here.
-      if (!instanceId || !ip.trim() || allDevices.length >= MAX_DEVICES) return
-      const next = [...allDevices, { id: newId(), name: name.trim(), ip: ip.trim() }]
-      updatePluginConfig(instanceId, { devices: JSON.stringify(next) })
-    },
-    [instanceId, allDevices, updatePluginConfig],
-  )
 
   const sig = useMemo(() => devices.map((d) => `${d.id}|${d.ip}`).join(','), [devices])
 
@@ -328,6 +320,8 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
     if (!active) return
     const ac = new AbortController()
     void refresh(ac.signal)
+    // 0 = off: load once, then leave it alone. setInterval(…, 0) would spin.
+    if (refreshSec <= 0) return () => ac.abort()
     const t = window.setInterval(() => void refresh(ac.signal), refreshSec * 1000)
     return () => {
       ac.abort()
@@ -392,12 +386,11 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
       <div ref={shellRef} style={{ ...shell, alignItems: 'center', justifyContent: 'center', textAlign: 'center', gap: 12 }}>
         <IconPlug size={30} color="var(--text-muted)" />
         {canEdit ? (
-          <div style={{ width: '100%', maxWidth: 320 }}>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 8px', lineHeight: 1.45 }}>
-              {de ? 'Shelly Plug hinzufügen (Name + IP):' : 'Add a Shelly Plug (name + IP):'}
-            </p>
-            <AddForm onAdd={addDevice} de={de} />
-          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.45, maxWidth: 320 }}>
+            {de
+              ? 'Noch keine Steckdose. Über das Zahnrad in den Einstellungen hinzufügen (Name + IP).'
+              : 'No plug yet. Add one in settings via the gear icon (name + IP).'}
+          </p>
         ) : (
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.45 }}>
             {de ? 'Noch keine Steckdose. In den Einstellungen hinzufügen.' : 'No plug yet. Add one in settings.'}
@@ -496,12 +489,6 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
           ))}
         </div>
       )}
-
-      {canEdit && devices.length < MAX_DEVICES ? (
-        <div style={{ flexShrink: 0 }}>
-          <AddForm onAdd={addDevice} de={de} compact />
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -912,28 +899,6 @@ const inp: CSSProperties = {
   boxSizing: 'border-box',
 }
 
-function AddForm({ onAdd, de, compact }: { onAdd: (name: string, ip: string) => void; de: boolean; compact?: boolean }) {
-  const [name, setName] = useState('')
-  const [ip, setIp] = useState('')
-  const ready = ip.trim().length > 0
-  const submit = () => {
-    if (!ready) return
-    onAdd(name, ip)
-    setName('')
-    setIp('')
-  }
-  const field: CSSProperties = { ...inp, fontSize: compact ? 12 : 13, padding: compact ? '5px 8px' : '6px 10px' }
-  return (
-    <div style={{ display: 'flex', gap: 6 }}>
-      <input style={{ ...field, flex: 1, minWidth: 0 }} value={name} placeholder={de ? 'Name' : 'Name'} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
-      <input style={{ ...field, flex: 1, minWidth: 0 }} value={ip} placeholder={de ? 'IP / Host' : 'IP / host'} onChange={(e) => setIp(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
-      <button type="button" onClick={submit} disabled={!ready} title={de ? 'Hinzufügen' : 'Add'} aria-label={de ? 'Hinzufügen' : 'Add'} style={{ ...field, width: 'auto', cursor: ready ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', opacity: ready ? 1 : 0.5, color: 'var(--accent)' }}>
-        <IconPlus size={16} />
-      </button>
-    </div>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
@@ -1038,7 +1003,12 @@ function Settings({ config, onChange }: PluginSettingsProps) {
 
       <div>
         <label style={{ display: 'block', fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{de ? 'Aktualisieren (Sek.)' : 'Refresh (sec.)'}</label>
-        <input style={inp} type="number" min={5} max={300} value={clampRefresh(cfg.refreshSeconds)} onChange={(e) => onChange('refreshSeconds', clampRefresh(e.target.value))} />
+        <input style={inp} type="number" min={0} max={300} step={1} value={clampRefresh(cfg.refreshSeconds)} onChange={(e) => onChange('refreshSeconds', clampRefresh(e.target.value))} />
+        <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.5 }}>
+          {de
+            ? '0 bis 300. Bei 0 wird nur einmal beim Öffnen geladen und danach nicht mehr automatisch. Kleine Werte fragen das Gerät häufig ab.'
+            : '0 to 300. At 0 the widget loads once when it opens and then stops polling. Small values query the device often.'}
+        </p>
       </div>
 
       <p style={{ margin: 0, fontSize: 10.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
@@ -1063,7 +1033,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.3.1',
+  version: '1.4.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },

@@ -38,11 +38,19 @@ damit mit der Stromrechnung vergleichbar. Die Beschriftung nennt den Monat
 ## Einrichtung
 
 1. Shelly Plug ins WLAN bringen und die **IP-Adresse** notieren.
-2. Widget hinzufügen → Einstellungen → Steckdosen mit **Name + IP** eintragen,
-   eine Zeile je Gerät.
+2. Widget hinzufügen → **Zahnrad** → Steckdosen mit **Name + IP** eintragen,
+   eine Zeile je Gerät. Steckdosen werden ausschließlich hier gepflegt, die
+   Kachel selbst zeigt nur an.
 3. Nur falls am Gerät die **Authentifizierung** aktiv ist: Passwort eintragen
    (Benutzer ist bei Shelly immer `admin`). Sonst leer lassen.
 4. „Schalten erlauben“ und „Verlauf speichern“ nach Wunsch.
+
+### Aktualisieren
+
+**0 bis 300 Sekunden.** Bei **0** lädt die Kachel einmal beim Öffnen und fragt
+danach nicht mehr nach — sinnvoll, wenn die Steckdose ohnehin selten wechselt.
+Kleine Werte gehen ebenfalls, fragen das Gerät aber entsprechend häufig ab.
+Voreinstellung ist 10 Sekunden.
 
 ### Passwörter
 
@@ -95,7 +103,10 @@ per-plug card with sparkline, voltage, current, temperature and today/month.
 an on/off toggle (optional) and an optional kWh history — **today** and the
 **current calendar month** (resets on the 1st; the label names the month).
 
-**Setup:** add each plug by name + IP in settings. Passwords work on two levels:
+**Setup:** add each plug by name + IP in settings (the gear icon) — the tile
+itself only displays, it has no add form. The refresh interval accepts **0–300
+seconds**; at 0 the tile loads once and stops polling. Passwords work on two
+levels:
 a **shared password** for all plugs, and an optional **per-plug password** that
 overrides it — needed when the devices use different passwords. The Shelly user
 is always `admin`. See the German section above for how the two passwords are
