@@ -877,7 +877,13 @@ function DetailModal({
     void load(now - ms, now, u)
   }
 
+  // Tell "still loading" apart from "unreachable": a red dot and dashes
+  // while the first poll is in flight reads as a broken plug. This state is
+  // normal after reopening a dashboard, because polling pauses while the
+  // browser tab sits in the background (usePollingActive).
+  const statusLoading = result === undefined
   const online = result?.online === true
+  const dash = statusLoading ? '…' : '—'
   const on = result?.output === true
   const oldestLabel = data ? new Date(data.oldest).toLocaleDateString(de ? 'de-DE' : 'en-GB') : ''
 
@@ -908,10 +914,10 @@ function DetailModal({
         style={{ width: 'min(620px, 96vw)', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface, #1b1b1f)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 14, boxShadow: '0 10px 40px rgba(0,0,0,0.45)' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: !online ? '#ef4444' : on ? '#22c55e' : 'var(--text-muted)' }} />
+          <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flexShrink: 0, background: statusLoading ? 'var(--text-muted)' : !online ? '#ef4444' : on ? '#22c55e' : 'var(--text-muted)' }} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
-            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>{device.ip}{result?.error ? ` · ${errorText(result.error, de)}` : ''}</p>
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>{device.ip}{statusLoading ? (de ? ' · wird geladen…' : ' · loading…') : result?.error ? ` · ${errorText(result.error, de)}` : ''}</p>
           </div>
           {allowSwitch && online && result?.output != null ? (
             <Toggle on={on} pending={pending} disabled={false} onClick={() => onToggle(device, on)} de={de} />
@@ -922,12 +928,12 @@ function DetailModal({
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(72px, 1fr))', gap: 10, padding: '10px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-          <div style={stat}><span style={statLbl}>{de ? 'Leistung' : 'Power'}</span><span style={{ ...statVal, color: on ? 'var(--accent)' : 'var(--text)' }}>{online ? fmtPower(result?.power ?? 0, de) : '—'}</span></div>
-          <div style={stat}><span style={statLbl}>{de ? 'Spannung' : 'Voltage'}</span><span style={statVal}>{online && result?.voltage != null ? `${result.voltage.toFixed(1)} V` : '—'}</span></div>
-          <div style={stat}><span style={statLbl}>{de ? 'Strom' : 'Current'}</span><span style={statVal}>{online && result?.current != null ? `${result.current.toFixed(2)} A` : '—'}</span></div>
-          <div style={stat}><span style={statLbl}>{de ? 'Temperatur' : 'Temp.'}</span><span style={statVal}>{online && result?.tempC != null ? `${result.tempC.toFixed(1)} °C` : '—'}</span></div>
-          <div style={stat}><span style={statLbl}>{de ? 'Heute' : 'Today'}</span><span style={statVal}>{result?.energy ? fmtKwh(result.energy.today, de) : '—'}</span></div>
-          <div style={stat}><span style={statLbl}>{monthLabel(de)}</span><span style={statVal}>{result?.energy ? fmtKwh(result.energy.month, de) : '—'}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Leistung' : 'Power'}</span><span style={{ ...statVal, color: on ? 'var(--accent)' : 'var(--text)' }}>{online ? fmtPower(result?.power ?? 0, de) : dash}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Spannung' : 'Voltage'}</span><span style={statVal}>{online && result?.voltage != null ? `${result.voltage.toFixed(1)} V` : dash}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Strom' : 'Current'}</span><span style={statVal}>{online && result?.current != null ? `${result.current.toFixed(2)} A` : dash}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Temperatur' : 'Temp.'}</span><span style={statVal}>{online && result?.tempC != null ? `${result.tempC.toFixed(1)} °C` : dash}</span></div>
+          <div style={stat}><span style={statLbl}>{de ? 'Heute' : 'Today'}</span><span style={statVal}>{result?.energy ? fmtKwh(result.energy.today, de) : dash}</span></div>
+          <div style={stat}><span style={statLbl}>{monthLabel(de)}</span><span style={statVal}>{result?.energy ? fmtKwh(result.energy.month, de) : dash}</span></div>
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -1366,7 +1372,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.5.1',
+  version: '1.5.2',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
