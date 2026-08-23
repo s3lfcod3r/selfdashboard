@@ -257,6 +257,9 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const showTitle = cfg.showTitle !== false
   const title = cfg.title === undefined ? 'Shelly Plug' : str(cfg.title)
   const canEdit = Boolean(instanceId)
+  // 'compact' is the default: a dense line per plug, so several fit a small
+  // tile. 'detail' is the older card layout with sparkline and today/month.
+  const compact = str(cfg.layout || 'compact') !== 'detail'
 
   const confirmSwitch = cfg.confirmSwitch !== false
   const [results, setResults] = useState<DeviceResult[] | null>(null)
@@ -265,6 +268,18 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const [powerHist, setPowerHist] = useState<Record<string, number[]>>({})
   const busyRef = useRef(false)
   const { ref: shellRef, active } = usePollingActive<HTMLDivElement>()
+
+  // Tile width, so the compact row can drop the kWh column when a grid cell is
+  // too narrow for it — otherwise the plug NAME is what gets truncated, which
+  // is the one thing that must stay readable.
+  const [shellW, setShellW] = useState(0)
+  useEffect(() => {
+    const el = shellRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => setShellW(entries[0]?.contentRect.width ?? 0))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [shellRef])
 
   const addDevice = useCallback(
     (name: string, ip: string) => {
@@ -364,12 +379,12 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
     minWidth: 0,
     minHeight: 0,
     boxSizing: 'border-box',
-    padding: '12px 14px',
+    padding: compact ? '6px 9px 7px' : '12px 14px',
     containerType: 'size',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
+    gap: compact ? 4 : 8,
   }
 
   if (devices.length === 0) {
@@ -394,32 +409,90 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
 
   const byId = new Map((results ?? []).map((r) => [r.id, r]))
 
+  // With the kWh column a cell needs more room, so ask for wider columns when
+  // history is on — otherwise auto-fit packs cells so tight that the month
+  // never fits and the plug NAME is what gets truncated instead.
+  const COL_MIN = track ? 230 : 165
+  const COL_GAP = 14
+  const cols =
+    devices.length >= 4 && shellW > 0
+      ? Math.max(1, Math.min(devices.length, Math.floor((shellW + COL_GAP) / (COL_MIN + COL_GAP))))
+      : 1
+  // Mirrors the grid rule below so we know how wide one cell really is. A very
+  // narrow tile drops the kWh column; the value stays in the row's tooltip.
+  const colWidth = shellW > 0 ? (shellW - COL_GAP * (cols - 1)) / cols : 0
+  const showMonthInline = track && colWidth >= 215
+
   return (
     <div ref={shellRef} style={shell}>
       {showTitle && title ? (
-        <p style={{ margin: 0, fontSize: 'clamp(9px, 2.4cqmin, 10px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', flexShrink: 0 }}>
+        <p style={{ margin: 0, fontSize: compact ? 'clamp(8px, 2.2cqmin, 9px)' : 'clamp(9px, 2.4cqmin, 10px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', flexShrink: 0, lineHeight: 1.2 }}>
           {title}
         </p>
       ) : null}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', minHeight: 0, flex: 1 }}>
-        {devices.map((d) => (
-          <PlugRow
-            key={d.id}
-            device={d}
-            result={byId.get(d.id)}
-            de={de}
-            showHistory={track}
-            allowSwitch={allowSwitch}
-            pending={Boolean(pending[d.id])}
-            confirming={Boolean(confirming[d.id])}
-            history={powerHist[d.id]}
-            onToggle={requestToggle}
-            onConfirm={confirmOff}
-            onCancel={cancelOff}
-          />
-        ))}
-      </div>
+      {compact ? (
+        <ul
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: 0,
+            width: '100%',
+            minWidth: 0,
+            minHeight: 0,
+            flex: 1,
+            overflowY: 'auto',
+            // Never scroll sideways: a too-narrow row must clip the name, not
+            // push the watt value out of the tile.
+            overflowX: 'hidden',
+            display: 'grid',
+            // Two columns as soon as the tile is wide enough, but only once
+            // there are enough plugs for a second column to look deliberate.
+            // min(COL_MIN, 100%) matters: a bare minmax(COL_MIN, 1fr) keeps the
+            // column at COL_MIN even in a narrower tile, and the row overflows.
+            gridTemplateColumns:
+              devices.length >= 4 ? `repeat(auto-fit, minmax(min(${COL_MIN}px, 100%), 1fr))` : '1fr',
+            alignContent: 'start',
+            columnGap: 14,
+            rowGap: 2,
+          }}
+        >
+          {devices.map((d) => (
+            <CompactRow
+              key={d.id}
+              device={d}
+              result={byId.get(d.id)}
+              de={de}
+              showMonth={showMonthInline}
+              allowSwitch={allowSwitch}
+              pending={Boolean(pending[d.id])}
+              confirming={Boolean(confirming[d.id])}
+              onToggle={requestToggle}
+              onConfirm={confirmOff}
+              onCancel={cancelOff}
+            />
+          ))}
+        </ul>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', minHeight: 0, flex: 1 }}>
+          {devices.map((d) => (
+            <PlugRow
+              key={d.id}
+              device={d}
+              result={byId.get(d.id)}
+              de={de}
+              showHistory={track}
+              allowSwitch={allowSwitch}
+              pending={Boolean(pending[d.id])}
+              confirming={Boolean(confirming[d.id])}
+              history={powerHist[d.id]}
+              onToggle={requestToggle}
+              onConfirm={confirmOff}
+              onCancel={cancelOff}
+            />
+          ))}
+        </div>
+      )}
 
       {canEdit && devices.length < MAX_DEVICES ? (
         <div style={{ flexShrink: 0 }}>
@@ -427,6 +500,190 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
         </div>
       ) : null}
     </div>
+  )
+}
+
+/** Very short status for the compact row, where a full sentence will not fit. */
+function shortError(code: string | undefined, de: boolean): string {
+  switch (code) {
+    case 'auth_failed':
+      return de ? 'Login' : 'Auth'
+    case 'blocked_url':
+      return 'SSRF'
+    case 'timeout':
+      return de ? 'Timeout' : 'Timeout'
+    default:
+      return de ? 'Weg' : 'Down'
+  }
+}
+
+/**
+ * One line per plug: status dot, name, live watts (+ month kWh) — the dense
+ * list layout, modelled on the Uptime Kuma widget so a handful of plugs fit in
+ * a small tile. The dot doubles as the on/off button; there is no room for a
+ * real toggle at this size.
+ */
+function CompactRow({
+  device,
+  result,
+  de,
+  showMonth,
+  allowSwitch,
+  pending,
+  confirming,
+  onToggle,
+  onConfirm,
+  onCancel,
+}: {
+  device: Device
+  result: DeviceResult | undefined
+  de: boolean
+  /** Whether the cell is wide enough to also show the month kWh inline. */
+  showMonth: boolean
+  allowSwitch: boolean
+  pending: boolean
+  confirming: boolean
+  onToggle: (d: Device, current: boolean) => void
+  onConfirm: (d: Device) => void
+  onCancel: (d: Device) => void
+}) {
+  const loading = result === undefined
+  const offline = result != null && !result.online
+  const on = result?.output === true
+  const name = device.name || device.ip
+  const color = offline ? '#ef4444' : loading ? 'var(--text-muted)' : on ? '#22c55e' : 'var(--text-muted)'
+
+  const value = loading
+    ? '…'
+    : offline
+      ? shortError(result?.error, de)
+      : on
+        ? fmtPower(result?.power ?? 0, de)
+        : de
+          ? 'Aus'
+          : 'Off'
+
+  const monthKwh = result?.energy ? fmtKwh(result.energy.month, de) : null
+  const month = showMonth ? monthKwh : null
+  const canSwitch = allowSwitch && !offline && !loading && result?.output != null
+  // The tooltip always carries the month, even when the column is hidden.
+  const title = offline
+    ? `${name} · ${errorText(result?.error, de)}`
+    : `${name} · ${value}${monthKwh ? ` · ${monthLabel(de)} ${monthKwh}` : ''}`
+
+  const dotStyle: CSSProperties = {
+    width: 8,
+    height: 8,
+    borderRadius: '50%',
+    background: color,
+    flexShrink: 0,
+    padding: 0,
+    border: 'none',
+    opacity: pending ? 0.45 : 1,
+    transition: 'opacity 150ms ease',
+  }
+
+  return (
+    <li title={title} style={{ listStyle: 'none', margin: 0, padding: 0, minWidth: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          width: '100%',
+          minWidth: 0,
+          // Sized off the container WIDTH, not cqmin: a wide-but-flat tile is
+          // the normal shape here, and cqmin would shrink the text to nothing.
+          fontSize: 'clamp(11px, 3.4cqw, 13px)',
+          lineHeight: 1.15,
+          minHeight: 19,
+        }}
+      >
+        {canSwitch ? (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={on}
+            disabled={pending}
+            onClick={() => onToggle(device, on)}
+            aria-label={on ? (de ? `${name} ausschalten` : `Turn ${name} off`) : de ? `${name} einschalten` : `Turn ${name} on`}
+            style={{ ...dotStyle, cursor: pending ? 'not-allowed' : 'pointer' }}
+          />
+        ) : (
+          <span aria-hidden style={dotStyle} />
+        )}
+
+        <span
+          style={{
+            flex: '1 1 auto',
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: 'var(--text)',
+            fontWeight: 600,
+          }}
+        >
+          {name}
+        </span>
+
+        {confirming ? (
+          <span style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => onConfirm(device)}
+              title={de ? 'Ausschalten' : 'Turn off'}
+              style={{ border: 'none', borderRadius: 4, padding: '1px 6px', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: '0.82em', cursor: 'pointer', lineHeight: 1.3 }}
+            >
+              {de ? 'Aus' : 'Off'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onCancel(device)}
+              title={de ? 'Abbrechen' : 'Cancel'}
+              style={{ border: '1px solid var(--border)', borderRadius: 4, padding: '1px 5px', background: 'transparent', color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82em', cursor: 'pointer', lineHeight: 1.3 }}
+            >
+              ✕
+            </button>
+          </span>
+        ) : (
+          <>
+            {month ? (
+              <span
+                style={{
+                  // Fixed, right-aligned column so the kWh figures line up
+                  // instead of drifting with each name length.
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--text-muted)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  minWidth: '3.9em',
+                  textAlign: 'right',
+                  fontSize: '0.78em',
+                  opacity: 0.75,
+                }}
+              >
+                {month}
+              </span>
+            ) : null}
+            <span
+              style={{
+                fontVariantNumeric: 'tabular-nums',
+                color,
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                fontWeight: 700,
+                fontSize: '0.86em',
+                minWidth: '3.1em',
+                textAlign: 'right',
+              }}
+            >
+              {value}
+            </span>
+          </>
+        )}
+      </div>
+    </li>
   )
 }
 
@@ -685,6 +942,7 @@ function Settings({ config, onChange }: PluginSettingsProps) {
   const showTitle = cfg.showTitle !== false
   const track = cfg.trackHistory !== false
   const allowSwitch = cfg.allowSwitch !== false
+  const layout = str(cfg.layout || 'compact') === 'detail' ? 'detail' : 'compact'
 
   const persist = useCallback((list: Device[]) => onChange('devices', JSON.stringify(list)), [onChange])
   const update = useCallback(
@@ -705,6 +963,19 @@ function Settings({ config, onChange }: PluginSettingsProps) {
           {de ? 'Titel oben anzeigen' : 'Show title at top'}
         </label>
         <input style={{ ...inp, opacity: showTitle ? 1 : 0.5 }} disabled={!showTitle} value={cfg.title === undefined ? 'Shelly Plug' : str(cfg.title)} placeholder="Shelly Plug" onChange={(e) => onChange('title', e.target.value)} />
+      </div>
+
+      <div>
+        <label style={{ display: 'block', fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{de ? 'Ansicht' : 'Layout'}</label>
+        <select style={inp} value={layout} onChange={(e) => onChange('layout', e.target.value)}>
+          <option value="compact">{de ? 'Kompakt — eine Zeile je Steckdose' : 'Compact — one line per plug'}</option>
+          <option value="detail">{de ? 'Detail — Karte mit Verlauf, heute und Monat' : 'Detail — card with sparkline, today and month'}</option>
+        </select>
+        <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.5 }}>
+          {de
+            ? 'Kompakt zeigt Punkt, Name und Watt nebeneinander und legt ab vier Steckdosen zwei Spalten an, sobald die Kachel breit genug ist. Der Punkt schaltet.'
+            : 'Compact shows dot, name and watts on one line, in two columns from four plugs up once the tile is wide enough. The dot is the on/off button.'}
+        </p>
       </div>
 
       <div>
@@ -784,15 +1055,25 @@ export const meta: PluginMeta = {
   id: 'shelly-plug',
   name: 'Shelly Plug',
   description:
-    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — Momentanleistung, Spannung/Strom, Temperatur und An/Aus-Schalten direkt vom Dashboard. Optionaler kWh-Verlauf (heute / laufender Monat), Passwort je Steckdose. Ohne Cloud, ohne API-Key.',
+    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — kompakte Zeilenansicht mit Statuspunkt, Name und Momentanleistung, optional mehrspaltig. Umschaltbar auf Detailkarten mit Verlauf. kWh heute / laufender Monat, Passwort je Steckdose, An/Aus-Schalten. Ohne Cloud, ohne API-Key.',
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.2.0',
+  version: '1.3.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
+    {
+      key: 'layout',
+      label: 'Ansicht',
+      type: 'select',
+      defaultValue: 'compact',
+      options: [
+        { value: 'compact', label: 'Kompakt (eine Zeile je Steckdose)' },
+        { value: 'detail', label: 'Detail (Karte mit Verlauf)' },
+      ],
+    },
     { key: 'password', label: 'Passwort', type: 'password', defaultValue: '' },
     { key: 'allowSwitch', label: 'Schalten erlauben', type: 'boolean', defaultValue: true },
     { key: 'confirmSwitch', label: 'Ausschalten bestätigen', type: 'boolean', defaultValue: true },

@@ -3,16 +3,32 @@
 **Shelly Plug PM Gen3 / Plug S Gen3** (und andere Gen2+ Steckdosen) überwachen
 **und schalten** — direkt über die lokale RPC-API, ohne Cloud, ohne API-Key.
 
-Eine Kachel zeigt **mehrere Steckdosen untereinander** (bis zu 16), je eine
-Zeile pro Gerät.
+Eine Kachel zeigt **mehrere Steckdosen** (bis zu 16), je eine Zeile pro Gerät.
+
+## Ansicht
+
+Zwei Layouts, umschaltbar in den Einstellungen:
+
+**Kompakt** (Standard) — eine dichte Zeile je Steckdose: Statuspunkt, Name,
+Momentanleistung. Ab vier Steckdosen legt die Kachel automatisch mehrere Spalten
+an, sobald sie breit genug ist. Ist der Verlauf aktiv und die Spalte breit
+genug, steht der Monatswert daneben; wird es eng, entfällt er zugunsten des
+Namens und bleibt im Tooltip. **Der Punkt ist der Schalter** — bei dieser
+Zeilenhöhe passt kein echter Kippschalter.
+
+**Detail** — die frühere Karte je Steckdose mit Verlaufskurve, Spannung, Strom,
+Temperatur und den Werten für heute und den Monat. Sinnvoll bei ein bis zwei
+Steckdosen oder wenn du die Kurve sehen willst.
+
+Punktfarben: grün = an, grau = aus, rot = nicht erreichbar.
 
 ## Was es zeigt
 
 Pro Steckdose:
 
-- **Name** und **Momentanleistung** (W), dazu Spannung, Strom und
-  Geräte-Temperatur.
-- **An/Aus-Schalter** direkt in der Zeile (optional abschaltbar).
+- **Name** und **Momentanleistung** (W), in der Detailansicht zusätzlich
+  Spannung, Strom und Geräte-Temperatur.
+- **An/Aus-Schalter** (optional abschaltbar).
 - Optionaler **kWh-Verlauf**: **heute** und **laufender Monat**.
 
 Der Monatswert ist der **Kalendermonat** — er springt am 1. auf 0 zurück und ist
@@ -68,6 +84,12 @@ Zwei Ebenen, damit beide Fälle sauber funktionieren:
 Monitor **and switch** sockets with the **Shelly Plug PM Gen3 / Plug S Gen3**
 (and other Gen2+ plugs) via the local RPC API — no cloud, no key. One tile lists
 **up to 16 plugs**, one row each.
+
+**Two layouts**, switchable in settings. *Compact* (default) is one dense line
+per plug — status dot, name, live watts — flowing into several columns from four
+plugs up once the tile is wide enough; the dot doubles as the on/off button, and
+the month kWh appears beside it whenever the column has room. *Detail* is the
+per-plug card with sparkline, voltage, current, temperature and today/month.
 
 **Shows per plug:** name, live power (W), voltage, current, device temperature,
 an on/off toggle (optional) and an optional kWh history — **today** and the
