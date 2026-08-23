@@ -523,6 +523,7 @@ function CompactRow({
   onToggle,
   onConfirm,
   onCancel,
+  onOpen,
 }: {
   device: Device
   result: DeviceResult | undefined
@@ -1365,7 +1366,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.5.0',
+  version: '1.5.1',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
