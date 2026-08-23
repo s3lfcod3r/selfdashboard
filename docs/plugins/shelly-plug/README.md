@@ -10,11 +10,12 @@ Eine Kachel zeigt **mehrere Steckdosen** (bis zu 16), je eine Zeile pro Gerät.
 Zwei Layouts, umschaltbar in den Einstellungen:
 
 **Kompakt** (Standard) — eine dichte Zeile je Steckdose: Statuspunkt, Name,
-Momentanleistung. Ab vier Steckdosen legt die Kachel automatisch mehrere Spalten
-an, sobald sie breit genug ist. Ist der Verlauf aktiv und die Spalte breit
-genug, steht der Monatswert daneben; wird es eng, entfällt er zugunsten des
-Namens und bleibt im Tooltip. **Der Punkt ist der Schalter** — bei dieser
-Zeilenhöhe passt kein echter Kippschalter.
+Monatswert (wenn der Verlauf aktiv ist) und Momentanleistung. Ab vier
+Steckdosen legt die Kachel automatisch mehrere Spalten an, sobald sie breit
+genug ist. Wird es eng, kürzt der **Name** mit Auslassungspunkten — die Zahlen
+bleiben immer vollständig stehen und verschwinden auch beim Hineinzoomen nicht.
+**Der Punkt ist der Schalter** — bei dieser Zeilenhöhe passt kein echter
+Kippschalter.
 
 **Detail** — die frühere Karte je Steckdose mit Verlaufskurve, Spannung, Strom,
 Temperatur und den Werten für heute und den Monat. Sinnvoll bei ein bis zwei
@@ -96,7 +97,8 @@ Monitor **and switch** sockets with the **Shelly Plug PM Gen3 / Plug S Gen3**
 **Two layouts**, switchable in settings. *Compact* (default) is one dense line
 per plug — status dot, name, live watts — flowing into several columns from four
 plugs up once the tile is wide enough; the dot doubles as the on/off button, and
-the month kWh appears beside it whenever the column has room. *Detail* is the
+the month kWh sits beside the watts whenever history is on. When space runs
+short the *name* truncates — the figures always stay whole. *Detail* is the
 per-plug card with sparkline, voltage, current, temperature and today/month.
 
 **Shows per plug:** name, live power (W), voltage, current, device temperature,

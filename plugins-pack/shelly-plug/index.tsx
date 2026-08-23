@@ -272,18 +272,6 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const busyRef = useRef(false)
   const { ref: shellRef, active } = usePollingActive<HTMLDivElement>()
 
-  // Tile width, so the compact row can drop the kWh column when a grid cell is
-  // too narrow for it — otherwise the plug NAME is what gets truncated, which
-  // is the one thing that must stay readable.
-  const [shellW, setShellW] = useState(0)
-  useEffect(() => {
-    const el = shellRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver((entries) => setShellW(entries[0]?.contentRect.width ?? 0))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [shellRef])
-
   const sig = useMemo(() => devices.map((d) => `${d.id}|${d.ip}`).join(','), [devices])
 
   const refresh = useCallback(
@@ -403,18 +391,12 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const byId = new Map((results ?? []).map((r) => [r.id, r]))
 
   // With the kWh column a cell needs more room, so ask for wider columns when
-  // history is on — otherwise auto-fit packs cells so tight that the month
-  // never fits and the plug NAME is what gets truncated instead.
+  // history is on. That alone keeps the row readable: auto-fit only opens a
+  // second column once every cell clears COL_MIN, so the kWh figure is shown
+  // unconditionally — it must not vanish just because the tile got narrower
+  // (browser zoom does exactly that). If a single column ends up below COL_MIN,
+  // the NAME truncates with an ellipsis; the numbers stay.
   const COL_MIN = track ? 230 : 165
-  const COL_GAP = 14
-  const cols =
-    devices.length >= 4 && shellW > 0
-      ? Math.max(1, Math.min(devices.length, Math.floor((shellW + COL_GAP) / (COL_MIN + COL_GAP))))
-      : 1
-  // Mirrors the grid rule below so we know how wide one cell really is. A very
-  // narrow tile drops the kWh column; the value stays in the row's tooltip.
-  const colWidth = shellW > 0 ? (shellW - COL_GAP * (cols - 1)) / cols : 0
-  const showMonthInline = track && colWidth >= 215
 
   return (
     <div ref={shellRef} style={shell}>
@@ -459,7 +441,7 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
               device={d}
               result={byId.get(d.id)}
               de={de}
-              showMonth={showMonthInline}
+              showMonth={track}
               allowSwitch={allowSwitch}
               pending={Boolean(pending[d.id])}
               confirming={Boolean(confirming[d.id])}
@@ -528,7 +510,7 @@ function CompactRow({
   device: Device
   result: DeviceResult | undefined
   de: boolean
-  /** Whether the cell is wide enough to also show the month kWh inline. */
+  /** Show the month kWh next to the watts (follows the history setting). */
   showMonth: boolean
   allowSwitch: boolean
   pending: boolean
@@ -1033,7 +1015,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.4.0',
+  version: '1.4.1',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
