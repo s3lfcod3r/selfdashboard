@@ -37,6 +37,7 @@ export type NetzwachtAlert = {
   cat: string
   sev: number
   src: string
+  spt: number | null
   dst: string
   dpt: number | null
   proto: string
@@ -183,6 +184,7 @@ async function fetchSuricata(
         cat: str(a.cat),
         sev: num(a.sev) || 3,
         src: str(a.src),
+        spt: a.spt == null ? null : num(a.spt),
         dst: str(a.dst),
         dpt: a.dpt == null ? null : num(a.dpt),
         proto: str(a.proto),

@@ -334,6 +334,7 @@ async function fetchSuricata(alertsUrl, token, maxAlerts, signal) {
         cat: str(a.cat),
         sev: num(a.sev) || 3,
         src: str(a.src),
+        spt: a.spt == null ? null : num(a.spt),
         dst: str(a.dst),
         dpt: a.dpt == null ? null : num(a.dpt),
         proto: str(a.proto)

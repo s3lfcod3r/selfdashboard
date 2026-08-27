@@ -20,6 +20,7 @@ type NetzwachtAlert = {
   cat: string
   sev: number
   src: string
+  spt?: number | null
   dst: string
   dpt: number | null
   proto: string
@@ -106,6 +107,49 @@ function cleanSig(sig: string): string {
   return sig.replace(/^ET\s+[A-Z0-9_]+\s+/, '').replace(/^GPL\s+[A-Z0-9_]+\s+/, '')
 }
 
+function sevLabel(sev: number, de: boolean): string {
+  if (sev <= 1) return de ? 'Ernster Alarm' : 'Severe alert'
+  if (sev === 2) return de ? 'Warnung' : 'Warning'
+  return 'Info'
+}
+
+/** Verstaendliche Kurzerklaerung der Suricata-Kategorie. */
+function catInfo(cat: string, de: boolean): string {
+  const map: Record<string, [string, string]> = {
+    'Misc activity': ['Allgemeine Beobachtung — meist harmlos.', 'General observation — usually harmless.'],
+    'Misc Attack': ['Bekanntes Angriffsmuster erkannt.', 'Known attack pattern detected.'],
+    'Not Suspicious Traffic': ['Als unbedenklich eingestufter Verkehr.', 'Traffic classified as benign.'],
+    'Generic Protocol Command Decode': ['Technische Protokoll-Auffälligkeit.', 'Technical protocol anomaly.'],
+    'Potential Corporate Privacy Violation': [
+      'Gerät sendet möglicherweise Daten nach außen (Datenschutz).',
+      'Device may be sending data outside (privacy).',
+    ],
+    'Attempted Information Leak': ['Möglicher Versuch, Informationen abzugreifen.', 'Possible information-gathering attempt.'],
+    'Detection of a Network Scan': ['Jemand tastet das Netz systematisch ab.', 'Someone is scanning the network.'],
+    'A Network Trojan was detected': ['Muster von Schadsoftware-Kommunikation!', 'Malware communication pattern!'],
+    'Malware Command and Control Activity Detected': [
+      'Schadsoftware-Fernsteuerung erkannt — Gerät prüfen!',
+      'Malware command & control detected — check device!',
+    ],
+    'Crypto Currency Mining Activity Detected': ['Krypto-Mining-Kommunikation erkannt.', 'Crypto mining communication detected.'],
+    'Attempted Administrator Privilege Gain': ['Versuch, Admin-Rechte zu erlangen!', 'Attempt to gain admin privileges!'],
+    'Web Application Attack': ['Angriffsmuster gegen eine Web-Anwendung.', 'Attack pattern against a web application.'],
+    'Potentially Bad Traffic': ['Verdächtiger, aber nicht eindeutiger Verkehr.', 'Suspicious but inconclusive traffic.'],
+    'Device Retrieving External IP Address Detected': [
+      'Gerät fragt seine öffentliche IP ab — machen viele Apps routinemäßig.',
+      'Device looks up its public IP — many apps do this routinely.',
+    ],
+  }
+  const pair = map[cat]
+  return pair ? pair[de ? 0 : 1] : cat
+}
+
+function fmtTime(ts: string, de: boolean): string {
+  const t = Date.parse(ts.replace(/(\.\d+)?\+0000$/, 'Z'))
+  if (!Number.isFinite(t)) return ts
+  return new Date(t).toLocaleString(de ? 'de-DE' : 'en-GB', { dateStyle: 'short', timeStyle: 'medium' })
+}
+
 const sectionLabel: CSSProperties = {
   fontSize: 'clamp(8px, 2cqmin, 9px)',
   fontWeight: 700,
@@ -185,6 +229,7 @@ function Widget({ config }: PluginWidgetProps) {
   const [data, setData] = useState<NetzwachtData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState<string | null>(null)
 
   const ntopngUrl = str(config.ntopngUrl)
   const username = str(config.username)
@@ -494,46 +539,77 @@ function Widget({ config }: PluginWidgetProps) {
             <span style={sectionLabel}>
               {showInfoAlerts ? (de ? 'Letzte Meldungen' : 'Recent alerts') : de ? 'Wichtige Meldungen' : 'Important alerts'}
             </span>
-            {shownAlerts.map((a, i) => (
-                  <div
-                    key={`${a.ts}-${i}`}
-                    style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}
-                    title={`${a.sig}\n${a.cat}\n${a.src} → ${a.dst}${a.dpt ? `:${a.dpt}` : ''} (${a.proto})`}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <span
-                        style={{
-                          width: 7,
-                          height: 7,
-                          borderRadius: '50%',
-                          flexShrink: 0,
-                          background: sevColor(a.sev),
-                        }}
-                      />
-                      <span
-                        style={{
-                          flex: 1,
-                          minWidth: 0,
-                          fontSize: 'clamp(9px, 2.6cqmin, 11px)',
-                          fontWeight: 500,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {cleanSig(a.sig)}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: 'clamp(8px, 2.2cqmin, 10px)',
-                          color: 'var(--text-muted)',
-                          whiteSpace: 'nowrap',
-                          fontVariantNumeric: 'tabular-nums',
-                        }}
-                      >
-                        {relTime(a.ts, de)}
-                      </span>
-                    </div>
+            {shownAlerts.map((a, i) => {
+              const key = `${a.ts}-${i}`
+              const open = expanded === key
+              return (
+                <div
+                  key={key}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setExpanded(open ? null : key)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') setExpanded(open ? null : key)
+                  }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                    minWidth: 0,
+                    cursor: 'pointer',
+                    borderRadius: 8,
+                    padding: open ? '6px 8px' : '2px 4px',
+                    margin: '0 -4px',
+                    background: open ? 'var(--surface)' : 'transparent',
+                    border: open ? '1px solid var(--border)' : '1px solid transparent',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    <span
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        background: sevColor(a.sev),
+                      }}
+                    />
+                    <span
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: 'clamp(9px, 2.6cqmin, 11px)',
+                        fontWeight: 500,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: open ? 'normal' : 'nowrap',
+                      }}
+                    >
+                      {cleanSig(a.sig)}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 'clamp(8px, 2.2cqmin, 10px)',
+                        color: 'var(--text-muted)',
+                        whiteSpace: 'nowrap',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {relTime(a.ts, de)}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        color: 'var(--text-muted)',
+                        flexShrink: 0,
+                        transform: open ? 'rotate(90deg)' : 'none',
+                        transition: 'transform 120ms',
+                      }}
+                    >
+                      ▸
+                    </span>
+                  </div>
+                  {!open ? (
                     <span
                       style={{
                         paddingLeft: 13,
@@ -547,8 +623,44 @@ function Widget({ config }: PluginWidgetProps) {
                       {a.src} → {a.dst}
                       {a.dpt ? `:${a.dpt}` : ''}
                     </span>
-                  </div>
-                ))}
+                  ) : (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        paddingTop: 6,
+                        fontSize: 'clamp(9px, 2.4cqmin, 10.5px)',
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      <span>
+                        <b style={{ color: sevColor(a.sev) }}>{sevLabel(a.sev, de)}</b>
+                        <span style={{ color: 'var(--text-muted)' }}> · {a.cat || (de ? 'ohne Kategorie' : 'uncategorized')}</span>
+                      </span>
+                      <span>{catInfo(a.cat, de)}</span>
+                      <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                        {de ? 'Gerät' : 'Device'}: <b style={{ color: 'var(--text)' }}>{a.src}</b>
+                        {a.spt ? `:${a.spt}` : ''} → {de ? 'Ziel' : 'target'}: {a.dst}
+                        {a.dpt ? `:${a.dpt}` : ''} ({a.proto || '–'})
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                        {de ? 'Zeitpunkt' : 'Time'}: {fmtTime(a.ts, de)}
+                      </span>
+                      <a
+                        href={`https://www.google.com/search?q=${encodeURIComponent(`"${a.sig}" suricata`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
+                      >
+                        {de ? 'Regel im Web nachschlagen ↗' : 'Look up rule on the web ↗'}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         ) : null}
       </div>
@@ -722,11 +834,11 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.3.0',
+  version: '0.4.0',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',
-  defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
+  defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'NetzWacht' },
     { key: 'ntopngUrl', label: 'ntopng-URL', type: 'text', placeholder: 'http://192.168.1.103:3000', defaultValue: '' },

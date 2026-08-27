@@ -2,15 +2,15 @@
   "id": "netzwacht",
   "name": "NetzWacht",
   "description": "Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": "SelfDashboard",
   "category": "security",
   "icon": "🛡️",
   "defaultLayout": {
     "w": 4,
     "h": 4,
-    "minW": 3,
-    "minH": 3
+    "minW": 2,
+    "minH": 2
   },
   "hasServer": true
 }
