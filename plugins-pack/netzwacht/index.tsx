@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { usePluginLocale } from '@/lib/pluginLocale'
 import { usePollingActive } from '@/hooks/usePollingActive'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
@@ -229,7 +230,7 @@ function Widget({ config }: PluginWidgetProps) {
   const [data, setData] = useState<NetzwachtData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState<string | null>(null)
+  const [detail, setDetail] = useState<NetzwachtAlert | null>(null)
 
   const ntopngUrl = str(config.ntopngUrl)
   const username = str(config.username)
@@ -541,27 +542,25 @@ function Widget({ config }: PluginWidgetProps) {
             </span>
             {shownAlerts.map((a, i) => {
               const key = `${a.ts}-${i}`
-              const open = expanded === key
               return (
                 <div
                   key={key}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setExpanded(open ? null : key)}
+                  onClick={() => setDetail(a)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') setExpanded(open ? null : key)
+                    if (e.key === 'Enter' || e.key === ' ') setDetail(a)
                   }}
+                  title={de ? 'Für Details anklicken' : 'Click for details'}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
                     gap: 1,
                     minWidth: 0,
                     cursor: 'pointer',
-                    borderRadius: 8,
-                    padding: open ? '6px 8px' : '2px 4px',
+                    borderRadius: 6,
+                    padding: '2px 4px',
                     margin: '0 -4px',
-                    background: open ? 'var(--surface)' : 'transparent',
-                    border: open ? '1px solid var(--border)' : '1px solid transparent',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -582,7 +581,7 @@ function Widget({ config }: PluginWidgetProps) {
                         fontWeight: 500,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: open ? 'normal' : 'nowrap',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       {cleanSig(a.sig)}
@@ -602,62 +601,24 @@ function Widget({ config }: PluginWidgetProps) {
                         fontSize: 9,
                         color: 'var(--text-muted)',
                         flexShrink: 0,
-                        transform: open ? 'rotate(90deg)' : 'none',
-                        transition: 'transform 120ms',
                       }}
                     >
                       ▸
                     </span>
                   </div>
-                  {!open ? (
-                    <span
-                      style={{
-                        paddingLeft: 13,
-                        fontSize: 'clamp(8px, 2.1cqmin, 9.5px)',
-                        color: 'var(--text-muted)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {a.src} → {a.dst}
-                      {a.dpt ? `:${a.dpt}` : ''}
-                    </span>
-                  ) : (
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        paddingTop: 6,
-                        fontSize: 'clamp(9px, 2.4cqmin, 10.5px)',
-                        lineHeight: 1.45,
-                      }}
-                    >
-                      <span>
-                        <b style={{ color: sevColor(a.sev) }}>{sevLabel(a.sev, de)}</b>
-                        <span style={{ color: 'var(--text-muted)' }}> · {a.cat || (de ? 'ohne Kategorie' : 'uncategorized')}</span>
-                      </span>
-                      <span>{catInfo(a.cat, de)}</span>
-                      <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                        {de ? 'Gerät' : 'Device'}: <b style={{ color: 'var(--text)' }}>{a.src}</b>
-                        {a.spt ? `:${a.spt}` : ''} → {de ? 'Ziel' : 'target'}: {a.dst}
-                        {a.dpt ? `:${a.dpt}` : ''} ({a.proto || '–'})
-                      </span>
-                      <span style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                        {de ? 'Zeitpunkt' : 'Time'}: {fmtTime(a.ts, de)}
-                      </span>
-                      <a
-                        href={`https://www.google.com/search?q=${encodeURIComponent(`"${a.sig}" suricata`)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600 }}
-                      >
-                        {de ? 'Regel im Web nachschlagen ↗' : 'Look up rule on the web ↗'}
-                      </a>
-                    </div>
-                  )}
+                  <span
+                    style={{
+                      paddingLeft: 13,
+                      fontSize: 'clamp(8px, 2.1cqmin, 9.5px)',
+                      color: 'var(--text-muted)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {a.src} → {a.dst}
+                    {a.dpt ? `:${a.dpt}` : ''}
+                  </span>
                 </div>
               )
             })}
@@ -694,6 +655,127 @@ function Widget({ config }: PluginWidgetProps) {
       {error ? (
         <p style={{ margin: 0, fontSize: 10, color: '#ef4444', lineHeight: 1.4, wordBreak: 'break-word' }}>{error}</p>
       ) : null}
+
+      {detail && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              onClick={() => setDetail(null)}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 2000,
+                background: 'rgba(0, 0, 0, 0.55)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 20,
+              }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: 'min(460px, 94vw)',
+                  maxHeight: '82vh',
+                  overflowY: 'auto',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 14,
+                  padding: '16px 18px',
+                  boxShadow: '0 16px 48px rgba(0, 0, 0, 0.45)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '3px 10px',
+                      borderRadius: 999,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: sevColor(detail.sev),
+                      background: `color-mix(in srgb, ${sevColor(detail.sev)} 14%, transparent)`,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: sevColor(detail.sev) }} />
+                    {sevLabel(detail.sev, de)}
+                  </span>
+                  <span style={{ flex: 1 }} />
+                  <button
+                    onClick={() => setDetail(null)}
+                    aria-label={de ? 'Schließen' : 'Close'}
+                    style={{
+                      border: '1px solid var(--border)',
+                      background: 'transparent',
+                      color: 'var(--text-muted)',
+                      borderRadius: 8,
+                      width: 28,
+                      height: 28,
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <p style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.35 }}>{cleanSig(detail.sig)}</p>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{catInfo(detail.cat, de)}</p>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'auto 1fr',
+                    gap: '5px 14px',
+                    fontSize: 12.5,
+                    fontVariantNumeric: 'tabular-nums',
+                    borderTop: '1px solid var(--border)',
+                    paddingTop: 10,
+                  }}
+                >
+                  <span style={{ color: 'var(--text-muted)' }}>{de ? 'Gerät (Quelle)' : 'Device (source)'}</span>
+                  <span style={{ fontWeight: 600 }}>
+                    {detail.src}
+                    {detail.spt ? `:${detail.spt}` : ''}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>{de ? 'Ziel' : 'Target'}</span>
+                  <span>
+                    {detail.dst}
+                    {detail.dpt ? `:${detail.dpt}` : ''}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)' }}>{de ? 'Protokoll' : 'Protocol'}</span>
+                  <span>{detail.proto || '–'}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{de ? 'Kategorie' : 'Category'}</span>
+                  <span>{detail.cat || '–'}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{de ? 'Zeitpunkt' : 'Time'}</span>
+                  <span>{fmtTime(detail.ts, de)}</span>
+                </div>
+
+                <a
+                  href={`https://www.google.com/search?q=${encodeURIComponent(`"${detail.sig}" suricata`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    alignSelf: 'flex-start',
+                    color: 'var(--accent)',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                    fontSize: 13,
+                  }}
+                >
+                  {de ? 'Regel im Web nachschlagen ↗' : 'Look up rule on the web ↗'}
+                </a>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   )
 }
@@ -834,7 +916,7 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.4.0',
+  version: '0.5.0',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',
