@@ -145,6 +145,149 @@ function catInfo(cat: string, de: boolean): string {
   return pair ? pair[de ? 0 : 1] : cat
 }
 
+function isPrivateIp(ip: string): boolean {
+  return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|fe80:|fd)/i.test(ip)
+}
+
+type AdviceTone = 'calm' | 'watch' | 'act'
+
+/** Eingebautes Wissen zu haeufigen Meldungen — erspart das Googeln. */
+const SIG_WISSEN: Array<{ re: RegExp; de: string; en: string; tone: AdviceTone }> = [
+  {
+    re: /LeakIX|l9explore|Shodan|Censys|Stretchoid|InternetMeasurement|Driftnet/i,
+    de: 'Das ist ein bekannter Internet-Scanner: Dienste wie LeakIX oder Shodan klopfen das gesamte Internet nach offenen Diensten ab. Solche Scanner treffen jeden öffentlich erreichbaren Server — normales Grundrauschen. CrowdSec bannt solche Absender in der Regel automatisch.',
+    en: 'This is a known internet scanner (LeakIX/Shodan-style) probing the whole internet for open services. Every publicly reachable server gets hit — normal background noise. CrowdSec usually bans these senders automatically.',
+    tone: 'calm',
+  },
+  {
+    re: /ZeroTier/i,
+    de: 'ZeroTier ist ein VPN-Dienst für Fernzugriff. Im ZimaBoard steckt er als eingebauter Fernzugriff „Zima Remote". Die Meldung heißt nur: das Gerät nutzt ZeroTier — kein Angriff.',
+    en: 'ZeroTier is a VPN service for remote access. On the ZimaBoard it powers the built-in "Zima Remote". This just means the device uses ZeroTier — not an attack.',
+    tone: 'calm',
+  },
+  {
+    re: /edonkey|emule/i,
+    de: 'Muster einer eDonkey/eMule-Tauschbörse. Wichtig: VPN-Verkehr wie ZeroTier (Zima Remote) sieht auf UDP-Ebene fast genauso aus und löst diese Regel häufig fälschlich aus.',
+    en: 'eDonkey/eMule file-sharing pattern. Note: VPN traffic like ZeroTier (Zima Remote) looks almost identical on the UDP level and often falsely triggers this rule.',
+    tone: 'watch',
+  },
+  {
+    re: /Dshield|Spamhaus|CINS|DROP Listed|Known Compromised|3CORESec/i,
+    de: 'Die Gegenstelle steht auf einer öffentlichen Liste bekannter Angreifer-IPs. Ein Kontaktversuch heißt: dein Anschluss wird — wie jeder — abgetastet. Solange kein interner Dienst antwortet, reicht es, dass CrowdSec und Firewall ihren Job machen.',
+    en: 'The remote address is on a public list of known attacker IPs. A contact attempt means your connection is being probed — like everyone else. As long as no internal service responds, CrowdSec and the firewall have it covered.',
+    tone: 'watch',
+  },
+  {
+    re: /DNS Over HTTPS|DNS over TLS|DoH /i,
+    de: 'Das Gerät verschlüsselt seine DNS-Anfragen (DNS-over-HTTPS). Moderne Geräte und Browser machen das ab Werk — legitim, umgeht aber lokale DNS-Filter wie AdGuard.',
+    en: 'The device encrypts its DNS queries (DNS-over-HTTPS). Modern devices and browsers do this by default — legitimate, but it bypasses local DNS filters like AdGuard.',
+    tone: 'calm',
+  },
+  {
+    re: /External IP.*(Lookup|Address)|ipify|ifconfig\.me|icanhazip/i,
+    de: 'Das Gerät fragt seine öffentliche IP-Adresse ab („Wie lautet meine Adresse im Internet?"). Machen DynDNS-Dienste, Apps und Spiele routinemäßig.',
+    en: 'The device looks up its public IP address. DynDNS services, apps and games do this routinely.',
+    tone: 'calm',
+  },
+  {
+    re: /Steam/i,
+    de: 'Verkehr der Spieleplattform Steam (Updates, Login, Downloads). Harmlos, solange auf dem Gerät tatsächlich gespielt wird.',
+    en: 'Traffic from the Steam gaming platform (updates, login, downloads). Harmless if the device is actually used for gaming.',
+    tone: 'calm',
+  },
+  {
+    re: /Nmap|Network Scan|Port ?Scan|masscan|zgrab/i,
+    de: 'Jemand tastet systematisch Ports oder Dienste ab. Von extern: Internet-Grundrauschen, CrowdSec regelt das. Von intern: prüfen, welches Gerät da scannt!',
+    en: 'Someone is systematically probing ports or services. From outside: internet background noise, CrowdSec handles it. From inside: check which device is scanning!',
+    tone: 'watch',
+  },
+  {
+    re: /Trojan|Command and Control|C2 |Malware|Botnet|CobaltStrike/i,
+    de: 'Kommunikationsmuster von Schadsoftware. Das ernst nehmen: betroffenes Gerät möglichst vom Netz trennen und genauer prüfen (Virenscan, unbekannte Apps).',
+    en: 'Malware communication pattern. Take this seriously: disconnect the affected device if possible and investigate (AV scan, unknown apps).',
+    tone: 'act',
+  },
+  {
+    re: /Mining|Coinhive|Monero|XMR/i,
+    de: 'Krypto-Mining-Kommunikation. Wenn auf dem Gerät nicht bewusst gemint wird, kann Schadsoftware dahinterstecken — Gerät prüfen.',
+    en: 'Crypto-mining communication. If the device is not intentionally mining, malware may be behind it — check the device.',
+    tone: 'act',
+  },
+  {
+    re: /\bTor\b|Onion/i,
+    de: 'Das Gerät nutzt das Tor-Anonymisierungsnetz. Legitim, aber ungewöhnlich für Haushaltsgeräte — wissen, wer das ist, schadet nicht.',
+    en: 'The device uses the Tor anonymity network. Legitimate, but unusual for household devices — worth knowing who it is.',
+    tone: 'watch',
+  },
+  {
+    re: /SSH (Brute|Scan)|Brute.?Force/i,
+    de: 'Wiederholte Anmeldeversuche (Brute-Force-Muster). Von extern auf einen erreichbaren Dienst: üblich — Fail2ban/CrowdSec drosseln das. Häufung auf ein internes Ziel: Passwörter prüfen.',
+    en: 'Repeated login attempts (brute-force pattern). External against a reachable service: common — Fail2ban/CrowdSec throttle it. Repeated against an internal target: review passwords.',
+    tone: 'watch',
+  },
+]
+
+type Insight = { direction: string; wissen: string | null; advice: string; tone: AdviceTone }
+
+function buildInsight(a: NetzwachtAlert, de: boolean, watchHost: string): Insight {
+  const srcPriv = isPrivateIp(a.src)
+  const dstPriv = isPrivateIp(a.dst)
+  const dstPort = a.dpt ? `:${a.dpt}` : ''
+
+  let direction: string
+  if (srcPriv && !dstPriv) {
+    direction = de
+      ? `Ausgehend: Dein Gerät ${a.src} hat die Internet-Adresse ${a.dst}${dstPort} kontaktiert.`
+      : `Outbound: your device ${a.src} contacted internet address ${a.dst}${dstPort}.`
+  } else if (!srcPriv && dstPriv) {
+    direction = de
+      ? `Eingehend aus dem Internet: ${a.src} hat dein Gerät ${a.dst}${dstPort} angesprochen.`
+      : `Inbound from the internet: ${a.src} contacted your device ${a.dst}${dstPort}.`
+  } else if (srcPriv && dstPriv) {
+    direction = de
+      ? `Interner Verkehr in deinem Netz: ${a.src} → ${a.dst}${dstPort}.`
+      : `Internal traffic in your network: ${a.src} → ${a.dst}${dstPort}.`
+  } else {
+    direction = de ? `Verkehr zwischen ${a.src} und ${a.dst}${dstPort}.` : `Traffic between ${a.src} and ${a.dst}${dstPort}.`
+  }
+  const localIp = srcPriv ? a.src : dstPriv ? a.dst : ''
+  if (watchHost && localIp === watchHost) {
+    direction += de
+      ? ` ${localIp} ist übrigens dein NetzWacht-Server (ZimaBoard) selbst.`
+      : ` Note: ${localIp} is your NetzWacht server (ZimaBoard) itself.`
+  }
+
+  const hit = SIG_WISSEN.find((w) => w.re.test(a.sig))
+  let tone: AdviceTone = hit ? hit.tone : a.sev <= 1 ? 'act' : a.sev === 2 ? 'watch' : 'calm'
+  let wissen = hit ? (de ? hit.de : hit.en) : null
+
+  // Spezialfall: eDonkey-Muster vom ZeroTier-Host = fast sicher Fehlalarm
+  if (hit && /edonkey|emule/i.test(a.sig) && watchHost && localIp === watchHost) {
+    tone = 'calm'
+    wissen = de
+      ? `${wissen} Da die Meldung von deinem ZimaBoard kommt (Zima Remote nutzt ZeroTier), ist das fast sicher genau dieser Fehlalarm.`
+      : `${wissen} Since this comes from your ZimaBoard (Zima Remote uses ZeroTier), this is almost certainly that false positive.`
+  }
+
+  const advice =
+    tone === 'act'
+      ? de
+        ? 'Zeitnah prüfen!'
+        : 'Check soon!'
+      : tone === 'watch'
+        ? de
+          ? 'Beobachten — nur bei Häufung genauer ansehen.'
+          : 'Keep an eye on it — investigate only if it piles up.'
+        : de
+          ? '✓ Kein Handlungsbedarf.'
+          : '✓ No action needed.'
+  return { direction, wissen, advice, tone }
+}
+
+function toneColor(tone: AdviceTone): string {
+  return tone === 'act' ? '#ef4444' : tone === 'watch' ? '#f59e0b' : '#34d399'
+}
+
 function fmtTime(ts: string, de: boolean): string {
   const t = Date.parse(ts.replace(/(\.\d+)?\+0000$/, 'Z'))
   if (!Number.isFinite(t)) return ts
@@ -244,6 +387,9 @@ function Widget({ config }: PluginWidgetProps) {
   const showDevices = config.showDevices === true
   const showInfoAlerts = config.showInfoAlerts === true
   const configured = Boolean(ntopngUrl && username && password)
+  // Host der Alarm-API = das ZimaBoard — hilft bei der Einordnung eigener Meldungen
+  const watchHost = (alertsUrl.match(/\/\/([^:/]+)/) || [])[1] || ''
+  const insight = detail ? buildInsight(detail, de, watchHost) : null
 
   const refresh = useCallback(async () => {
     if (!configured) {
@@ -726,7 +872,40 @@ function Widget({ config }: PluginWidgetProps) {
                 </div>
 
                 <p style={{ margin: 0, fontSize: 15, fontWeight: 700, lineHeight: 1.35 }}>{cleanSig(detail.sig)}</p>
-                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>{catInfo(detail.cat, de)}</p>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--text-muted)' }}>
+                  {catInfo(detail.cat, de)}
+                </p>
+
+                {insight ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      padding: '10px 12px',
+                      borderRadius: 10,
+                      border: `1px solid color-mix(in srgb, ${toneColor(insight.tone)} 35%, transparent)`,
+                      background: `color-mix(in srgb, ${toneColor(insight.tone)} 8%, transparent)`,
+                      fontSize: 13,
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.07em',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      {de ? 'Einordnung' : 'Assessment'}
+                    </span>
+                    <span>{insight.direction}</span>
+                    {insight.wissen ? <span>{insight.wissen}</span> : null}
+                    <span style={{ fontWeight: 700, color: toneColor(insight.tone) }}>{insight.advice}</span>
+                  </div>
+                ) : null}
 
                 <div
                   style={{
@@ -916,7 +1095,7 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.5.0',
+  version: '0.6.0',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',
