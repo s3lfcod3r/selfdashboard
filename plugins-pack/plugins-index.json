@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-08-23T18:27:29.923Z",
+  "generatedAt": "2026-08-27T09:43:50.662Z",
   "plugins": [
     {
       "id": "adguard",
@@ -422,6 +422,27 @@
         "plugin.json",
         "widget.js"
       ]
+    },
+    {
+      "id": "netzwacht",
+      "name": "NetzWacht",
+      "description": "Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)",
+      "version": "0.1.0",
+      "author": "SelfDashboard",
+      "category": "security",
+      "icon": "🛡️",
+      "defaultLayout": {
+        "w": 4,
+        "h": 4,
+        "minW": 3,
+        "minH": 3
+      },
+      "files": [
+        "plugin.json",
+        "widget.js",
+        "server.mjs"
+      ],
+      "hasServer": true
     },
     {
       "id": "npm",
