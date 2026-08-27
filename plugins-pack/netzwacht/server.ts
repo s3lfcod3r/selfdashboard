@@ -158,7 +158,8 @@ async function fetchSuricata(
   signal: AbortSignal,
 ): Promise<NetzwachtPayload['suricata']> {
   const base = normalizeBase(alertsUrl)
-  const res = await fetchCheckedJson(`${base}/alerts?limit=${maxAlerts}`, {
+  // Immer genug holen, damit das Widget nach Wichtigkeit filtern kann.
+  const res = await fetchCheckedJson(`${base}/alerts?limit=${Math.max(50, maxAlerts)}`, {
     headers: { Accept: 'application/json', 'X-Api-Token': token },
     signal,
   })

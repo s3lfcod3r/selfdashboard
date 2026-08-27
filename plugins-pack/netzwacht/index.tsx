@@ -195,6 +195,8 @@ function Widget({ config }: PluginWidgetProps) {
   const maxAlerts = Math.min(25, Math.max(1, num(config.maxAlerts) || 6))
   const refreshMs = Math.max(10, num(config.refreshSeconds) || 30) * 1000
   const title = config.title === undefined ? 'NetzWacht' : str(config.title)
+  const showDevices = config.showDevices === true
+  const showInfoAlerts = config.showInfoAlerts === true
   const configured = Boolean(ntopngUrl && username && password)
 
   const refresh = useCallback(async () => {
@@ -277,8 +279,52 @@ function Widget({ config }: PluginWidgetProps) {
 
   const nt = data?.ntopng
   const su = data?.suricata
-  const alertCount = su?.h24 ? su.h24.high + su.h24.medium : 0
-  const alertAccent = su?.h24 && su.h24.high > 0 ? '#ef4444' : su?.h24 && su.h24.medium > 0 ? '#f59e0b' : '#34d399'
+  const h24 = su?.ok ? su.h24 : undefined
+  const shownAlerts = (su?.alerts ?? []).filter((a) => showInfoAlerts || a.sev <= 2).slice(0, maxAlerts)
+
+  // Ampel-Logik: rot = ernste Alarme, orange = Warnungen, gruen = ruhig
+  type Level = 'crit' | 'warn' | 'ok' | 'off'
+  const level: Level = !h24 ? 'off' : h24.high > 0 ? 'crit' : h24.medium > 0 ? 'warn' : 'ok'
+  const levelColor =
+    level === 'crit' ? '#ef4444' : level === 'warn' ? '#f59e0b' : level === 'ok' ? '#34d399' : 'var(--text-muted)'
+  const heroTitle =
+    level === 'crit'
+      ? de
+        ? `${h24!.high} ernste${h24!.high === 1 ? 'r' : ''} Alarm${h24!.high === 1 ? '' : 'e'}!`
+        : `${h24!.high} severe alert${h24!.high === 1 ? '' : 's'}!`
+      : level === 'warn'
+        ? de
+          ? `${h24!.medium} Warnung${h24!.medium === 1 ? '' : 'en'} (24 h)`
+          : `${h24!.medium} warning${h24!.medium === 1 ? '' : 's'} (24h)`
+        : level === 'ok'
+          ? de
+            ? 'Alles ruhig'
+            : 'All quiet'
+          : de
+            ? 'Alarm-Überwachung aus'
+            : 'Alert monitoring off'
+  const heroSub =
+    level === 'crit'
+      ? de
+        ? 'Zeitnah prüfen — betroffene Geräte unten.'
+        : 'Check soon — affected devices below.'
+      : level === 'warn'
+        ? de
+          ? 'Nichts Ernstes — bei Gelegenheit ansehen.'
+          : 'Nothing severe — review when convenient.'
+        : level === 'ok'
+          ? h24 && h24.low > 0
+            ? de
+              ? `Keine wichtigen Meldungen · ${h24.low} Info-Notizen (24 h)`
+              : `No important alerts · ${h24.low} info notes (24h)`
+            : de
+              ? 'Keine Meldungen in den letzten 24 h.'
+              : 'No alerts in the last 24h.'
+          : su?.configured
+            ? errorText(su.error || 'alerts_upstream_error', de)
+            : de
+              ? 'Alarm-API-URL + Token in den Einstellungen eintragen.'
+              : 'Enter alert API URL + token in settings.'
 
   return (
     <div style={shell}>
@@ -316,22 +362,64 @@ function Widget({ config }: PluginWidgetProps) {
         />
       </div>
 
-      {nt?.ok ? (
-        <div style={{ display: 'flex', gap: 6 }}>
-          <KpiTile label={de ? 'Durchsatz' : 'Throughput'} value={formatBps(num(nt.throughputBps), de)} />
-          <KpiTile label={de ? 'Geräte' : 'Devices'} value={String(num(nt.numLocalHosts))} />
-          <KpiTile
-            label={de ? 'Alarme 24h' : 'Alerts 24h'}
-            value={su?.ok ? String(alertCount) : '—'}
-            accent={su?.ok ? alertAccent : undefined}
-          />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '10px 12px',
+          borderRadius: 10,
+          flexShrink: 0,
+          background: `color-mix(in srgb, ${levelColor} 11%, transparent)`,
+          border: `1px solid color-mix(in srgb, ${levelColor} 32%, transparent)`,
+        }}
+      >
+        <span
+          style={{
+            width: 'clamp(28px, 9cqmin, 38px)',
+            height: 'clamp(28px, 9cqmin, 38px)',
+            borderRadius: '50%',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 'clamp(14px, 4.5cqmin, 19px)',
+            fontWeight: 700,
+            background: `color-mix(in srgb, ${levelColor} 18%, transparent)`,
+            color: levelColor,
+          }}
+        >
+          {level === 'ok' ? '✓' : level === 'off' ? '·' : '!'}
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+          <span
+            style={{
+              fontSize: 'clamp(13px, 4.2cqmin, 17px)',
+              fontWeight: 700,
+              color: level === 'off' ? 'var(--text)' : levelColor,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {heroTitle}
+          </span>
+          <span
+            style={{
+              fontSize: 'clamp(9px, 2.4cqmin, 10.5px)',
+              color: 'var(--text-muted)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {heroSub}
+          </span>
         </div>
-      ) : (
-        <p style={{ margin: 0, fontSize: 11, color: '#ef4444' }}>{errorText(nt?.error || 'network_error', de)}</p>
-      )}
+      </div>
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {nt?.ok && (nt.topHosts?.length ?? 0) > 0 ? (
+        {showDevices && nt?.ok && (nt.topHosts?.length ?? 0) > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={sectionLabel}>{de ? 'Top-Geräte' : 'Top devices'}</span>
             {(() => {
@@ -401,16 +489,12 @@ function Widget({ config }: PluginWidgetProps) {
           </div>
         ) : null}
 
-        {su?.configured ? (
-          su.ok ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <span style={sectionLabel}>{de ? 'Letzte Meldungen' : 'Recent alerts'}</span>
-              {(su.alerts?.length ?? 0) === 0 ? (
-                <span style={{ fontSize: 11, color: '#34d399' }}>
-                  {de ? '✓ Keine Meldungen — alles ruhig.' : '✓ No alerts — all quiet.'}
-                </span>
-              ) : (
-                su.alerts!.map((a, i) => (
+        {su?.ok && shownAlerts.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <span style={sectionLabel}>
+              {showInfoAlerts ? (de ? 'Letzte Meldungen' : 'Recent alerts') : de ? 'Wichtige Meldungen' : 'Important alerts'}
+            </span>
+            {shownAlerts.map((a, i) => (
                   <div
                     key={`${a.ts}-${i}`}
                     style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}
@@ -464,22 +548,36 @@ function Widget({ config }: PluginWidgetProps) {
                       {a.dpt ? `:${a.dpt}` : ''}
                     </span>
                   </div>
-                ))
-              )}
-            </div>
-          ) : (
-            <p style={{ margin: 0, fontSize: 10, color: '#f59e0b' }}>
-              {errorText(su.error || 'alerts_upstream_error', de)}
-            </p>
-          )
-        ) : (
-          <p style={{ margin: 0, fontSize: 10, color: 'var(--text-muted)' }}>
-            {de
-              ? 'Suricata-Alarme: Alarm-API-URL + Token in den Einstellungen eintragen.'
-              : 'Suricata alerts: enter alert API URL + token in settings.'}
-          </p>
-        )}
+                ))}
+          </div>
+        ) : null}
       </div>
+
+      <p
+        style={{
+          margin: 0,
+          flexShrink: 0,
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 8,
+          fontSize: 'clamp(9px, 2.3cqmin, 10.5px)',
+          color: 'var(--text-muted)',
+          borderTop: '1px solid var(--border)',
+          paddingTop: 6,
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {nt?.ok ? (
+          <>
+            <span style={{ whiteSpace: 'nowrap' }}>↕ {formatBps(num(nt.throughputBps), de)}</span>
+            <span style={{ whiteSpace: 'nowrap' }}>
+              {num(nt.numLocalHosts)} {de ? 'Geräte im Netz' : 'devices online'}
+            </span>
+          </>
+        ) : (
+          <span style={{ color: '#ef4444' }}>{errorText(nt?.error || 'network_error', de)}</span>
+        )}
+      </p>
 
       {error ? (
         <p style={{ margin: 0, fontSize: 10, color: '#ef4444', lineHeight: 1.4, wordBreak: 'break-word' }}>{error}</p>
@@ -569,6 +667,24 @@ function Settings({ config, onChange }: PluginSettingsProps) {
           onChange={(e) => onChange('alertsToken', e.target.value)}
         />
       </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={config.showInfoAlerts === true}
+            onChange={(e) => onChange('showInfoAlerts', e.target.checked)}
+          />
+          {de ? 'Auch Info-Meldungen anzeigen (sonst nur Warnungen & Alarme)' : 'Also show info alerts (otherwise warnings & alerts only)'}
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={config.showDevices === true}
+            onChange={(e) => onChange('showDevices', e.target.checked)}
+          />
+          {de ? 'Top-Geräte-Liste anzeigen' : 'Show top devices list'}
+        </label>
+      </div>
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
@@ -606,7 +722,7 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.2.0',
+  version: '0.3.0',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',
@@ -618,6 +734,8 @@ export const meta: PluginMeta = {
     { key: 'password', label: 'ntopng-Passwort', type: 'password', defaultValue: '' },
     { key: 'alertsUrl', label: 'Alarm-API-URL', type: 'text', placeholder: 'http://192.168.1.103:3001', defaultValue: '' },
     { key: 'alertsToken', label: 'Alarm-API-Token', type: 'password', defaultValue: '' },
+    { key: 'showInfoAlerts', label: 'Auch Info-Meldungen anzeigen', type: 'boolean', defaultValue: false },
+    { key: 'showDevices', label: 'Top-Geräte-Liste anzeigen', type: 'boolean', defaultValue: false },
     { key: 'refreshSeconds', label: 'Aktualisieren (Sek.)', type: 'number', defaultValue: 30 },
     { key: 'maxAlerts', label: 'Max. Meldungen', type: 'number', defaultValue: 6 },
   ],

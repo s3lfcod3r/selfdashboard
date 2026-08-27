@@ -310,7 +310,7 @@ async function fetchNtopng(base, auth, ifid, signal) {
 }
 async function fetchSuricata(alertsUrl, token, maxAlerts, signal) {
   const base = normalizeBase(alertsUrl);
-  const res = await fetchCheckedJson(`${base}/alerts?limit=${maxAlerts}`, {
+  const res = await fetchCheckedJson(`${base}/alerts?limit=${Math.max(50, maxAlerts)}`, {
     headers: { Accept: "application/json", "X-Api-Token": token },
     signal
   });
