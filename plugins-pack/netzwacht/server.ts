@@ -275,8 +275,138 @@ function settleError(e: unknown): string {
   return 'network_error'
 }
 
-async function handleNetzwachtPluginRequest(req: Request, _path: string[]): Promise<Response> {
+// ---------------------------------------------------------------------------
+// /ipinfo — Zusatzinfos zur Gegenstelle eines Alarms (rDNS, Geo, Statistik,
+// CrowdSec-Status). Wird vom Detail-Popup des Widgets abgerufen.
+// ---------------------------------------------------------------------------
+
+const ipInfoCache = createPluginServerCache({ ttlMs: 10 * 60_000, maxEntries: 64 })
+
+function isPrivateIp(ip: string): boolean {
+  return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|169\.254\.|fe80:|fd|::1)/i.test(ip)
+}
+
+function isValidIp(ip: string): boolean {
+  return /^[0-9a-fA-F.:]{3,45}$/.test(ip)
+}
+
+async function lookupRdns(ip: string): Promise<string | null> {
+  try {
+    const dns = await import('node:dns/promises')
+    const names = await Promise.race([
+      dns.reverse(ip),
+      new Promise<string[]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000)),
+    ])
+    return Array.isArray(names) && names.length > 0 ? names[0] : null
+  } catch {
+    return null
+  }
+}
+
+type GeoInfo = { country: string; countryCode: string; city: string; isp: string; org: string; as: string } | null
+
+async function lookupGeo(ip: string, signal: AbortSignal): Promise<GeoInfo> {
+  try {
+    const res = await fetchCheckedJson(
+      `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,city,isp,org,as`,
+      { headers: { Accept: 'application/json' }, signal },
+    )
+    if (!res.ok || !isObject(res.json) || res.json.status !== 'success') return null
+    const g = res.json
+    return {
+      country: str(g.country),
+      countryCode: str(g.countryCode),
+      city: str(g.city),
+      isp: str(g.isp),
+      org: str(g.org),
+      as: str(g.as),
+    }
+  } catch {
+    return null
+  }
+}
+
+type CrowdsecInfo = { banned: boolean; scenario: string; until: string } | null
+
+async function lookupCrowdsec(ip: string): Promise<CrowdsecInfo> {
+  try {
+    const [{ default: Database }, fs] = await Promise.all([import('better-sqlite3'), import('node:fs')])
+    const dbPath = process.env.CROWDSEC_DB_PATH || '/crowdsec-data/crowdsec.db'
+    if (!fs.existsSync(dbPath)) return null
+    const db = new Database(dbPath, { readonly: true, fileMustExist: true })
+    try {
+      const row = db
+        .prepare(
+          "SELECT scenario, until FROM decisions WHERE value = ? AND (until IS NULL OR until > datetime('now')) ORDER BY until DESC LIMIT 1",
+        )
+        .get(ip) as { scenario?: string; until?: string } | undefined
+      return { banned: Boolean(row), scenario: str(row?.scenario), until: str(row?.until) }
+    } finally {
+      db.close()
+    }
+  } catch {
+    return null
+  }
+}
+
+async function lookupAlertStats(
+  alertsUrl: string,
+  token: string,
+  ip: string,
+  sig: string,
+  signal: AbortSignal,
+): Promise<{ ip24h: number; sig24h: number } | null> {
+  try {
+    const base = normalizeBase(alertsUrl)
+    const res = await fetchCheckedJson(
+      `${base}/stats?ip=${encodeURIComponent(ip)}&sig=${encodeURIComponent(sig)}`,
+      { headers: { Accept: 'application/json', 'X-Api-Token': token }, signal },
+    )
+    if (!res.ok || !isObject(res.json)) return null
+    return { ip24h: num(res.json.ip24h), sig24h: num(res.json.sig24h) }
+  } catch {
+    return null
+  }
+}
+
+async function handleIpInfoPost(req: Request): Promise<Response> {
+  let body: { ip?: string; sig?: string; alertsUrl?: string; alertsToken?: string }
+  try {
+    body = (await req.json()) as typeof body
+  } catch {
+    return Response.json({ error: 'invalid_json' }, { status: 400 })
+  }
+  const ip = String(body.ip ?? '').trim()
+  if (!isValidIp(ip)) return Response.json({ error: 'invalid_ip' }, { status: 400 })
+  const sig = String(body.sig ?? '').trim().slice(0, 200)
+  const alertsUrl = String(body.alertsUrl ?? '').trim()
+  const alertsToken = openSealedSecret(String(body.alertsToken ?? '').trim())
+  const pub = !isPrivateIp(ip)
+
+  const cacheKey = `ipinfo|${ip}|${sig}`
+  const cached = ipInfoCache.get(cacheKey)
+  if (cached) return Response.json(cached)
+
+  const ac = new AbortController()
+  const t = setTimeout(() => ac.abort(), 8000)
+  try {
+    const [rdns, geo, crowdsec, stats] = await Promise.all([
+      pub ? lookupRdns(ip) : Promise.resolve(null),
+      pub ? lookupGeo(ip, ac.signal) : Promise.resolve(null),
+      pub ? lookupCrowdsec(ip) : Promise.resolve(null),
+      alertsUrl && alertsToken ? lookupAlertStats(alertsUrl, alertsToken, ip, sig, ac.signal) : Promise.resolve(null),
+    ])
+    const payload = { ip, isPublic: pub, rdns, geo, crowdsec, stats }
+    ipInfoCache.set(cacheKey, payload)
+    return Response.json(payload)
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+async function handleNetzwachtPluginRequest(req: Request, path: string[]): Promise<Response> {
   if (req.method !== 'POST') return Response.json({ error: 'method_not_allowed' }, { status: 405 })
+  if (path[0] === 'ipinfo') return handleIpInfoPost(req)
   return handlePost(req)
 }
 

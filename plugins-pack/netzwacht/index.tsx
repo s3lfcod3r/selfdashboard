@@ -288,6 +288,51 @@ function toneColor(tone: AdviceTone): string {
   return tone === 'act' ? '#ef4444' : tone === 'watch' ? '#f59e0b' : '#34d399'
 }
 
+const PORT_NAMES: Record<number, string> = {
+  20: 'FTP',
+  21: 'FTP',
+  22: 'SSH',
+  23: 'Telnet',
+  25: 'Mail (SMTP)',
+  53: 'DNS',
+  80: 'Webserver (HTTP)',
+  110: 'Mail (POP3)',
+  123: 'Zeitserver (NTP)',
+  143: 'Mail (IMAP)',
+  443: 'Webserver (HTTPS)',
+  445: 'Windows-Freigabe (SMB)',
+  465: 'Mail (SMTPS)',
+  587: 'Mail (Versand)',
+  993: 'Mail (IMAPS)',
+  1194: 'VPN (OpenVPN)',
+  3389: 'Fernzugriff (RDP)',
+  5060: 'Telefonie (SIP)',
+  8080: 'Webserver (Alt-Port)',
+  8443: 'Webserver (HTTPS Alt)',
+  9993: 'ZeroTier',
+  51820: 'VPN (WireGuard)',
+}
+
+function portLabel(port: number | null | undefined): string {
+  return port ? PORT_NAMES[port] || '' : ''
+}
+
+/** Die interessante Gegenstelle eines Alarms: die oeffentliche Seite. */
+function pickRemoteIp(a: NetzwachtAlert): string {
+  if (!isPrivateIp(a.src)) return a.src
+  if (!isPrivateIp(a.dst)) return a.dst
+  return a.src
+}
+
+type IpInfoData = {
+  ip: string
+  isPublic: boolean
+  rdns: string | null
+  geo: { country: string; countryCode: string; city: string; isp: string; org: string; as: string } | null
+  crowdsec: { banned: boolean; scenario: string; until: string } | null
+  stats: { ip24h: number; sig24h: number } | null
+}
+
 function fmtTime(ts: string, de: boolean): string {
   const t = Date.parse(ts.replace(/(\.\d+)?\+0000$/, 'Z'))
   if (!Number.isFinite(t)) return ts
@@ -374,6 +419,8 @@ function Widget({ config }: PluginWidgetProps) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState<NetzwachtAlert | null>(null)
+  const [ipInfo, setIpInfo] = useState<IpInfoData | null>(null)
+  const [ipInfoLoading, setIpInfoLoading] = useState(false)
 
   const ntopngUrl = str(config.ntopngUrl)
   const username = str(config.username)
@@ -433,6 +480,34 @@ function Widget({ config }: PluginWidgetProps) {
     const t = setInterval(() => void refresh(), refreshMs)
     return () => clearInterval(t)
   }, [refresh, refreshMs, active])
+
+  // Zusatzinfos zur Gegenstelle laden, sobald das Detail-Popup aufgeht
+  useEffect(() => {
+    if (!detail) {
+      setIpInfo(null)
+      return
+    }
+    let alive = true
+    setIpInfoLoading(true)
+    setIpInfo(null)
+    fetch('/api/plugins/netzwacht/ipinfo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip: pickRemoteIp(detail), sig: detail.sig, alertsUrl, alertsToken }),
+      cache: 'no-store',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j && !j.error) setIpInfo(j as IpInfoData)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setIpInfoLoading(false)
+      })
+    return () => {
+      alive = false
+    }
+  }, [detail, alertsUrl, alertsToken])
 
   const shell: CSSProperties = {
     height: '100%',
@@ -927,7 +1002,7 @@ function Widget({ config }: PluginWidgetProps) {
                     paddingTop: 10,
                   }}
                 >
-                  <span style={{ color: 'var(--text-muted)' }}>{de ? 'Gerät (Quelle)' : 'Device (source)'}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{de ? 'Quelle' : 'Source'}</span>
                   <span style={{ fontWeight: 600 }}>
                     {detail.src}
                     {detail.spt ? `:${detail.spt}` : ''}
@@ -936,6 +1011,9 @@ function Widget({ config }: PluginWidgetProps) {
                   <span>
                     {detail.dst}
                     {detail.dpt ? `:${detail.dpt}` : ''}
+                    {portLabel(detail.dpt) ? (
+                      <span style={{ color: 'var(--text-muted)' }}> · {portLabel(detail.dpt)}</span>
+                    ) : null}
                   </span>
                   <span style={{ color: 'var(--text-muted)' }}>{de ? 'Protokoll' : 'Protocol'}</span>
                   <span>{detail.proto || '–'}</span>
@@ -945,20 +1023,110 @@ function Widget({ config }: PluginWidgetProps) {
                   <span>{fmtTime(detail.ts, de)}</span>
                 </div>
 
-                <a
-                  href={`https://www.google.com/search?q=${encodeURIComponent(`"${detail.sig}" suricata`)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    alignSelf: 'flex-start',
-                    color: 'var(--accent)',
-                    textDecoration: 'none',
-                    fontWeight: 600,
-                    fontSize: 13,
-                  }}
-                >
-                  {de ? 'Regel im Web nachschlagen ↗' : 'Look up rule on the web ↗'}
-                </a>
+                {ipInfoLoading || ipInfo ? (
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      borderTop: '1px solid var(--border)',
+                      paddingTop: 10,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.07em',
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      {de ? 'Gegenstelle' : 'Remote party'} · {ipInfo?.ip || pickRemoteIp(detail)}
+                    </span>
+                    {ipInfoLoading ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {[65, 45].map((w, i) => (
+                          <div key={i} className="skeleton" style={{ height: 11, width: `${w}%`, borderRadius: 3 }} />
+                        ))}
+                      </div>
+                    ) : ipInfo ? (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'auto 1fr',
+                          gap: '5px 14px',
+                          fontSize: 12.5,
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {ipInfo.rdns ? (
+                          <>
+                            <span style={{ color: 'var(--text-muted)' }}>{de ? 'Hostname' : 'Hostname'}</span>
+                            <span style={{ wordBreak: 'break-all' }}>{ipInfo.rdns}</span>
+                          </>
+                        ) : null}
+                        {ipInfo.geo ? (
+                          <>
+                            <span style={{ color: 'var(--text-muted)' }}>{de ? 'Standort' : 'Location'}</span>
+                            <span>
+                              {[ipInfo.geo.city, ipInfo.geo.country].filter(Boolean).join(', ') || '–'}
+                            </span>
+                            <span style={{ color: 'var(--text-muted)' }}>{de ? 'Anbieter' : 'Provider'}</span>
+                            <span>{ipInfo.geo.isp || ipInfo.geo.org || ipInfo.geo.as || '–'}</span>
+                          </>
+                        ) : null}
+                        {ipInfo.stats ? (
+                          <>
+                            <span style={{ color: 'var(--text-muted)' }}>{de ? 'Heute (24 h)' : 'Today (24h)'}</span>
+                            <span>
+                              {de
+                                ? `${ipInfo.stats.ip24h}× diese IP · ${ipInfo.stats.sig24h}× diese Regel`
+                                : `${ipInfo.stats.ip24h}× this IP · ${ipInfo.stats.sig24h}× this rule`}
+                            </span>
+                          </>
+                        ) : null}
+                        {ipInfo.crowdsec ? (
+                          <>
+                            <span style={{ color: 'var(--text-muted)' }}>CrowdSec</span>
+                            <span style={{ color: ipInfo.crowdsec.banned ? '#34d399' : 'var(--text-muted)', fontWeight: 600 }}>
+                              {ipInfo.crowdsec.banned
+                                ? de
+                                  ? `✓ bereits gebannt${ipInfo.crowdsec.scenario ? ` (${ipInfo.crowdsec.scenario})` : ''}`
+                                  : `✓ already banned${ipInfo.crowdsec.scenario ? ` (${ipInfo.crowdsec.scenario})` : ''}`
+                                : de
+                                  ? 'nicht gebannt'
+                                  : 'not banned'}
+                            </span>
+                          </>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 18px' }}>
+                  <a
+                    href={`https://www.google.com/search?q=${encodeURIComponent(`"${detail.sig}" suricata`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, fontSize: 13 }}
+                  >
+                    {de ? 'Regel im Web nachschlagen ↗' : 'Look up rule on the web ↗'}
+                  </a>
+                  {isPrivateIp(detail.src) || isPrivateIp(detail.dst) ? (
+                    <a
+                      href={`${ntopngUrl.replace(/\/+$/, '')}/lua/host_details.lua?host=${encodeURIComponent(
+                        isPrivateIp(detail.src) ? detail.src : detail.dst,
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ color: 'var(--accent)', textDecoration: 'none', fontWeight: 600, fontSize: 13 }}
+                    >
+                      {de ? 'Gerät in ntopng öffnen ↗' : 'Open device in ntopng ↗'}
+                    </a>
+                  ) : null}
+                </div>
               </div>
             </div>,
             document.body,
@@ -1104,7 +1272,7 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.6.1',
+  version: '0.7.0',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',
