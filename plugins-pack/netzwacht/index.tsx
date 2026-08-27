@@ -90,10 +90,30 @@ function sevColor(sev: number): string {
 }
 
 function hostLabel(h: NetzwachtHost): string {
-  const name = h.name && h.name !== h.ip ? h.name : ''
-  // mDNS liefert manchmal UUIDs als Namen — dann lieber die IP zeigen.
-  if (name && !/^[0-9a-f-]{30,}$/i.test(name)) return name
-  return h.ip
+  let name = h.name && h.name !== h.ip ? h.name : ''
+  if (name) {
+    // Docker-/mDNS-Namen wie "zoraxy_32b021a0-…" auf den lesbaren Kern kuerzen
+    const m = name.match(/^(.{3,}?)[_-][0-9a-f]{6}[0-9a-f-]*$/i)
+    if (m) name = m[1]
+    // reine UUIDs sind kein Name — dann lieber die IP zeigen
+    if (/^[0-9a-f-]{30,}$/i.test(name)) name = ''
+  }
+  return name || h.ip
+}
+
+function cleanSig(sig: string): string {
+  // "ET INFO Observed DNS…" → "Observed DNS…" (Klasse steckt schon im Farbpunkt)
+  return sig.replace(/^ET\s+[A-Z0-9_]+\s+/, '').replace(/^GPL\s+[A-Z0-9_]+\s+/, '')
+}
+
+const sectionLabel: CSSProperties = {
+  fontSize: 'clamp(8px, 2cqmin, 9px)',
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.07em',
+  color: 'var(--text-muted)',
+  borderTop: '1px solid var(--border)',
+  paddingTop: 7,
 }
 
 function errorText(code: string, de: boolean): string {
@@ -312,101 +332,136 @@ function Widget({ config }: PluginWidgetProps) {
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {nt?.ok && (nt.topHosts?.length ?? 0) > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span
-              style={{
-                fontSize: 'clamp(8px, 2cqmin, 9px)',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--text-muted)',
-              }}
-            >
-              {de ? 'Top-Geräte (Verbrauch)' : 'Top devices (traffic)'}
-            </span>
-            {nt.topHosts!.slice(0, 3).map((h) => (
-              <div key={h.ip} style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
-                <span
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: 'clamp(10px, 2.8cqmin, 12px)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                  title={`${h.ip}${h.mac ? ` · ${h.mac}` : ''}`}
-                >
-                  {hostLabel(h)}
-                </span>
-                <span
-                  style={{
-                    fontSize: 'clamp(9px, 2.4cqmin, 11px)',
-                    color: 'var(--text-muted)',
-                    fontVariantNumeric: 'tabular-nums',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {formatBps(h.bps, de)}
-                </span>
-              </div>
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={sectionLabel}>{de ? 'Top-Geräte' : 'Top devices'}</span>
+            {(() => {
+              const hosts = nt.topHosts!.slice(0, 3)
+              const maxBps = Math.max(1, ...hosts.map((h) => h.bps))
+              return hosts.map((h) => {
+                const label = hostLabel(h)
+                return (
+                  <div key={h.ip} style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, minWidth: 0 }}>
+                      <span
+                        style={{
+                          minWidth: 0,
+                          fontSize: 'clamp(10px, 2.8cqmin, 12px)',
+                          fontWeight: 600,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={`${h.name || label} · ${h.ip}${h.mac ? ` · ${h.mac}` : ''}`}
+                      >
+                        {label}
+                      </span>
+                      {label !== h.ip ? (
+                        <span
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            fontSize: 'clamp(8px, 2.2cqmin, 10px)',
+                            color: 'var(--text-muted)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {h.ip}
+                        </span>
+                      ) : (
+                        <span style={{ flex: 1 }} />
+                      )}
+                      <span
+                        style={{
+                          fontSize: 'clamp(9px, 2.4cqmin, 11px)',
+                          color: 'var(--text-muted)',
+                          fontVariantNumeric: 'tabular-nums',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {formatBps(h.bps, de)}
+                      </span>
+                    </div>
+                    <div style={{ height: 3, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.max(4, Math.round((h.bps / maxBps) * 100))}%`,
+                          borderRadius: 2,
+                          background: 'var(--accent)',
+                          opacity: 0.85,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )
+              })
+            })()}
           </div>
         ) : null}
 
         {su?.configured ? (
           su.ok ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span
-                style={{
-                  fontSize: 'clamp(8px, 2cqmin, 9px)',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                {de ? 'Letzte Meldungen' : 'Recent alerts'}
-              </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              <span style={sectionLabel}>{de ? 'Letzte Meldungen' : 'Recent alerts'}</span>
               {(su.alerts?.length ?? 0) === 0 ? (
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {de ? 'Keine Meldungen — alles ruhig.' : 'No alerts — all quiet.'}
+                <span style={{ fontSize: 11, color: '#34d399' }}>
+                  {de ? '✓ Keine Meldungen — alles ruhig.' : '✓ No alerts — all quiet.'}
                 </span>
               ) : (
                 su.alerts!.map((a, i) => (
-                  <div key={`${a.ts}-${i}`} style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+                  <div
+                    key={`${a.ts}-${i}`}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}
+                    title={`${a.sig}\n${a.cat}\n${a.src} → ${a.dst}${a.dpt ? `:${a.dpt}` : ''} (${a.proto})`}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: '50%',
+                          flexShrink: 0,
+                          background: sevColor(a.sev),
+                        }}
+                      />
+                      <span
+                        style={{
+                          flex: 1,
+                          minWidth: 0,
+                          fontSize: 'clamp(9px, 2.6cqmin, 11px)',
+                          fontWeight: 500,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {cleanSig(a.sig)}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 'clamp(8px, 2.2cqmin, 10px)',
+                          color: 'var(--text-muted)',
+                          whiteSpace: 'nowrap',
+                          fontVariantNumeric: 'tabular-nums',
+                        }}
+                      >
+                        {relTime(a.ts, de)}
+                      </span>
+                    </div>
                     <span
                       style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: '50%',
-                        flexShrink: 0,
-                        alignSelf: 'center',
-                        background: sevColor(a.sev),
-                      }}
-                      title={`Severity ${a.sev}`}
-                    />
-                    <span
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        fontSize: 'clamp(9px, 2.6cqmin, 11px)',
+                        paddingLeft: 13,
+                        fontSize: 'clamp(8px, 2.1cqmin, 9.5px)',
+                        color: 'var(--text-muted)',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
                       }}
-                      title={`${a.sig}\n${a.src} → ${a.dst}${a.dpt ? `:${a.dpt}` : ''} (${a.proto})`}
                     >
-                      {a.sig}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 'clamp(8px, 2.2cqmin, 10px)',
-                        color: 'var(--text-muted)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {relTime(a.ts, de)}
+                      {a.src} → {a.dst}
+                      {a.dpt ? `:${a.dpt}` : ''}
                     </span>
                   </div>
                 ))
@@ -551,7 +606,7 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.1.0',
+  version: '0.2.0',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',
