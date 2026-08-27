@@ -308,9 +308,9 @@ async function fetchNtopng(base, auth, ifid, signal) {
     topHosts
   };
 }
-async function fetchSuricata(alertsUrl, token, maxAlerts, signal) {
+async function fetchSuricata(alertsUrl, token, maxAlerts, importantOnly, signal) {
   const base = normalizeBase(alertsUrl);
-  const res = await fetchCheckedJson(`${base}/alerts?limit=${Math.max(50, maxAlerts)}`, {
+  const res = await fetchCheckedJson(`${base}/alerts?limit=${Math.max(50, maxAlerts)}&minsev=${importantOnly ? 2 : 0}`, {
     headers: { Accept: "application/json", "X-Api-Token": token },
     signal
   });
@@ -376,7 +376,8 @@ async function handlePost(req) {
   const alertsUrl = String(body.alertsUrl ?? "").trim();
   const alertsToken = openSealedSecret(String(body.alertsToken ?? "").trim());
   const maxAlerts = Math.min(25, Math.max(1, num(body.maxAlerts) || 6));
-  const cacheKey = `${ntopngBase}|${ifid}|${alertsUrl}|${maxAlerts}|${username}`;
+  const importantOnly = body.importantOnly !== false;
+  const cacheKey = `${ntopngBase}|${ifid}|${alertsUrl}|${maxAlerts}|${importantOnly}|${username}`;
   const cached = cache.get(cacheKey);
   if (cached) return Response.json(cached);
   const ac = new AbortController();
@@ -385,7 +386,7 @@ async function handlePost(req) {
     const auth = basicAuth(username, password);
     const [ntopngResult, suricataResult] = await Promise.allSettled([
       fetchNtopng(ntopngBase, auth, ifid, ac.signal),
-      alertsUrl && alertsToken ? fetchSuricata(alertsUrl, alertsToken, maxAlerts, ac.signal) : Promise.resolve({ ok: false, configured: false })
+      alertsUrl && alertsToken ? fetchSuricata(alertsUrl, alertsToken, maxAlerts, importantOnly, ac.signal) : Promise.resolve({ ok: false, configured: false })
     ]);
     const payload = {
       ntopng: ntopngResult.status === "fulfilled" ? ntopngResult.value : { ok: false, error: settleError(ntopngResult.reason) },

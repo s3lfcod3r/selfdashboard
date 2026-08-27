@@ -400,7 +400,16 @@ function Widget({ config }: PluginWidgetProps) {
       const res = await fetch('/api/plugins/netzwacht', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ntopngUrl, username, password, ifid, alertsUrl, alertsToken, maxAlerts }),
+        body: JSON.stringify({
+          ntopngUrl,
+          username,
+          password,
+          ifid,
+          alertsUrl,
+          alertsToken,
+          maxAlerts,
+          importantOnly: !showInfoAlerts,
+        }),
         cache: 'no-store',
       })
       const json = (await res.json().catch(() => ({}))) as NetzwachtData
@@ -415,7 +424,7 @@ function Widget({ config }: PluginWidgetProps) {
     } finally {
       setLoading(false)
     }
-  }, [alertsToken, alertsUrl, configured, de, ifid, maxAlerts, ntopngUrl, password, username])
+  }, [alertsToken, alertsUrl, configured, de, ifid, maxAlerts, ntopngUrl, password, showInfoAlerts, username])
 
   useEffect(() => {
     setLoading(true)
@@ -1095,7 +1104,7 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.6.0',
+  version: '0.6.1',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',

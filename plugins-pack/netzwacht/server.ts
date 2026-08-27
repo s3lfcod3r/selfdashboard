@@ -20,6 +20,7 @@ type ReqBody = {
   alertsUrl?: string
   alertsToken?: string
   maxAlerts?: number | string
+  importantOnly?: boolean
 }
 
 export type NetzwachtHost = {
@@ -156,11 +157,13 @@ async function fetchSuricata(
   alertsUrl: string,
   token: string,
   maxAlerts: number,
+  importantOnly: boolean,
   signal: AbortSignal,
 ): Promise<NetzwachtPayload['suricata']> {
   const base = normalizeBase(alertsUrl)
-  // Immer genug holen, damit das Widget nach Wichtigkeit filtern kann.
-  const res = await fetchCheckedJson(`${base}/alerts?limit=${Math.max(50, maxAlerts)}`, {
+  // minsev=2: die Alarm-API filtert Info-Rauschen schon serverseitig heraus,
+  // damit wichtige Meldungen nicht hinter den letzten N Info-Events verschwinden.
+  const res = await fetchCheckedJson(`${base}/alerts?limit=${Math.max(50, maxAlerts)}&minsev=${importantOnly ? 2 : 0}`, {
     headers: { Accept: 'application/json', 'X-Api-Token': token },
     signal,
   })
@@ -230,8 +233,9 @@ async function handlePost(req: Request): Promise<Response> {
   const alertsUrl = String(body.alertsUrl ?? '').trim()
   const alertsToken = openSealedSecret(String(body.alertsToken ?? '').trim())
   const maxAlerts = Math.min(25, Math.max(1, num(body.maxAlerts) || 6))
+  const importantOnly = body.importantOnly !== false
 
-  const cacheKey = `${ntopngBase}|${ifid}|${alertsUrl}|${maxAlerts}|${username}`
+  const cacheKey = `${ntopngBase}|${ifid}|${alertsUrl}|${maxAlerts}|${importantOnly}|${username}`
   const cached = cache.get(cacheKey)
   if (cached) return Response.json(cached)
 
@@ -243,7 +247,7 @@ async function handlePost(req: Request): Promise<Response> {
     const [ntopngResult, suricataResult] = await Promise.allSettled([
       fetchNtopng(ntopngBase, auth, ifid, ac.signal),
       alertsUrl && alertsToken
-        ? fetchSuricata(alertsUrl, alertsToken, maxAlerts, ac.signal)
+        ? fetchSuricata(alertsUrl, alertsToken, maxAlerts, importantOnly, ac.signal)
         : Promise.resolve({ ok: false, configured: false } as NetzwachtPayload['suricata']),
     ])
 
