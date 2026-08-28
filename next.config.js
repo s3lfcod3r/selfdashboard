@@ -28,6 +28,8 @@ const nextConfig = {
   transpilePackages: [
     'lucide-react',
     'react-grid-layout',
+    'react-draggable',
+    'react-resizable',
     'next-themes',
     'zustand',
     'clsx',
