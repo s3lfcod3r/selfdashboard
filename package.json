@@ -3,6 +3,12 @@
   "version": "2.0.0",
   "license": "MIT",
   "private": true,
+  "browserslist": [
+    "chrome >= 74",
+    "android >= 74",
+    "safari >= 12",
+    "firefox >= 68"
+  ],
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/vendor-builtin-plugins.mjs",

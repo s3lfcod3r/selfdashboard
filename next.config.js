@@ -21,6 +21,22 @@ const pluginsRoot = resolvePluginsRootForBuild()
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // Aeltere WebViews (z.B. Chromium 74 auf Billig-Tablets) verstehen kein
+  // Optional Chaining (?.). Next transpiliert node_modules NICHT automatisch —
+  // daher Client-Pakete hier explizit gegen die browserslist (package.json)
+  // runter-transpilieren, damit die Bundles auch dort laufen.
+  transpilePackages: [
+    'lucide-react',
+    'react-grid-layout',
+    'next-themes',
+    'zustand',
+    'clsx',
+    'tailwind-merge',
+    'qrcode',
+    'graphql-ws',
+    'rrule',
+    'ical.js',
+  ],
   serverExternalPackages: ['better-sqlite3', 'maxmind', 'tsdav', 'ical.js', 'rrule', 'digest-fetch', 'imapflow'],
   outputFileTracingIncludes: {
     '/*': ['./node_modules/better-sqlite3/**/*'],
