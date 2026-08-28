@@ -40,7 +40,7 @@ export async function GET(
   }
 
   const ext = path.extname(file).toLowerCase()
-  let body: Buffer | string = fs.readFileSync(abs)
+  let body = fs.readFileSync(abs)
   // Aeltere WebViews (z.B. Chromium 74 auf Billig-Tablets/TV-Boxen) verstehen
   // kein Optional Chaining (?.) o.ae. Plugin-JS wird daher beim Ausliefern auf
   // ein aelteres Ziel heruntertranspiliert, damit Widgets ueberall laden.
@@ -51,7 +51,8 @@ export async function GET(
       const transform = (esbuild as { transformSync?: typeof import('esbuild').transformSync }).transformSync
         ?? (esbuild as { default?: typeof import('esbuild') }).default?.transformSync
       if (transform) {
-        body = transform(body.toString('utf8'), { loader: 'js', target: ['es2017'] }).code
+        const out = transform(body.toString('utf8'), { loader: 'js', target: ['es2017'] })
+        body = Buffer.from(out.code, 'utf8')
       }
     } catch {
       /* Original ausliefern, wenn Transpile nicht moeglich ist. */
