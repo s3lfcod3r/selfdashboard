@@ -34,8 +34,6 @@ const nextConfig = {
     'tailwind-merge',
     'qrcode',
     'graphql-ws',
-    'rrule',
-    'ical.js',
   ],
   serverExternalPackages: ['better-sqlite3', 'maxmind', 'tsdav', 'ical.js', 'rrule', 'digest-fetch', 'imapflow'],
   outputFileTracingIncludes: {
