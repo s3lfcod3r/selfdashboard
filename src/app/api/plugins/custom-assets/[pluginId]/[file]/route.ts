@@ -47,15 +47,27 @@ export async function GET(
   // Faellt bei Fehlern auf den Originalinhalt zurueck.
   if (ext === '.js' || ext === '.mjs') {
     try {
-      const esbuild = await import('esbuild')
-      const transform = (esbuild as { transformSync?: typeof import('esbuild').transformSync }).transformSync
-        ?? (esbuild as { default?: typeof import('esbuild') }).default?.transformSync
-      if (transform) {
-        const out = transform(body.toString('utf8'), { loader: 'js', target: ['es2017'] })
-        body = Buffer.from(out.code, 'utf8')
+      let code = body.toString('utf8')
+      try {
+        const esbuild = await import('esbuild')
+        const transform = (esbuild as { transformSync?: typeof import('esbuild').transformSync }).transformSync
+          ?? (esbuild as { default?: typeof import('esbuild') }).default?.transformSync
+        if (transform) {
+          code = transform(code, { loader: 'js', target: ['es2017'] }).code
+        }
+      } catch {
+        /* esbuild optional — ohne Transpile weiter mit Originalcode. */
       }
+      // React-Inline-Styles wie {position:"fixed",inset:0,...}: `inset` (erst
+      // Chrome 87) versteht Chromium 74 nicht -> Overlay fuellt den Screen nicht,
+      // Dialoge zentrieren nicht. Auf top/right/bottom/left umschreiben.
+      code = code.replace(
+        /([{,])\s*inset\s*:\s*(0|(["'])0(?:px)?\3)\s*([,}])/g,
+        (_m, pre, val, _q, post) => `${pre}top:${val},right:${val},bottom:${val},left:${val}${post}`,
+      )
+      body = Buffer.from(code, 'utf8')
     } catch {
-      /* Original ausliefern, wenn Transpile nicht moeglich ist. */
+      /* Original ausliefern, wenn Nachbearbeitung nicht moeglich ist. */
     }
   }
   const isWidgetAsset = file === 'widget.js' || file === 'widget.css'
