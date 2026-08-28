@@ -94,6 +94,22 @@ const nextConfig = {
           },
         ],
       },
+      {
+        // Per-Nutzer-Daten duerfen NIE von einem Cache/Reverse-Proxy
+        // zwischengespeichert werden. Sonst kann ein Proxy (z. B. der
+        // HTTP/2-Proxy vor dashboard.home) die Dashboard-Antwort EINES
+        // Nutzers an ALLE anderen ausliefern -> "alle sehen dasselbe
+        // Dashboard", obwohl der Zustand serverseitig pro Nutzer liegt.
+        // no-store erzwingt bei jedem Request eine frische, nutzer-eigene
+        // Antwort. Betrifft nur diese Identitaets-/Zustands-Endpunkte, damit
+        // die unveraenderlich gecachten Plugin-Assets weiter gecacht bleiben.
+        source: '/api/dashboard-state',
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
+      },
+      {
+        source: '/api/auth/me',
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
+      },
     ]
   },
 }
