@@ -37,7 +37,7 @@ const nextConfig = {
     'qrcode',
     'graphql-ws',
   ],
-  serverExternalPackages: ['better-sqlite3', 'maxmind', 'tsdav', 'ical.js', 'rrule', 'digest-fetch', 'imapflow'],
+  serverExternalPackages: ['better-sqlite3', 'maxmind', 'tsdav', 'ical.js', 'rrule', 'digest-fetch', 'imapflow', 'esbuild'],
   outputFileTracingIncludes: {
     '/*': ['./node_modules/better-sqlite3/**/*'],
   },
