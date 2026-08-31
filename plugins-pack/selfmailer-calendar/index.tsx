@@ -570,109 +570,34 @@ function Widget({ config }: PluginWidgetProps) {
     background: color || ACCENT,
   })
 
+  // Bedienknoepfe (Ansicht/Anlegen/Aktualisieren/Zahnrad) — werden in der
+  // Tageszeile (Monat) bzw. im Listenkopf (Agenda) rechts eingehaengt, damit
+  // oben KEINE eigene Leiste noetig ist. addDay = Tag fuer den ＋-Button.
+  const renderControls = (addDay?: string) => (
+    <>
+      <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+        <button type="button" onClick={() => setViewPersist('month')} title={de ? 'Monat' : 'Month'} style={toggleBtn(view === 'month')}>▦</button>
+        <button type="button" onClick={() => setViewPersist('agenda')} title={de ? 'Liste' : 'List'} style={toggleBtn(view === 'agenda')}>☰</button>
+      </div>
+      {allowAdd ? (
+        <button type="button" onClick={() => void openAdd(addDay)} title={de ? 'Termin anlegen' : 'Add event'} style={{ ...navBtn, width: 24, height: 24, fontSize: 15 }}>＋</button>
+      ) : null}
+      <button type="button" onClick={() => void load()} title={de ? 'Aktualisieren' : 'Refresh'} style={{ ...navBtn, width: 24, height: 24, fontSize: 13 }}>⟳</button>
+      {sources.length > 0 ? (
+        <button type="button" onClick={() => setGearOpen(true)} title={de ? 'Kalender anzeigen/ausblenden' : 'Show/hide calendars'} style={{ ...navBtn, width: 24, height: 24, fontSize: 13 }}>⚙</button>
+      ) : null}
+    </>
+  )
+
   return (
     <div style={shell}>
-      {/* Bedienleiste als Fußzeile unten (order:2 rueckt sie unter Kalender +
-          Tagesliste) — spart oben Platz, Kalender beginnt direkt. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, order: 2, flexShrink: 0, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-        {showTitle ? (
-          <p
-            style={{
-              margin: 0,
-              flex: 1,
-              fontSize: 'clamp(9px, 2.4cqmin, 10px)',
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.08em',
-              color: 'var(--text-muted)',
-            }}
-          >
+      {showTitle ? (
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6, flexShrink: 0 }}>
+          <p style={{ margin: 0, flex: 1, fontSize: 'clamp(9px, 2.4cqmin, 10px)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
             {title}
           </p>
-        ) : (
-          <span style={{ flex: 1 }} />
-        )}
-        {/* Ansichts-Umschalter: Monatsraster / Agenda-Liste */}
-        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => setViewPersist('month')}
-            title={de ? 'Monat' : 'Month'}
-            style={toggleBtn(view === 'month')}
-          >
-            ▦
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewPersist('agenda')}
-            title={de ? 'Liste' : 'List'}
-            style={toggleBtn(view === 'agenda')}
-          >
-            ☰
-          </button>
         </div>
-        {allowAdd ? (
-          <button
-            type="button"
-            onClick={() => void openAdd()}
-            title={de ? 'Termin anlegen' : 'Add event'}
-            style={{
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              borderRadius: 6,
-              width: 24,
-              height: 24,
-              fontSize: 15,
-              lineHeight: 1,
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            ＋
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => void load()}
-          title={de ? 'Aktualisieren' : 'Refresh'}
-          style={{
-            border: '1px solid var(--border)',
-            background: 'var(--surface)',
-            color: 'var(--text)',
-            borderRadius: 6,
-            width: 24,
-            height: 24,
-            fontSize: 13,
-            lineHeight: 1,
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
-        >
-          ⟳
-        </button>
-        {sources.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => setGearOpen(true)}
-            title={de ? 'Kalender anzeigen/ausblenden' : 'Show/hide calendars'}
-            style={{
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              color: 'var(--text)',
-              borderRadius: 6,
-              width: 24,
-              height: 24,
-              fontSize: 13,
-              lineHeight: 1,
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            ⚙
-          </button>
-        ) : null}
-      </div>
+      ) : null}
 
       {/* Monatsraster (1:1 wie das Kalender-Plugin) */}
       {view === 'month' ? (
@@ -810,16 +735,13 @@ function Widget({ config }: PluginWidgetProps) {
               maxHeight deckelt die Liste, damit das Monatsraster bei vielen
               Terminen nicht klein wird; die Liste scrollt stattdessen intern. */}
           <div style={{ marginTop: 6, maxHeight: '30%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            {/* Tageszeile mit Bedienknoepfen rechts (spart die obere Leiste). */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <p style={{ margin: 0, flex: 1, fontSize: 'clamp(9px, 2.4cqmin, 12px)', fontWeight: 700, color: 'var(--text)' }}>
+              <p style={{ margin: 0, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'clamp(9px, 2.4cqmin, 12px)', fontWeight: 700, color: 'var(--text)' }}>
                 {dayLabel(selDay, de)}
                 {selDayEvents.length > 0 ? ` (${selDayEvents.length})` : ''}
               </p>
-              {allowAdd ? (
-                <button type="button" onClick={() => void openAdd(selDay)} title={de ? 'Termin anlegen' : 'Add event'} style={{ ...navBtn, width: 22, height: 22, fontSize: 14 }}>
-                  ＋
-                </button>
-              ) : null}
+              {renderControls(selDay)}
             </div>
             <div style={{ overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {selDayEvents.length === 0 ? (
@@ -880,8 +802,13 @@ function Widget({ config }: PluginWidgetProps) {
           </div>
         </div>
       ) : (
-      /* Agenda-Liste */
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+      /* Agenda-Liste — Bedienknoepfe oben rechts, Liste darunter scrollbar. */
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexShrink: 0 }}>
+          <span style={{ flex: 1 }} />
+          {renderControls()}
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
         {grouped.length === 0 ? (
           <p style={{ fontSize: 'clamp(11px, 3cqmin, 13px)', color: 'var(--text-muted)', margin: 0 }}>
             {de ? 'Keine Termine in den nächsten Tagen. 🎉' : 'No events coming up. 🎉'}
@@ -938,6 +865,7 @@ function Widget({ config }: PluginWidgetProps) {
             </div>
           ))
         )}
+        </div>
       </div>
       )}
       {adding && allowAdd && typeof document !== 'undefined'
