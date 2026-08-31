@@ -675,14 +675,12 @@ function Widget({ config }: PluginWidgetProps) {
       {/* Monatsraster (1:1 wie das Kalender-Plugin) */}
       {view === 'month' ? (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* Navi + Heute in EINER Zeile — spart oben eine ganze Zeile Höhe. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
             <button type="button" onClick={() => setCursor((c) => shiftMonth(c, -1))} title="‹" style={navBtn}>‹</button>
             <span style={{ flex: 1, textAlign: 'center', fontSize: 'clamp(11px, 3cqmin, 13px)', fontWeight: 700, color: 'var(--text)' }}>
               {monthTitle(cursor, de)}
             </span>
-            <button type="button" onClick={() => setCursor((c) => shiftMonth(c, 1))} title="›" style={navBtn}>›</button>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'center', margin: '3px 0 6px' }}>
             <button
               type="button"
               onClick={() => {
@@ -690,12 +688,14 @@ function Widget({ config }: PluginWidgetProps) {
                 setCursor({ year: n.getFullYear(), month: n.getMonth() })
                 setSelDay(localDateKey(n))
               }}
-              style={{ ...navBtn, width: 'auto', height: 20, padding: '0 10px', fontSize: 10, fontWeight: 600 }}
+              title={de ? 'Heute' : 'Today'}
+              style={{ ...navBtn, width: 'auto', height: 22, padding: '0 9px', fontSize: 10, fontWeight: 600 }}
             >
               {de ? 'Heute' : 'Today'}
             </button>
+            <button type="button" onClick={() => setCursor((c) => shiftMonth(c, 1))} title="›" style={navBtn}>›</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg, var(--surface))', borderRadius: 6, padding: '6px 0', marginBottom: 3 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: 'var(--bg, var(--surface))', borderRadius: 6, padding: '3px 0', marginBottom: 3 }}>
             {weekdayLabels(de).map((w, i) => (
               <span
                 key={w}
@@ -775,34 +775,39 @@ function Widget({ config }: PluginWidgetProps) {
                       {d.getDate()}
                     </span>
                   </span>
-                  {dayEvs.length > 0 ? (
-                    <span style={{ display: 'flex', justifyContent: 'center' }}>
-                      <span
-                        style={{
-                          fontSize: 'clamp(7px, 1.8cqmin, 9px)',
-                          minWidth: '1.4em',
-                          height: '1.4em',
-                          padding: '0 0.3em',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderRadius: 999,
-                          color: '#04201c',
-                          background: dayEvs[0].source_color || CAL_FALLBACK,
-                          fontWeight: 700,
-                          lineHeight: 1,
-                        }}
-                      >
-                        {dayEvs.length}
-                      </span>
-                    </span>
-                  ) : null}
+                  {dayEvs.length > 0
+                    ? (() => {
+                        // Ein Punkt je Person/Kalender, der an diesem Tag etwas hat —
+                        // so sieht man auf einen Blick, WER wann Termine hat. Farbe =
+                        // Kalenderfarbe. >4 Quellen → Rest als „+N".
+                        const bySource = new Map<string, string>()
+                        for (const ev of dayEvs) {
+                          const k = ev.source_key || `dav:${ev.dav_account_id ?? 'local'}`
+                          if (!bySource.has(k)) bySource.set(k, ev.source_color || CAL_FALLBACK)
+                        }
+                        const colors = [...bySource.values()]
+                        const dots = colors.slice(0, 4)
+                        const extra = colors.length - dots.length
+                        return (
+                          <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 2, flexWrap: 'nowrap', overflow: 'hidden' }}>
+                            {dots.map((c, i) => (
+                              <span key={i} style={{ width: 6, height: 6, borderRadius: 999, background: c, flexShrink: 0 }} />
+                            ))}
+                            {extra > 0 ? (
+                              <span style={{ fontSize: 'clamp(6px, 1.6cqmin, 8px)', color: 'var(--text-muted)', lineHeight: 1, marginLeft: 1 }}>+{extra}</span>
+                            ) : null}
+                          </span>
+                        )
+                      })()
+                    : null}
                 </button>
               )
             })}
           </div>
-          {/* Termine des gewählten Tages — wie die Detailliste im Kalender-Plugin */}
-          <div style={{ marginTop: 8, maxHeight: '34%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {/* Termine des gewählten Tages — wie die Detailliste im Kalender-Plugin.
+              maxHeight deckelt die Liste, damit das Monatsraster bei vielen
+              Terminen nicht klein wird; die Liste scrollt stattdessen intern. */}
+          <div style={{ marginTop: 6, maxHeight: '30%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <p style={{ margin: 0, flex: 1, fontSize: 'clamp(9px, 2.4cqmin, 12px)', fontWeight: 700, color: 'var(--text)' }}>
                 {dayLabel(selDay, de)}
@@ -843,9 +848,29 @@ function Widget({ config }: PluginWidgetProps) {
                     <span style={{ fontSize: 'clamp(9px, 2.4cqmin, 11px)', color: 'var(--text-muted)', flexShrink: 0, fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono, monospace)' }}>
                       {timeLabel(ev, de)}
                     </span>
-                    <span style={{ fontSize: 'clamp(10px, 2.8cqmin, 12px)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 'clamp(10px, 2.8cqmin, 12px)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {ev.title || (de ? '(ohne Titel)' : '(no title)')}
                     </span>
+                    {ev.source_name ? (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          flexShrink: 0,
+                          maxWidth: '42%',
+                          fontSize: 'clamp(8px, 2.2cqmin, 10px)',
+                          color: 'var(--text-muted)',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={ev.source_name}
+                      >
+                        <span style={{ width: 6, height: 6, borderRadius: 999, background: ev.source_color || CAL_FALLBACK, flexShrink: 0 }} />
+                        {ev.source_name}
+                      </span>
+                    ) : null}
                   </button>
                 ))
               )}
