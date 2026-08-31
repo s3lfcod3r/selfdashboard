@@ -572,7 +572,9 @@ function Widget({ config }: PluginWidgetProps) {
 
   return (
     <div style={shell}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      {/* Bedienleiste als Fußzeile unten (order:2 rueckt sie unter Kalender +
+          Tagesliste) — spart oben Platz, Kalender beginnt direkt. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, order: 2, flexShrink: 0, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
         {showTitle ? (
           <p
             style={{
