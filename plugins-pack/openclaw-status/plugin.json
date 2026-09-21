@@ -1,0 +1,16 @@
+{
+  "id": "openclaw-status",
+  "name": "Projektstatus",
+  "description": "Zeigt, wo jedes Projekt steht und wo Fragen an dich warten - gelesen aus den STATUS.md-Dateien, die ein KI-Agent (z.B. OpenClaw) pflegt. Wartendes zuerst, dazu Update-Hinweise. Braucht den kleinen Projektstatus-Dienst.",
+  "version": "1.0.0",
+  "author": "SelfDashboard",
+  "category": "utility",
+  "icon": "📋",
+  "defaultLayout": {
+    "w": 4,
+    "h": 5,
+    "minW": 3,
+    "minH": 3
+  },
+  "hasServer": true
+}
