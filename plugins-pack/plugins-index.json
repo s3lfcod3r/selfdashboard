@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-09-21T17:32:38.010Z",
+  "generatedAt": "2026-09-21T20:28:07.047Z",
   "plugins": [
     {
       "id": "adguard",
@@ -382,6 +382,27 @@
         "widget.js",
         "icon.svg"
       ]
+    },
+    {
+      "id": "llm-tempo",
+      "name": "LLM-Tempo",
+      "description": "Zeigt, wie schnell deine lokalen Sprachmodelle schreiben und lesen (Token pro Sekunde) - gemessen vom llama.cpp-Server selbst, dazu die Trefferquote der MTP-/Spekulativ-Vorhersage. Braucht llama-server mit --metrics.",
+      "version": "1.0.0",
+      "author": "SelfDashboard",
+      "category": "system",
+      "icon": "⚡",
+      "defaultLayout": {
+        "w": 4,
+        "h": 3,
+        "minW": 3,
+        "minH": 2
+      },
+      "files": [
+        "plugin.json",
+        "widget.js",
+        "server.mjs"
+      ],
+      "hasServer": true
     },
     {
       "id": "mail",
