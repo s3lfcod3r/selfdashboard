@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-08-31T19:59:48.797Z",
+  "generatedAt": "2026-09-21T17:32:38.010Z",
   "plugins": [
     {
       "id": "adguard",
@@ -458,6 +458,27 @@
         "h": 2,
         "minW": 2,
         "minH": 2
+      },
+      "files": [
+        "plugin.json",
+        "widget.js",
+        "server.mjs"
+      ],
+      "hasServer": true
+    },
+    {
+      "id": "openclaw-status",
+      "name": "Projektstatus",
+      "description": "Zeigt, wo jedes Projekt steht und wo Fragen an dich warten - gelesen aus den STATUS.md-Dateien, die ein KI-Agent (z.B. OpenClaw) pflegt. Wartendes zuerst, dazu Update-Hinweise. Braucht den kleinen Projektstatus-Dienst.",
+      "version": "1.0.0",
+      "author": "SelfDashboard",
+      "category": "utility",
+      "icon": "📋",
+      "defaultLayout": {
+        "w": 4,
+        "h": 5,
+        "minW": 3,
+        "minH": 3
       },
       "files": [
         "plugin.json",
