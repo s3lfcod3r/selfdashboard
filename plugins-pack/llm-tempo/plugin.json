@@ -1,0 +1,16 @@
+{
+  "id": "llm-tempo",
+  "name": "LLM-Tempo",
+  "description": "Zeigt, wie schnell deine lokalen Sprachmodelle schreiben und lesen (Token pro Sekunde) - gemessen vom llama.cpp-Server selbst, dazu die Trefferquote der MTP-/Spekulativ-Vorhersage. Braucht llama-server mit --metrics.",
+  "version": "1.0.0",
+  "author": "SelfDashboard",
+  "category": "system",
+  "icon": "⚡",
+  "defaultLayout": {
+    "w": 4,
+    "h": 3,
+    "minW": 3,
+    "minH": 2
+  },
+  "hasServer": true
+}
