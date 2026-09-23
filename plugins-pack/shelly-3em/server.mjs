@@ -21,30 +21,62 @@ function dataDir() {
 var ALGO = "aes-256-gcm";
 var IV_LEN = 12;
 var KEY_LEN = 32;
-var cachedKey = null;
-function deriveKey(material) {
-  return scryptSync(material, "selfdashboard.calendar.v1", KEY_LEN);
-}
-function loadOrCreateKey() {
-  if (cachedKey) return cachedKey;
+var LEGACY_SALT = "selfdashboard.calendar.v1";
+var cachedPrimaryKey = null;
+var cachedLegacyKey = null;
+function keyMaterial() {
   const envKey = (process.env.SELFDASHBOARD_SECRET_KEY ?? process.env.SELFDASHBOARD_CALENDAR_KEY)?.trim();
-  if (envKey) {
-    cachedKey = deriveKey(envKey);
-    return cachedKey;
-  }
+  if (envKey) return envKey;
   const keyFile = join2(dataDir(), ".calendar-key");
-  if (existsSync(keyFile)) {
-    cachedKey = deriveKey(readFileSync(keyFile, "utf8").trim());
-    return cachedKey;
-  }
+  if (existsSync(keyFile)) return readFileSync(keyFile, "utf8").trim();
   const fresh = randomBytes(32).toString("base64");
-  writeFileSync(keyFile, fresh, "utf8");
   try {
-    chmodSync(keyFile, 384);
+    writeFileSync(keyFile, fresh, { flag: "wx" });
+    try {
+      chmodSync(keyFile, 384);
+    } catch {
+    }
+    return fresh;
   } catch {
+    if (existsSync(keyFile)) return readFileSync(keyFile, "utf8").trim();
+    return fresh;
   }
-  cachedKey = deriveKey(fresh);
-  return cachedKey;
+}
+function installSalt() {
+  const saltFile = join2(dataDir(), ".secret-salt");
+  try {
+    if (existsSync(saltFile)) {
+      const v = readFileSync(saltFile, "utf8").trim();
+      if (v) return v;
+    }
+    const fresh = randomBytes(16).toString("hex");
+    try {
+      writeFileSync(saltFile, fresh, { flag: "wx" });
+      try {
+        chmodSync(saltFile, 384);
+      } catch {
+      }
+      return fresh;
+    } catch {
+      const v = existsSync(saltFile) ? readFileSync(saltFile, "utf8").trim() : "";
+      return v || LEGACY_SALT;
+    }
+  } catch {
+    return LEGACY_SALT;
+  }
+}
+function primaryKey() {
+  if (!cachedPrimaryKey) cachedPrimaryKey = scryptSync(keyMaterial(), installSalt(), KEY_LEN);
+  return cachedPrimaryKey;
+}
+function legacyKey() {
+  if (!cachedLegacyKey) cachedLegacyKey = scryptSync(keyMaterial(), LEGACY_SALT, KEY_LEN);
+  return cachedLegacyKey;
+}
+function decryptGcm(key, iv, enc, tag) {
+  const decipher = createDecipheriv(ALGO, key, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
 }
 var TAG_LEN = 16;
 var SEALED_SECRET_PREFIX = "sdsec1:";
@@ -53,17 +85,19 @@ function isSealedSecret(value) {
 }
 function openSealedSecret(value) {
   if (!isSealedSecret(value)) return value;
+  const buf = Buffer.from(value.slice(SEALED_SECRET_PREFIX.length), "base64");
+  if (buf.length < IV_LEN + TAG_LEN + 1) return "";
+  const iv = buf.subarray(0, IV_LEN);
+  const tag = buf.subarray(IV_LEN, IV_LEN + TAG_LEN);
+  const enc = buf.subarray(IV_LEN + TAG_LEN);
   try {
-    const buf = Buffer.from(value.slice(SEALED_SECRET_PREFIX.length), "base64");
-    if (buf.length < IV_LEN + TAG_LEN + 1) return "";
-    const iv = buf.subarray(0, IV_LEN);
-    const tag = buf.subarray(IV_LEN, IV_LEN + TAG_LEN);
-    const enc = buf.subarray(IV_LEN + TAG_LEN);
-    const decipher = createDecipheriv(ALGO, loadOrCreateKey(), iv);
-    decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(enc), decipher.final()]).toString("utf8");
+    return decryptGcm(primaryKey(), iv, enc, tag);
   } catch {
-    return "";
+    try {
+      return decryptGcm(legacyKey(), iv, enc, tag);
+    } catch {
+      return "";
+    }
   }
 }
 
@@ -117,9 +151,13 @@ function isPrivateLanIp(ip) {
   if (a === 192 && b === 168) return true;
   return false;
 }
+function isTruthyEnv(v) {
+  const s = v?.trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes";
+}
 function blockPrivateLanUrls() {
-  const v = process.env.SELFDASHBOARD_BLOCK_PRIVATE_CALENDAR_URLS?.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+  if (isTruthyEnv(process.env.SELFDASHBOARD_ALLOW_PRIVATE_URLS)) return false;
+  return true;
 }
 var UnsafeOutboundUrlError = class extends Error {
   constructor(message) {
@@ -194,6 +232,7 @@ var ShellyAuthError = class extends Error {
   }
 };
 var SHELLY_TIMEOUT_MS = 8e3;
+var MAX_PASSWORD_LEN = 2e3;
 function str(v) {
   return typeof v === "string" ? v.trim() : v != null ? String(v).trim() : "";
 }
@@ -209,6 +248,16 @@ function mapShellyError(e) {
   if (e instanceof Error && e.name === "AbortError") return "timeout";
   return "unreachable";
 }
+function toDevice(raw) {
+  if (typeof raw !== "object" || raw === null) return null;
+  const o = raw;
+  const ip = str(o.ip);
+  if (!ip) return null;
+  const dev = { id: str(o.id) || ip, name: str(o.name), ip };
+  const password = typeof o.password === "string" ? o.password.slice(0, MAX_PASSWORD_LEN) : "";
+  if (password) dev.password = password;
+  return dev;
+}
 function parseDevices(raw, maxDevices) {
   let arr = raw;
   if (typeof raw === "string") {
@@ -219,13 +268,7 @@ function parseDevices(raw, maxDevices) {
     }
   }
   if (!Array.isArray(arr)) return [];
-  return arr.slice(0, maxDevices).map((d) => {
-    if (typeof d !== "object" || d === null) return null;
-    const o = d;
-    const ip = str(o.ip);
-    if (!ip) return null;
-    return { id: str(o.id) || ip, name: str(o.name), ip };
-  }).filter((d) => d !== null);
+  return arr.slice(0, maxDevices).map(toDevice).filter((d) => d !== null);
 }
 function normalizeShellyBase(raw) {
   const s = (raw ?? "").trim();
@@ -376,11 +419,10 @@ function recordEnergy(pluginId, samples) {
   }
   writeHistory(pluginId, data);
 }
-function windowKwh(pluginId, deviceKey, counter, sinceMs) {
-  const arr = readHistory(pluginId)[deviceKey] ?? [];
+function sumWindow(snaps, counter, sinceMs) {
   let prev = null;
   let wh = 0;
-  for (const snap of arr) {
+  for (const snap of snaps) {
     const v = snap.c[counter];
     if (typeof v !== "number") continue;
     if (snap.t < sinceMs) {
@@ -392,13 +434,21 @@ function windowKwh(pluginId, deviceKey, counter, sinceMs) {
   }
   return wh / 1e3;
 }
+function windowsKwh(pluginId, deviceKey, counter, since) {
+  const snaps = readHistory(pluginId)[deviceKey] ?? [];
+  const out = {};
+  for (const name of Object.keys(since)) {
+    out[name] = sumWindow(snaps, counter, since[name]);
+  }
+  return out;
+}
 function energyWindows(pluginId, deviceKey, counter) {
   const now = Date.now();
-  return {
-    today: windowKwh(pluginId, deviceKey, counter, startOfToday()),
-    week: windowKwh(pluginId, deviceKey, counter, now - 7 * DAY_MS),
-    month: windowKwh(pluginId, deviceKey, counter, now - 30 * DAY_MS)
-  };
+  return windowsKwh(pluginId, deviceKey, counter, {
+    today: startOfToday(),
+    week: now - 7 * DAY_MS,
+    month: now - 30 * DAY_MS
+  });
 }
 
 // plugins-pack/shelly-3em/server.ts
