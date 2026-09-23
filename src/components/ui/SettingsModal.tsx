@@ -8,6 +8,7 @@ import { useDashboardStore } from '@/lib/store'
 import { themes } from '@/lib/themes'
 import { t, pickLabel } from '@/lib/i18n'
 import { Portal } from '@/components/ui/Portal'
+import { usePollingActive } from '@/hooks/usePollingActive'
 import type { ThemeId } from '@/types'
 import type { Locale } from '@/lib/i18n'
 import { SEARCH_PROVIDER_LIST } from '@/lib/searchProviders'
@@ -159,6 +160,7 @@ export function SettingsModal({ open, onClose }: Props) {
   const dashboardBg2InputRef = useRef<HTMLInputElement>(null)
   const iconInputRef = useRef<HTMLInputElement>(null)
   const newIconInputRef = useRef<HTMLInputElement>(null)
+  const { ref, active } = usePollingActive()
 
   const refreshLogs = useCallback(async () => {
     setLogsLoading(true)
@@ -194,10 +196,11 @@ export function SettingsModal({ open, onClose }: Props) {
   }, [open, tab, refreshLogs])
 
   useEffect(() => {
+    if (!active) return
     if (!open || tab !== 'logs') return
     const id = window.setInterval(() => void refreshLogs(), 15_000)
     return () => window.clearInterval(id)
-  }, [open, tab, refreshLogs])
+  }, [open, tab, refreshLogs, active])
 
   const setRetention = async (days: LogRetentionDays) => {
     setLogsBusy(true)
@@ -323,7 +326,7 @@ export function SettingsModal({ open, onClose }: Props) {
 
   return (
     <Portal>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <div ref={ref} style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }} onClick={onClose} />
         <div className="animate-fade-in" style={{
           position: 'relative',

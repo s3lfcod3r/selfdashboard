@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { RefreshCw, X, Package } from 'lucide-react'
 import { useDashboardStore } from '@/lib/store'
+import { usePollingActive } from '@/hooks/usePollingActive'
 import { t } from '@/lib/i18n'
 import { installPluginExternalBridge } from '@/lib/pluginExternalBridge'
 import { loadVolumeWidgetScripts } from '@/lib/pluginCustomClient'
@@ -24,6 +25,7 @@ export function PluginUpdateBanner() {
   const [configured, setConfigured] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   const [busy, setBusy] = useState(false)
+  const { ref, active } = usePollingActive()
 
   const refresh = useCallback(async (force = false) => {
     try {
@@ -46,6 +48,7 @@ export function PluginUpdateBanner() {
   }, [])
 
   useEffect(() => {
+    if (!active) return
     try {
       const at = Number(sessionStorage.getItem(DISMISS_KEY) || '0')
       if (at && Date.now() - at < DISMISS_MS) setDismissed(true)
@@ -61,7 +64,7 @@ export function PluginUpdateBanner() {
       window.clearInterval(id)
       window.removeEventListener('sd-plugin-catalog-changed', onCatalog)
     }
-  }, [refresh])
+  }, [refresh, active])
 
   const dismiss = () => {
     setDismissed(true)
@@ -111,6 +114,7 @@ export function PluginUpdateBanner() {
 
   return (
     <div
+      ref={ref}
       role="status"
       className="flex flex-wrap items-center justify-center gap-2 px-4 py-2 text-sm"
       style={{

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { usePluginLocale } from '@/lib/pluginLocale'
+import { usePollingActive } from '@/hooks/usePollingActive'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
 
 const APPLE_PINK = '#fa233b'
@@ -203,6 +204,7 @@ function Widget({ config }: PluginWidgetProps) {
 
   const instRef = useRef<MKInstance | null>(null)
   const mkRef = useRef<MKGlobal | null>(null)
+  const { ref, active } = usePollingActive()
 
   const syncNowPlaying = useCallback(() => {
     const inst = instRef.current
@@ -277,6 +279,7 @@ function Widget({ config }: PluginWidgetProps) {
   // widget is actually visible. Pausing on a hidden/background tab avoids a
   // pointless 1s state update (and re-render) when nobody can see it.
   useEffect(() => {
+    if (!active) return
     if (!playing) return
     let timer: ReturnType<typeof setInterval> | null = null
     const tick = () => {
@@ -301,7 +304,7 @@ function Widget({ config }: PluginWidgetProps) {
       stop()
       document.removeEventListener('visibilitychange', sync)
     }
-  }, [playing])
+  }, [playing, active])
 
   const authorize = useCallback(async () => {
     const inst = instRef.current
@@ -445,7 +448,7 @@ function Widget({ config }: PluginWidgetProps) {
   const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0
 
   return (
-    <div style={shell}>
+    <div ref={ref} style={shell}>
       {showTitle && title ? (
         <p
           style={{

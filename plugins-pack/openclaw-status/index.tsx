@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import { usePluginLocale } from '@/lib/pluginLocale'
+import { usePollingActive } from '@/hooks/usePollingActive'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -46,6 +47,7 @@ function Widget({ config }: PluginWidgetProps) {
 
   const [data, setData] = useState<Status | null>(null)
   const [error, setError] = useState('')
+  const { ref, active } = usePollingActive()
 
   const load = useCallback(async () => {
     if (!statusUrl) return
@@ -68,10 +70,11 @@ function Widget({ config }: PluginWidgetProps) {
   }, [statusUrl])
 
   useEffect(() => {
+    if (!active) return
     void load()
     const t = setInterval(() => void load(), refreshMs)
     return () => clearInterval(t)
-  }, [load, refreshMs])
+  }, [load, refreshMs, active])
 
   const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, height: '100%', overflow: 'auto', fontSize: 13 }
 
@@ -91,7 +94,7 @@ function Widget({ config }: PluginWidgetProps) {
   const meldungen = data?.updates?.meldungen ?? []
 
   return (
-    <div style={wrap}>
+    <div ref={ref} style={wrap}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {title && <strong style={{ flex: 1 }}>{title}</strong>}
         {offen > 0 && (
