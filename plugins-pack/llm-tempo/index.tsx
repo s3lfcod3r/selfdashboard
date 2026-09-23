@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { usePluginLocale } from '@/lib/pluginLocale'
+import { usePollingActive } from '@/hooks/usePollingActive'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,7 @@ function Widget({ config }: PluginWidgetProps) {
   const [error, setError] = useState('')
   const vorher = useRef<Record<string, Metrics>>({})
   const zuletzt = useRef<Record<string, number>>({})
+  const { ref, active } = usePollingActive()
 
   const load = useCallback(async () => {
     const servers = parseServers(serversText)
@@ -104,10 +106,11 @@ function Widget({ config }: PluginWidgetProps) {
   }, [serversText])
 
   useEffect(() => {
+    if (!active) return
     void load()
     const t = setInterval(() => void load(), refreshMs)
     return () => clearInterval(t)
-  }, [load, refreshMs])
+  }, [load, refreshMs, active])
 
   const fmt = (n: number | null, d = 1) =>
     n === null ? '–' : n.toLocaleString(de ? 'de-DE' : 'en-US', { maximumFractionDigits: d, minimumFractionDigits: d })
@@ -126,7 +129,7 @@ function Widget({ config }: PluginWidgetProps) {
   }
 
   return (
-    <div style={wrap}>
+    <div ref={ref} style={wrap}>
       {title && <strong>{title}</strong>}
       {error && <span style={{ color: '#ef4444' }}>{error}</span>}
       {zeilen.map((z) => {

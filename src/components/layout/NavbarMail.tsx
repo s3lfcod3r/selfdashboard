@@ -12,6 +12,7 @@ import {
 } from '@/lib/mail/types'
 import { useNavbarCompact } from '@/components/layout/useNavbarCompact'
 import { mailApiUrl } from '@/lib/mail/clientApi'
+import { usePollingActive } from '@/hooks/usePollingActive'
 
 interface MailStatusResponse {
   ok?: boolean
@@ -35,6 +36,7 @@ export function NavbarMail({ locale }: { locale: Locale }) {
   const [pulsing, setPulsing] = useState(false)
   const prevUnread = useRef<number | null>(null)
   const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { ref, active } = usePollingActive<HTMLButtonElement>()
 
   const triggerPulse = useCallback(() => {
     setPulsing(true)
@@ -82,6 +84,7 @@ export function NavbarMail({ locale }: { locale: Locale }) {
   }, [load])
 
   useEffect(() => {
+    if (!active) return
     if (!data?.enabled) return
     const sec =
       typeof data.pollIntervalSeconds === 'number' && data.pollIntervalSeconds > 0
@@ -90,7 +93,7 @@ export function NavbarMail({ locale }: { locale: Locale }) {
     const pollMs = clampPollIntervalSeconds(sec) * 1000
     const id = window.setInterval(() => void load(), pollMs)
     return () => window.clearInterval(id)
-  }, [load, data?.enabled, data?.pollIntervalSeconds])
+  }, [load, data?.enabled, data?.pollIntervalSeconds, active])
 
   if (!data?.enabled) return null
 
@@ -129,6 +132,7 @@ export function NavbarMail({ locale }: { locale: Locale }) {
 
   return (
     <button
+      ref={ref}
       type="button"
       className={[
         'navbar-mail-btn',

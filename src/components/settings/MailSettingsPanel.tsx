@@ -5,6 +5,7 @@ import { Plus, RefreshCw, Trash2 } from 'lucide-react'
 import type { Locale } from '@/lib/i18n'
 import { MailNavbarToggle, saveMailNavbarEnabled } from '@/components/settings/MailNavbarToggle'
 import { dispatchMailConfigChanged } from '@/lib/mail/events'
+import { usePollingActive } from '@/hooks/usePollingActive'
 import {
   clampPollIntervalSeconds,
   clampUnreadMaxAgeDays,
@@ -83,6 +84,7 @@ export function MailSettingsPanel({
   const [previewSkippedStale, setPreviewSkippedStale] = useState(0)
   const [previewSkippedDuplicate, setPreviewSkippedDuplicate] = useState(0)
   const [previewMaxAgeDays, setPreviewMaxAgeDays] = useState(30)
+  const { ref, active } = usePollingActive()
 
   const selected = accounts.find(a => a.id === selectedId) ?? accounts[0]
 
@@ -171,12 +173,13 @@ export function MailSettingsPanel({
   }, [])
 
   useEffect(() => {
+    if (!active) return
     if (!navbarEnabled) return
     const ms = clampPollIntervalSeconds(pollIntervalSeconds) * 1000
     void refreshStatusFromCache()
     const id = window.setInterval(() => void refreshStatusFromCache(), ms)
     return () => window.clearInterval(id)
-  }, [navbarEnabled, pollIntervalSeconds, refreshStatusFromCache])
+  }, [navbarEnabled, pollIntervalSeconds, refreshStatusFromCache, active])
 
   const selectAccount = (id: string) => {
     const a = accounts.find(x => x.id === id)
@@ -749,7 +752,7 @@ export function MailSettingsPanel({
   const accountUnread = (id: string) => status?.accounts?.find(a => a.id === id)?.unread ?? 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <div ref={ref} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
         {de
           ? 'Mehrere IMAP-Konten möglich — die Navbar zeigt die Summe aller ungelesenen Mails.'
