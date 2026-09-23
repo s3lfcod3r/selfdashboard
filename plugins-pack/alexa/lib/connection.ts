@@ -23,8 +23,17 @@ let live: Alexa | null = null
 let liveInit: Promise<Alexa> | null = null
 let pending: { alexa: Alexa; proxyUrl: string; startedAt: number } | null = null
 
-/** Promisify alexa-remote2's (err, body) callback methods. */
-function call<T>(fn: (cb: (err?: Error, body?: T) => void) => void): Promise<T> {
+/**
+ * Promisify alexa-remote2's (err, body) callback methods.
+ *
+ * alexa-remote2 declares every callback as the bare generic
+ * `CallbackWithErrorAndBody = <T>(err?, body?: T) => void`. A concrete
+ * callback with a specific body type is only assignable to that bare
+ * generic when the body is the top type, so the incoming body is typed
+ * `unknown` here (the runtime payload is untyped anyway). `T` is kept for
+ * the resolved return value, which callers cast per-API-shape.
+ */
+function call<T>(fn: (cb: (err?: Error, body?: unknown) => void) => void): Promise<T> {
   return new Promise((resolve, reject) => {
     fn((err, body) => (err ? reject(err) : resolve(body as T)))
   })

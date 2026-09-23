@@ -19,7 +19,10 @@ export const meta: PluginMeta = {
 
 function Widget({ config, layoutMode, theme }: PluginWidgetProps) {
   const locale = useDashboardStore((s) => s.locale)
-  return <CrowdsecWidget config={config} locale={locale} layoutMode={layoutMode} theme={theme} />
+  // CrowdSec-Widget kennt nur de/en (formatInt / Intl.RelativeTimeFormat).
+  // Alle anderen Dashboard-Sprachen fallen auf Deutsch zurück.
+  const widgetLocale: 'de' | 'en' = locale === 'en' ? 'en' : 'de'
+  return <CrowdsecWidget config={config} locale={widgetLocale} layoutMode={layoutMode} theme={theme} />
 }
 
 export const component: PluginComponent = {
