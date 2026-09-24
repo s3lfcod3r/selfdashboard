@@ -9,7 +9,7 @@
   "defaultLayout": {
     "w": 4,
     "h": 5,
-    "minW": 3,
+    "minW": 2,
     "minH": 3
   },
   "hasServer": true
