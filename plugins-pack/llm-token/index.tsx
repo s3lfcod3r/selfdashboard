@@ -68,6 +68,62 @@ function monatName(m: string, de: boolean): string {
 }
 
 // ---------------------------------------------------------------------------
+// Bausteine
+// ---------------------------------------------------------------------------
+
+const FARBE_EIN = '#60a5fa'
+const FARBE_AUS = '#34d399'
+const zahlen: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
+
+function Kennzahl({ wert, text, farbe }: { wert: string; text: string; farbe?: string }) {
+  return (
+    <div>
+      <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, ...zahlen }}>{wert}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, opacity: 0.7 }}>
+        {farbe && <span style={{ width: 7, height: 7, borderRadius: 2, background: farbe }} />}
+        {text}
+      </div>
+    </div>
+  )
+}
+
+type GruppenZeile = { key: string; name: string; ein: number; aus: number }
+
+/** Ueberschrift + Zeilen mit Balken: Laenge = Anteil am Groessten der Gruppe, blau rein, gruen raus. */
+function Gruppe({ titel, zeilen, de }: { titel: string; zeilen: GruppenZeile[]; de: boolean }) {
+  if (zeilen.length === 0) return null
+  const max = Math.max(...zeilen.map((z) => z.ein + z.aus))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <div style={{ display: 'flex', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, opacity: 0.5 }}>
+        <span style={{ flex: 1 }}>{titel}</span>
+        <span>{de ? 'rein · raus' : 'in · out'}</span>
+      </div>
+      {zeilen.map((z) => {
+        const summe = z.ein + z.aus
+        const breite = max > 0 ? Math.max(2, (summe / max) * 100) : 0
+        return (
+          <div key={z.key}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12.5, ...zahlen }}>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.name}</span>
+              <span style={{ color: FARBE_EIN }}>{kurz(z.ein, de)}</span>
+              <span style={{ opacity: 0.35 }}>·</span>
+              <span style={{ color: FARBE_AUS, minWidth: 38, textAlign: 'right' }}>{kurz(z.aus, de)}</span>
+            </div>
+            <div style={{ marginTop: 3, height: 3, borderRadius: 2, background: 'rgba(128,128,128,.18)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', width: `${breite}%`, height: '100%' }}>
+                <div style={{ flex: z.ein, background: FARBE_EIN }} />
+                <div style={{ flex: z.aus, background: FARBE_AUS }} />
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
 
@@ -126,7 +182,6 @@ function Widget({ config }: PluginWidgetProps) {
   }, [load, refreshMs, active])
 
   const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, height: '100%', overflow: 'auto', fontSize: 13 }
-  const tab: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
 
   if (!tokenUrl) {
     return (
@@ -187,36 +242,22 @@ function Widget({ config }: PluginWidgetProps) {
 
       {s && (
         <>
-          <div style={{ display: 'flex', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 700, ...tab }}>{kurz(s.gesamt.ein, de)}</div>
-              <div style={{ opacity: 0.65, fontSize: 11 }}>{de ? 'rein' : 'in'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 700, ...tab }}>{kurz(s.gesamt.aus, de)}</div>
-              <div style={{ opacity: 0.65, fontSize: 11 }}>{de ? 'raus' : 'out'}</div>
-            </div>
-            {spitze > 0 && (
-              <div>
-                <div style={{ fontSize: 20, fontWeight: 700, ...tab }}>{kurz(spitze, de)}</div>
-                <div style={{ opacity: 0.65, fontSize: 11 }}>{de ? 'max. am Stück' : 'peak context'}</div>
-              </div>
-            )}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <Kennzahl wert={kurz(s.gesamt.ein, de)} text={de ? 'rein' : 'in'} farbe={FARBE_EIN} />
+            <Kennzahl wert={kurz(s.gesamt.aus, de)} text={de ? 'raus' : 'out'} farbe={FARBE_AUS} />
+            {spitze > 0 && <Kennzahl wert={kurz(spitze, de)} text={de ? 'max. am Stück' : 'peak context'} />}
           </div>
 
-          {zeilen(s.agenten).map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', gap: 6, ...tab }}>
-              <span style={{ flex: 1, opacity: 0.85 }}>{hübsch(k)}</span>
-              <span style={{ opacity: 0.7 }}>{kurz(v.ein, de)} / {kurz(v.aus, de)}</span>
-            </div>
-          ))}
-
-          {zeilen(s.server).map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', gap: 6, fontSize: 12, ...tab }}>
-              <span style={{ flex: 1, opacity: 0.7 }}>{serverName(k)}</span>
-              <span style={{ opacity: 0.6 }}>{kurz(v.ein, de)} / {kurz(v.aus, de)}</span>
-            </div>
-          ))}
+          <Gruppe
+            titel={de ? 'Agenten' : 'Agents'}
+            zeilen={zeilen(s.agenten).map(([k, v]) => ({ key: k, name: hübsch(k), ...v }))}
+            de={de}
+          />
+          <Gruppe
+            titel={de ? 'Modelle' : 'Models'}
+            zeilen={zeilen(s.server).map(([k, v]) => ({ key: k, name: serverName(k), ...v }))}
+            de={de}
+          />
         </>
       )}
 
@@ -239,17 +280,19 @@ function Widget({ config }: PluginWidgetProps) {
             </select>
           )}
           {tageDesMonats.length === 0 && <span style={{ opacity: 0.6, fontSize: 12 }}>{de ? 'Keine Tage erfasst.' : 'No days recorded.'}</span>}
-          {tageDesMonats.map(([t, g]) => (
-            <div key={t} style={{ display: 'flex', gap: 6, fontSize: 12, ...tab }}>
-              <span style={{ flex: 1, opacity: 0.7 }}>{de ? t.slice(8) + '.' + t.slice(5, 7) + '.' : t.slice(5)}</span>
-              <span style={{ opacity: 0.65 }}>{kurz(g.ein, de)} / {kurz(g.aus, de)}</span>
-            </div>
-          ))}
+          {tageDesMonats.length > 0 && (
+            <Gruppe
+              titel={de ? 'Tage' : 'Days'}
+              zeilen={tageDesMonats.map(([t, g]) => ({
+                key: t,
+                name: de ? t.slice(8) + '.' + t.slice(5, 7) + '.' : t.slice(5),
+                ein: g.ein,
+                aus: g.aus,
+              }))}
+              de={de}
+            />
+          )}
         </div>
-      )}
-
-      {daten && !error && (
-        <span style={{ marginTop: 'auto', opacity: 0.45, fontSize: 11 }}>{de ? 'rein / raus je Zeile' : 'in / out per row'}</span>
       )}
     </div>
   )
@@ -320,7 +363,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔢',
-  version: '1.2.0',
+  version: '1.3.0',
   defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Token-Zähler' },
