@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-09-24T07:05:15.978Z",
+  "generatedAt": "2026-09-24T07:19:37.454Z",
   "plugins": [
     {
       "id": "adguard",
@@ -387,7 +387,7 @@
       "id": "llm-tempo",
       "name": "LLM-Tempo",
       "description": "Zeigt, wie schnell deine lokalen Sprachmodelle schreiben und lesen (Token pro Sekunde) - gemessen vom llama.cpp-Server selbst, dazu die Trefferquote der MTP-/Spekulativ-Vorhersage. Braucht llama-server mit --metrics.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "SelfDashboard",
       "category": "system",
       "icon": "⚡",
@@ -512,7 +512,7 @@
       "id": "openclaw-status",
       "name": "Projektstatus",
       "description": "Zeigt, wo jedes Projekt steht und wo Fragen an dich warten - gelesen aus den STATUS.md-Dateien, die ein KI-Agent (z.B. OpenClaw) pflegt. Wartendes zuerst, dazu Update-Hinweise. Braucht den kleinen Projektstatus-Dienst.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "📋",
