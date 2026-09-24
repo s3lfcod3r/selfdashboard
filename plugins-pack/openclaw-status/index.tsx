@@ -217,7 +217,7 @@ export const meta: PluginMeta = {
   category: 'utility',
   icon: '📋',
   version: '1.0.0',
-  defaultLayout: { w: 4, h: 5, minW: 3, minH: 3 },
+  defaultLayout: { w: 4, h: 5, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Projektstatus' },
     { key: 'statusUrl', label: 'Status-URL', type: 'text', defaultValue: '' },

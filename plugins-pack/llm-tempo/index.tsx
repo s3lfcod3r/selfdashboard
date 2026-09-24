@@ -230,7 +230,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '⚡',
   version: '1.0.0',
-  defaultLayout: { w: 4, h: 3, minW: 3, minH: 2 },
+  defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'LLM-Tempo' },
     { key: 'servers', label: 'Server (Name=URL je Zeile)', type: 'text', defaultValue: '' },
