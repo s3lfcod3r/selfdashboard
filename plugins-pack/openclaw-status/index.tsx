@@ -55,7 +55,6 @@ function teileName(n: string): { vor: string; name: string } {
   return i > 0 ? { vor: n.slice(0, i), name: n.slice(i + 3) } : { vor: '', name: n }
 }
 
-const zweiZeilen: CSSProperties = { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
 const eineZeile: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
 function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: boolean }) {
@@ -75,8 +74,9 @@ function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: 
       onClick={() => setAuf((v) => !v)}
       title={de ? 'Klicken für den ganzen Text' : 'Click for full text'}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 5, textAlign: 'left', width: '100%',
-        background: 'rgba(128,128,128,.08)', border: 'none', borderRadius: 8, padding: '7px 9px',
+        display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left', width: '100%',
+        background: 'none', border: 'none', borderRadius: 0, padding: '5px 0 0',
+        borderTop: '1px solid rgba(128,128,128,.15)',
         color: 'inherit', font: 'inherit', cursor: 'pointer',
       }}
     >
@@ -90,14 +90,14 @@ function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: 
       </div>
 
       {fragen.map((f) => (
-        <div key={f} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.35 }}>
+        <div key={f} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.3, paddingLeft: 2, minWidth: 0 }}>
           <span style={{ color: FARBE.wartet, fontWeight: 700, flexShrink: 0 }}>?</span>
-          <span style={auf ? undefined : zweiZeilen}>{f}</span>
+          <span style={auf ? undefined : eineZeile}>{f}</span>
         </div>
       ))}
 
       {sichtbar.map((a) => (
-        <div key={a.name} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.35, opacity: a.k === 'fertig' ? 0.55 : 0.9 }}>
+        <div key={a.name} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.3, paddingLeft: 2, minWidth: 0, opacity: a.k === 'fertig' ? 0.55 : 0.9 }}>
           <span style={{ color: FARBE[a.k], flexShrink: 0 }}>{a.k === 'fertig' ? '✓' : a.k === 'wartet' ? '◷' : '●'}</span>
           <span style={auf ? undefined : eineZeile}>
             {a.name}
@@ -281,7 +281,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'utility',
   icon: '📋',
-  version: '1.1.0',
+  version: '1.2.0',
   defaultLayout: { w: 4, h: 5, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Projektstatus' },
