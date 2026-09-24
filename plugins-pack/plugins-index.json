@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-09-23T17:19:44.916Z",
+  "generatedAt": "2026-09-24T07:05:15.978Z",
   "plugins": [
     {
       "id": "adguard",
@@ -394,7 +394,28 @@
       "defaultLayout": {
         "w": 4,
         "h": 3,
-        "minW": 3,
+        "minW": 2,
+        "minH": 2
+      },
+      "files": [
+        "plugin.json",
+        "widget.js",
+        "server.mjs"
+      ],
+      "hasServer": true
+    },
+    {
+      "id": "llm-token",
+      "name": "Token-Zaehler",
+      "description": "Zeigt, wie viele Token dein KI-Agent verbraucht: Eingang und Ausgang, heute und diese Woche, je Agent und je Modell. Liest die Zaehler eines kleinen Sammel-Dienstes, der sie ueber Neustarts hinweg fortschreibt.",
+      "version": "1.0.0",
+      "author": "SelfDashboard",
+      "category": "system",
+      "icon": "🔢",
+      "defaultLayout": {
+        "w": 4,
+        "h": 4,
+        "minW": 2,
         "minH": 2
       },
       "files": [
@@ -498,7 +519,7 @@
       "defaultLayout": {
         "w": 4,
         "h": 5,
-        "minW": 3,
+        "minW": 2,
         "minH": 3
       },
       "files": [
