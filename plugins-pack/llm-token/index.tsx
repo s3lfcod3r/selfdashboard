@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { usePluginLocale } from '@/lib/pluginLocale'
 import { usePollingActive } from '@/hooks/usePollingActive'
+import { useDashboardStore } from '@/lib/store'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
 
 // ---------------------------------------------------------------------------
@@ -25,6 +26,8 @@ type Daten = {
   woche: Summe
   monate: Record<string, Summe>
   tage: Record<string, Summe['gesamt']>
+  /** Server-Name -> Adresse, wie der Sammler sie abfragt. */
+  adressen?: Record<string, string>
 }
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
@@ -40,6 +43,21 @@ function kurz(n: number, de: boolean): string {
 
 const NAMEN: Record<string, string> = { main: 'Self-Projekte', code: 'Programmierer', dokumente: 'Dokumente' }
 const hübsch = (k: string): string => NAMEN[k] ?? k
+
+/** Vergleichbare Form einer Server-Adresse: ohne Schluss-Slash und /v1. */
+const normUrl = (u: string): string => u.trim().replace(/\/+$/, '').replace(/\/v1$/, '').toLowerCase()
+
+/** Alle "Name=URL"-Zeilen aus LLM-Tempo-Kacheln -> Adresse -> Name. */
+function tempoNamen(serversTexte: string): Record<string, string> {
+  const aus: Record<string, string> = {}
+  for (const l of serversTexte.split('\n')) {
+    const z = l.trim()
+    const i = z.indexOf('=')
+    if (!z || z.startsWith('#') || i <= 0 || z.slice(0, i).includes('://')) continue
+    aus[normUrl(z.slice(i + 1))] = z.slice(0, i).trim()
+  }
+  return aus
+}
 
 const MONATE_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
 function monatName(m: string, de: boolean): string {
@@ -65,6 +83,20 @@ function Widget({ config }: PluginWidgetProps) {
   const [offen, setOffen] = useState(false)
   const [monat, setMonat] = useState('')
   const { ref, active } = usePollingActive()
+  // Namen der Server aus den LLM-Tempo-Kacheln uebernehmen - als String gewaehlt,
+  // damit der Store-Selektor stabil bleibt.
+  const tempoTexte = useDashboardStore((st) =>
+    st.dashboards
+      .flatMap((d) => d.plugins)
+      .filter((p) => p.pluginId === 'llm-tempo')
+      .map((p) => str(p.config.servers))
+      .join('\n'),
+  )
+  const namenNachUrl = useMemo(() => tempoNamen(tempoTexte), [tempoTexte])
+  const serverName = (k: string): string => {
+    const url = daten?.adressen?.[k]
+    return (url && namenNachUrl[normUrl(url)]) || k
+  }
 
   const load = useCallback(async () => {
     if (!tokenUrl) return
@@ -181,7 +213,7 @@ function Widget({ config }: PluginWidgetProps) {
 
           {zeilen(s.server).map(([k, v]) => (
             <div key={k} style={{ display: 'flex', gap: 6, fontSize: 12, ...tab }}>
-              <span style={{ flex: 1, opacity: 0.7 }}>{k}</span>
+              <span style={{ flex: 1, opacity: 0.7 }}>{serverName(k)}</span>
               <span style={{ opacity: 0.6 }}>{kurz(v.ein, de)} / {kurz(v.aus, de)}</span>
             </div>
           ))}
@@ -284,11 +316,11 @@ export const meta: PluginMeta = {
   id: 'llm-token',
   name: 'Token-Zaehler',
   description:
-    'Zeigt, wie viele Token dein KI-Agent verbraucht: rein, raus und der groesste Kontext am Stueck. Ein Klick auf den Titel klappt die Statistik auf - Monatsauswahl und Tagesliste. Liest einen kleinen Sammel-Dienst, der die Zaehler ueber Neustarts hinweg fortschreibt.',
+    'Zeigt, wie viele Token dein KI-Agent verbraucht: rein, raus und der groesste Kontext am Stueck. Ein Klick auf den Titel klappt die Statistik auf - Monatsauswahl und Tagesliste. Server-Namen folgen der LLM-Tempo-Kachel. Liest einen kleinen Sammel-Dienst, der die Zaehler ueber Neustarts hinweg fortschreibt.',
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔢',
-  version: '1.1.0',
+  version: '1.2.0',
   defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Token-Zähler' },
