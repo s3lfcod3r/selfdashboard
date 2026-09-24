@@ -116,6 +116,16 @@ function Gruppe({ titel, zeilen, de }: { titel: string; zeilen: GruppenZeile[]; 
   )
 }
 
+/** Server mit gleichem Anzeigenamen (z.B. zwei Modelle auf einer GPU) zusammenzaehlen. */
+function nachNamen(zeilen: GruppenZeile[]): GruppenZeile[] {
+  const summe = new Map<string, GruppenZeile>()
+  for (const z of zeilen) {
+    const alt = summe.get(z.name)
+    summe.set(z.name, alt ? { ...alt, ein: alt.ein + z.ein, aus: alt.aus + z.aus } : z)
+  }
+  return [...summe.values()].sort((x, y) => y.ein + y.aus - (x.ein + x.aus))
+}
+
 // ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
@@ -248,7 +258,7 @@ function Widget({ config }: PluginWidgetProps) {
           />
           <Gruppe
             titel={de ? 'Modelle' : 'Models'}
-            zeilen={zeilen(s.server).map(([k, v]) => ({ key: k, name: serverName(k), ...v }))}
+            zeilen={nachNamen(zeilen(s.server).map(([k, v]) => ({ key: k, name: serverName(k), ...v })))}
             de={de}
           />
         </>
@@ -356,7 +366,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔢',
-  version: '1.4.0',
+  version: '1.5.0',
   defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Token-Zähler' },

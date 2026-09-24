@@ -42,6 +42,18 @@ const rate = (tokens?: number, seconds?: number): number | null =>
 
 const zahlen: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
 
+/** Gleichnamige Zeilen zu einer: es gilt die, die gerade arbeitet, sonst die laufende. */
+const RANG: Record<ServerState['state'], number> = { ok: 3, no_metrics: 2, error: 1, off: 0 }
+const rang = (z: Zeile): number => RANG[z.state] * 2 + (z.busy ? 1 : 0)
+function zusammenfassen(zeilen: Zeile[]): Zeile[] {
+  const beste = new Map<string, Zeile>()
+  for (const z of zeilen) {
+    const alt = beste.get(z.name)
+    if (!alt || rang(z) > rang(alt)) beste.set(z.name, z)
+  }
+  return [...beste.values()]
+}
+
 // ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
@@ -73,35 +85,37 @@ function Widget({ config }: PluginWidgetProps) {
         return
       }
       setError('')
-      setZeilen(
-        body.servers.map((s) => {
+      const alle = body.servers.map((s, i): Zeile => {
+          // Mehrere Zeilen duerfen denselben Namen tragen (z.B. zwei Modelle auf einer GPU),
+          // deshalb die Messwerte je Name + Adresse merken.
+          const key = `${s.name}|${servers[i]?.url ?? i}`
           const m = s.metrics
           if (s.state !== 'ok' || !m) {
-            delete vorher.current[s.name]
-            delete zuletzt.current[s.name]
+            delete vorher.current[key]
+            delete zuletzt.current[key]
             return { name: s.name, state: s.state, busy: false, schreibt: null, schnitt: null, liest: null, mtp: null }
           }
-          const alt = vorher.current[s.name]
+          const alt = vorher.current[key]
           if (alt && m.tokens_predicted_total >= alt.tokens_predicted_total) {
             const neu = rate(
               m.tokens_predicted_total - alt.tokens_predicted_total,
               m.tokens_predicted_seconds_total - alt.tokens_predicted_seconds_total,
             )
-            if (neu !== null) zuletzt.current[s.name] = neu
+            if (neu !== null) zuletzt.current[key] = neu
           }
-          vorher.current[s.name] = m
+          vorher.current[key] = m
           const draft = m.spec_decode_num_draft_tokens_total
           return {
             name: s.name,
             state: 'ok',
             busy: (m.requests_processing ?? 0) > 0,
-            schreibt: zuletzt.current[s.name] ?? null,
+            schreibt: zuletzt.current[key] ?? null,
             schnitt: rate(m.tokens_predicted_total, m.tokens_predicted_seconds_total),
             liest: rate(m.prompt_tokens_total, m.prompt_seconds_total),
             mtp: draft ? (m.spec_decode_num_accepted_tokens_total ?? 0) / draft : null,
           }
-        }),
-      )
+        })
+      setZeilen(zusammenfassen(alle))
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
     }
@@ -246,7 +260,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '⚡',
-  version: '1.2.0',
+  version: '1.3.0',
   defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'LLM-Tempo' },
