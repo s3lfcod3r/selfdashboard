@@ -1,8 +1,8 @@
 {
   "id": "llm-token",
   "name": "Token-Zaehler",
-  "description": "Zeigt, wie viele Token dein KI-Agent verbraucht: Eingang und Ausgang, heute und diese Woche, je Agent und je Modell. Liest die Zaehler eines kleinen Sammel-Dienstes, der sie ueber Neustarts hinweg fortschreibt.",
-  "version": "1.0.0",
+  "description": "Zeigt, wie viele Token dein KI-Agent verbraucht: rein, raus und der groesste Kontext am Stueck. Ein Klick auf den Titel klappt die Statistik auf - Monatsauswahl und Tagesliste. Braucht den kleinen Sammel-Dienst.",
+  "version": "1.1.0",
   "author": "SelfDashboard",
   "category": "system",
   "icon": "🔢",

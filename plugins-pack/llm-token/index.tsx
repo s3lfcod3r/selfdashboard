@@ -13,9 +13,19 @@ type Paar = { ein: number; aus: number }
 type Summe = {
   gesamt: { ein: number; aus: number; cache_gelesen: number; cache_geschrieben: number }
   agenten: Record<string, Paar>
-  modelle: Record<string, Paar>
+  server: Record<string, Paar>
+  spitze: Record<string, number>
 }
-type Daten = { erzeugt: string; letzte_pruefung?: string; fehler?: string | null; heute: Summe; gestern: Summe; woche: Summe }
+type Daten = {
+  erzeugt: string
+  letzte_pruefung?: string
+  fehler?: string | null
+  heute: Summe
+  gestern: Summe
+  woche: Summe
+  monate: Record<string, Summe>
+  tage: Record<string, Summe['gesamt']>
+}
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 const num = (v: unknown): number => (typeof v === 'number' ? v : Number(v) || 0)
@@ -28,14 +38,16 @@ function kurz(n: number, de: boolean): string {
   return Math.round(n).toLocaleString(l)
 }
 
-const NAMEN: Record<string, string> = {
-  main: 'Self-Projekte',
-  code: 'Programmierer',
-  dokumente: 'Dokumente',
-  'lan-bonsai-2000e': 'Board',
-  'lan-bonsai-4090': '4090',
-}
+const NAMEN: Record<string, string> = { main: 'Self-Projekte', code: 'Programmierer', dokumente: 'Dokumente' }
 const hübsch = (k: string): string => NAMEN[k] ?? k
+
+const MONATE_DE = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember']
+function monatName(m: string, de: boolean): string {
+  const [j, mm] = m.split('-')
+  const i = Number(mm) - 1
+  if (!de) return new Date(`${m}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  return `${MONATE_DE[i] ?? m} ${j}`
+}
 
 // ---------------------------------------------------------------------------
 // Widget
@@ -50,6 +62,8 @@ function Widget({ config }: PluginWidgetProps) {
 
   const [daten, setDaten] = useState<Daten | null>(null)
   const [error, setError] = useState('')
+  const [offen, setOffen] = useState(false)
+  const [monat, setMonat] = useState('')
   const { ref, active } = usePollingActive()
 
   const load = useCallback(async () => {
@@ -80,7 +94,7 @@ function Widget({ config }: PluginWidgetProps) {
   }, [load, refreshMs, active])
 
   const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, height: '100%', overflow: 'auto', fontSize: 13 }
-  const num1: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
+  const tab: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
 
   if (!tokenUrl) {
     return (
@@ -93,66 +107,117 @@ function Widget({ config }: PluginWidgetProps) {
     )
   }
 
-  const s: Summe | undefined = daten ? (zeitraum === 'woche' ? daten.woche : zeitraum === 'gestern' ? daten.gestern : daten.heute) : undefined
-  const label = zeitraum === 'woche' ? (de ? '7 Tage' : '7 days') : zeitraum === 'gestern' ? (de ? 'gestern' : 'yesterday') : de ? 'heute' : 'today'
+  const monate = Object.keys(daten?.monate ?? {}).sort()
+  const gewählt = monat && daten?.monate[monat] ? monat : monate[monate.length - 1] ?? ''
+  const s: Summe | undefined = !daten
+    ? undefined
+    : offen && gewählt
+      ? daten.monate[gewählt]
+      : zeitraum === 'woche'
+        ? daten.woche
+        : zeitraum === 'gestern'
+          ? daten.gestern
+          : daten.heute
+
+  const label = offen
+    ? monatName(gewählt, de)
+    : zeitraum === 'woche'
+      ? (de ? '7 Tage' : '7 days')
+      : zeitraum === 'gestern'
+        ? (de ? 'gestern' : 'yesterday')
+        : de ? 'heute' : 'today'
+
   const zeilen = (o: Record<string, Paar> | undefined) =>
     Object.entries(o ?? {})
       .filter(([, v]) => v.ein + v.aus > 0)
       .sort((a, b) => b[1].ein + b[1].aus - (a[1].ein + a[1].aus))
 
+  const spitze = Math.max(0, ...Object.values(s?.spitze ?? {}))
+  const tageDesMonats = Object.entries(daten?.tage ?? {})
+    .filter(([t]) => t.startsWith(gewählt))
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+
   return (
     <div ref={ref} style={wrap}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+      <button
+        type="button"
+        onClick={() => setOffen((v) => !v)}
+        title={de ? 'Statistik ein- und ausklappen' : 'Toggle statistics'}
+        style={{ display: 'flex', alignItems: 'baseline', gap: 8, background: 'none', border: 'none', color: 'inherit', font: 'inherit', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+      >
         {title && <strong style={{ flex: 1 }}>{title}</strong>}
         <span style={{ opacity: 0.6, fontSize: 11 }}>{label}</span>
-      </div>
+        <span style={{ opacity: 0.5, fontSize: 11 }}>{offen ? '▲' : '▼'}</span>
+      </button>
 
       {error && <span style={{ color: '#ef4444' }}>{de ? 'Nicht erreichbar' : 'Unreachable'}: {error}</span>}
       {daten?.fehler && <span style={{ color: '#f59e0b', fontSize: 12 }}>{daten.fehler}</span>}
 
       {s && (
         <>
-          <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, ...num1 }}>{kurz(s.gesamt.ein, de)}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, ...tab }}>{kurz(s.gesamt.ein, de)}</div>
               <div style={{ opacity: 0.65, fontSize: 11 }}>{de ? 'rein' : 'in'}</div>
             </div>
             <div>
-              <div style={{ fontSize: 20, fontWeight: 700, ...num1 }}>{kurz(s.gesamt.aus, de)}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, ...tab }}>{kurz(s.gesamt.aus, de)}</div>
               <div style={{ opacity: 0.65, fontSize: 11 }}>{de ? 'raus' : 'out'}</div>
             </div>
-            {s.gesamt.cache_gelesen > 0 && (
+            {spitze > 0 && (
               <div>
-                <div style={{ fontSize: 20, fontWeight: 700, ...num1 }}>{kurz(s.gesamt.cache_gelesen, de)}</div>
-                <div style={{ opacity: 0.65, fontSize: 11 }}>{de ? 'Cache' : 'cache'}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, ...tab }}>{kurz(spitze, de)}</div>
+                <div style={{ opacity: 0.65, fontSize: 11 }}>{de ? 'max. am Stück' : 'peak context'}</div>
               </div>
             )}
           </div>
 
           {zeilen(s.agenten).map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', gap: 6, ...num1 }}>
+            <div key={k} style={{ display: 'flex', gap: 6, ...tab }}>
               <span style={{ flex: 1, opacity: 0.85 }}>{hübsch(k)}</span>
               <span style={{ opacity: 0.7 }}>{kurz(v.ein, de)} / {kurz(v.aus, de)}</span>
             </div>
           ))}
 
-          {zeilen(s.modelle).length > 0 && (
-            <div style={{ borderTop: '1px solid rgba(128,128,128,.3)', paddingTop: 6 }}>
-              {zeilen(s.modelle).map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', gap: 6, fontSize: 12, ...num1 }}>
-                  <span style={{ flex: 1, opacity: 0.7 }}>{hübsch(k)}</span>
-                  <span style={{ opacity: 0.6 }}>{kurz(v.ein + v.aus, de)}</span>
-                </div>
-              ))}
+          {zeilen(s.server).map(([k, v]) => (
+            <div key={k} style={{ display: 'flex', gap: 6, fontSize: 12, ...tab }}>
+              <span style={{ flex: 1, opacity: 0.7 }}>{k}</span>
+              <span style={{ opacity: 0.6 }}>{kurz(v.ein, de)} / {kurz(v.aus, de)}</span>
             </div>
-          )}
+          ))}
         </>
       )}
 
+      {offen && daten && (
+        <div style={{ borderTop: '1px solid rgba(128,128,128,.3)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {monate.length > 1 && (
+            <select
+              value={gewählt}
+              onChange={(e) => setMonat(e.target.value)}
+              style={{ padding: '4px 6px', borderRadius: 6, border: '1px solid rgba(128,128,128,.4)', background: 'transparent', color: 'inherit', fontSize: 12 }}
+            >
+              {monate
+                .slice()
+                .reverse()
+                .map((m) => (
+                  <option key={m} value={m}>
+                    {monatName(m, de)}
+                  </option>
+                ))}
+            </select>
+          )}
+          {tageDesMonats.length === 0 && <span style={{ opacity: 0.6, fontSize: 12 }}>{de ? 'Keine Tage erfasst.' : 'No days recorded.'}</span>}
+          {tageDesMonats.map(([t, g]) => (
+            <div key={t} style={{ display: 'flex', gap: 6, fontSize: 12, ...tab }}>
+              <span style={{ flex: 1, opacity: 0.7 }}>{de ? t.slice(8) + '.' + t.slice(5, 7) + '.' : t.slice(5)}</span>
+              <span style={{ opacity: 0.65 }}>{kurz(g.ein, de)} / {kurz(g.aus, de)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {daten && !error && (
-        <span style={{ marginTop: 'auto', opacity: 0.45, fontSize: 11 }}>
-          {de ? 'rein / raus je Zeile' : 'in / out per row'}
-        </span>
+        <span style={{ marginTop: 'auto', opacity: 0.45, fontSize: 11 }}>{de ? 'rein / raus je Zeile' : 'in / out per row'}</span>
       )}
     </div>
   )
@@ -179,9 +244,7 @@ function Settings({ config, onChange }: PluginSettingsProps) {
         />
       </div>
       <div>
-        <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>
-          {de ? 'Adresse des Token-Sammlers' : 'Token collector URL'}
-        </label>
+        <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>{de ? 'Adresse des Token-Sammlers' : 'Token collector URL'}</label>
         <input
           style={inp}
           value={str(config.tokenUrl)}
@@ -190,7 +253,7 @@ function Settings({ config, onChange }: PluginSettingsProps) {
         />
       </div>
       <div>
-        <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>{de ? 'Zeitraum' : 'Period'}</label>
+        <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>{de ? 'Zeitraum (zugeklappt)' : 'Period (collapsed)'}</label>
         <select style={inp} value={str(config.zeitraum) || 'heute'} onChange={(e) => onChange('zeitraum', e.target.value)}>
           <option value="heute">{de ? 'heute' : 'today'}</option>
           <option value="gestern">{de ? 'gestern' : 'yesterday'}</option>
@@ -221,11 +284,11 @@ export const meta: PluginMeta = {
   id: 'llm-token',
   name: 'Token-Zaehler',
   description:
-    'Zeigt, wie viele Token dein KI-Agent verbraucht: Eingang und Ausgang, heute und diese Woche, je Agent und je Modell. Liest die Zaehler eines kleinen Sammel-Dienstes, der sie ueber Neustarts hinweg fortschreibt.',
+    'Zeigt, wie viele Token dein KI-Agent verbraucht: rein, raus und der groesste Kontext am Stueck. Ein Klick auf den Titel klappt die Statistik auf - Monatsauswahl und Tagesliste. Liest einen kleinen Sammel-Dienst, der die Zaehler ueber Neustarts hinweg fortschreibt.',
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔢',
-  version: '1.0.0',
+  version: '1.1.0',
   defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Token-Zähler' },
