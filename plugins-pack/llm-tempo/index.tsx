@@ -229,7 +229,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '⚡',
-  version: '1.0.0',
+  version: '1.0.1',
   defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'LLM-Tempo' },

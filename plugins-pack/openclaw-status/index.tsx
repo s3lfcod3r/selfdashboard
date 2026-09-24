@@ -216,7 +216,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'utility',
   icon: '📋',
-  version: '1.0.0',
+  version: '1.0.1',
   defaultLayout: { w: 4, h: 5, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Projektstatus' },
