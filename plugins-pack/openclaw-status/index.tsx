@@ -20,18 +20,101 @@ const num = (v: unknown): number => (typeof v === 'number' ? v : Number(v) || 0)
 function art(zustand: string): 'wartet' | 'arbeit' | 'fertig' {
   const z = zustand.toLowerCase()
   if (z.includes('wartet') || z.includes('waiting')) return 'wartet'
-  if (z.includes('fertig') || z.includes('done')) return 'fertig'
+  if (z.includes('fertig') || z.includes('done') || z.includes('✅')) return 'fertig'
   return 'arbeit'
 }
 
-const FARBE = { wartet: '#f59e0b', arbeit: '#3b82f6', fertig: '#22c55e' } as const
-const ZEICHEN = { wartet: '⚠', arbeit: '●', fertig: '✓' } as const
+const FARBE = { wartet: '#f59e0b', arbeit: '#60a5fa', fertig: '#34d399' } as const
 
 function vor(iso: string, de: boolean): string {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
   if (s < 3600) return de ? `vor ${Math.round(s / 60)} min` : `${Math.round(s / 60)} min ago`
   if (s < 86400) return de ? `vor ${Math.round(s / 3600)} h` : `${Math.round(s / 3600)} h ago`
-  return de ? `vor ${Math.round(s / 86400)} Tagen` : `${Math.round(s / 86400)} days ago`
+  const t = Math.round(s / 86400)
+  return de ? `vor ${t} ${t === 1 ? 'Tag' : 'Tagen'}` : `${t} d ago`
+}
+
+/** Markdown-Reste aus STATUS.md entfernen: **fett**, `code`, fuehrende Haken. */
+const sauber = (t: string): string =>
+  t.replace(/\*\*/g, '').replace(/`/g, '').replace(/^[\s✅☑✔️⚠️-]+/u, '').replace(/\s+/g, ' ').trim()
+
+/** Platzhalter, die der Agent statt "keine Fragen" in die Liste schreibt. */
+const LEER = new Set(['keine', 'keine fragen', 'none', 'offen', 'nichts', '-', '–', '—', 'n/a'])
+
+/** Echte Fragen: ohne Platzhalter und ohne Zeilen, die nur den Grund einer Aufgabe wiederholen. */
+function echteFragen(p: Projekt): string[] {
+  const gruende = new Set(p.aufgaben.map((a) => sauber(a.text).toLowerCase()))
+  return p.fragen
+    .map(sauber)
+    .filter((f) => f && !LEER.has(f.toLowerCase()) && !gruende.has(f.toLowerCase()))
+}
+
+/** "Code · viergewinnt" -> Praefix + Name, damit der Name vorne steht. */
+function teileName(n: string): { vor: string; name: string } {
+  const i = n.indexOf(' · ')
+  return i > 0 ? { vor: n.slice(0, i), name: n.slice(i + 3) } : { vor: '', name: n }
+}
+
+const zweiZeilen: CSSProperties = { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+const eineZeile: CSSProperties = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+
+function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: boolean }) {
+  const [auf, setAuf] = useState(false)
+  const fragen = echteFragen(p)
+  const alle = p.aufgaben.map((a) => ({ ...a, k: art(a.zustand), name: sauber(a.name), text: sauber(a.text) }))
+  const offen = alle.filter((a) => a.k !== 'fertig')
+  const fertig = alle.length - offen.length
+  const sichtbar = showDone ? alle : offen
+  const farbe = fragen.length ? FARBE.wartet : offen.length ? FARBE.arbeit : FARBE.fertig
+  const { vor: praefix, name } = teileName(p.name)
+  const ruhig = fragen.length === 0 && sichtbar.length === 0
+
+  return (
+    <button
+      type="button"
+      onClick={() => setAuf((v) => !v)}
+      title={de ? 'Klicken für den ganzen Text' : 'Click for full text'}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 5, textAlign: 'left', width: '100%',
+        background: 'rgba(128,128,128,.08)', border: 'none', borderRadius: 8, padding: '7px 9px',
+        color: 'inherit', font: 'inherit', cursor: 'pointer',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%' }}>
+        <span style={{ width: 8, height: 8, borderRadius: 4, background: farbe, flexShrink: 0 }} />
+        <strong style={{ flex: 1, minWidth: 0, ...eineZeile }}>
+          {name}
+          {praefix && <span style={{ fontWeight: 400, opacity: 0.45, fontSize: 11 }}> · {praefix}</span>}
+        </strong>
+        <span style={{ opacity: 0.5, fontSize: 11, flexShrink: 0 }}>{vor(p.geaendert, de)}</span>
+      </div>
+
+      {fragen.map((f) => (
+        <div key={f} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.35 }}>
+          <span style={{ color: FARBE.wartet, fontWeight: 700, flexShrink: 0 }}>?</span>
+          <span style={auf ? undefined : zweiZeilen}>{f}</span>
+        </div>
+      ))}
+
+      {sichtbar.map((a) => (
+        <div key={a.name} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.35, opacity: a.k === 'fertig' ? 0.55 : 0.9 }}>
+          <span style={{ color: FARBE[a.k], flexShrink: 0 }}>{a.k === 'fertig' ? '✓' : a.k === 'wartet' ? '◷' : '●'}</span>
+          <span style={auf ? undefined : eineZeile}>
+            {a.name}
+            {a.text && <span style={{ opacity: 0.6 }}> – {a.text}</span>}
+          </span>
+        </div>
+      ))}
+
+      {(ruhig || (!showDone && fertig > 0)) && (
+        <span style={{ fontSize: 11, opacity: 0.5 }}>
+          {ruhig && (de ? 'nichts offen' : 'nothing open')}
+          {ruhig && fertig > 0 && ' · '}
+          {fertig > 0 && `${fertig} ${de ? 'erledigt' : 'done'}`}
+        </span>
+      )}
+    </button>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -76,7 +159,7 @@ function Widget({ config }: PluginWidgetProps) {
     return () => clearInterval(t)
   }, [load, refreshMs, active])
 
-  const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, height: '100%', overflow: 'auto', fontSize: 13 }
+  const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, height: '100%', overflow: 'auto', fontSize: 13 }
 
   if (!statusUrl) {
     return (
@@ -89,8 +172,12 @@ function Widget({ config }: PluginWidgetProps) {
     )
   }
 
-  const projekte = data?.projekte ?? []
-  const offen = projekte.reduce((n, p) => n + p.fragen.length, 0)
+  const projekte = [...(data?.projekte ?? [])].sort((a, b) => {
+    const fa = echteFragen(a).length > 0 ? 1 : 0
+    const fb = echteFragen(b).length > 0 ? 1 : 0
+    return fb - fa || (a.geaendert < b.geaendert ? 1 : -1)
+  })
+  const offen = projekte.reduce((n, p) => n + echteFragen(p).length, 0)
   const meldungen = data?.updates?.meldungen ?? []
 
   return (
@@ -98,7 +185,7 @@ function Widget({ config }: PluginWidgetProps) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {title && <strong style={{ flex: 1 }}>{title}</strong>}
         {offen > 0 && (
-          <span style={{ background: FARBE.wartet, color: '#111', borderRadius: 10, padding: '1px 8px', fontWeight: 600 }}>
+          <span style={{ background: FARBE.wartet, color: '#111', borderRadius: 10, padding: '1px 8px', fontWeight: 600, fontSize: 12 }}>
             {offen} {de ? (offen === 1 ? 'Frage' : 'Fragen') : offen === 1 ? 'question' : 'questions'}
           </span>
         )}
@@ -114,31 +201,9 @@ function Widget({ config }: PluginWidgetProps) {
         </span>
       )}
 
-      {projekte.map((p) => {
-        const aufgaben = p.aufgaben.filter((a) => showDone || art(a.zustand) !== 'fertig')
-        return (
-          <div key={p.name} style={{ borderLeft: `3px solid ${p.fragen.length ? FARBE.wartet : FARBE.arbeit}`, paddingLeft: 8 }}>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'baseline' }}>
-              <strong style={{ flex: 1 }}>{p.name}</strong>
-              <span style={{ opacity: 0.55, fontSize: 11 }}>{vor(p.geaendert, de)}</span>
-            </div>
-            {p.fragen.map((f) => (
-              <div key={f} style={{ color: FARBE.wartet }}>
-                {ZEICHEN.wartet} {f}
-              </div>
-            ))}
-            {aufgaben.map((a) => {
-              const k = art(a.zustand)
-              return (
-                <div key={a.name} style={{ opacity: k === 'fertig' ? 0.6 : 1 }}>
-                  <span style={{ color: FARBE[k] }}>{ZEICHEN[k]}</span> {a.name}
-                  {a.text && <span style={{ opacity: 0.7 }}> - {a.text}</span>}
-                </div>
-              )
-            })}
-          </div>
-        )
-      })}
+      {projekte.map((p) => (
+        <ProjektKarte key={p.name} p={p} showDone={showDone} de={de} />
+      ))}
 
       {meldungen.length > 0 && (
         <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(128,128,128,.3)', paddingTop: 6 }}>
@@ -216,7 +281,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'utility',
   icon: '📋',
-  version: '1.0.1',
+  version: '1.1.0',
   defaultLayout: { w: 4, h: 5, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Projektstatus' },

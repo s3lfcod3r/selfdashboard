@@ -40,6 +40,23 @@ function parseServers(text: string): { name: string; url: string }[] {
 const rate = (tokens?: number, seconds?: number): number | null =>
   tokens !== undefined && seconds !== undefined && seconds > 0 && tokens > 0 ? tokens / seconds : null
 
+const zahlen: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
+
+/** Kleiner Nebenwert; mit anteil (0..1) zusaetzlich ein duenner Balken. */
+function Wert({ titel, wert, anteil }: { titel: string; wert: string; anteil?: number }) {
+  return (
+    <div style={{ minWidth: 52 }}>
+      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.5 }}>{titel}</div>
+      <div style={{ fontSize: 12.5, ...zahlen }}>{wert}</div>
+      {anteil !== undefined && (
+        <div style={{ marginTop: 2, height: 3, borderRadius: 2, background: 'rgba(128,128,128,.2)', overflow: 'hidden' }}>
+          <div style={{ width: `${Math.min(100, Math.max(0, anteil * 100))}%`, height: '100%', background: '#a78bfa' }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
@@ -115,7 +132,7 @@ function Widget({ config }: PluginWidgetProps) {
   const fmt = (n: number | null, d = 1) =>
     n === null ? '–' : n.toLocaleString(de ? 'de-DE' : 'en-US', { maximumFractionDigits: d, minimumFractionDigits: d })
 
-  const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, height: '100%', overflow: 'auto', fontSize: 13 }
+  const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, height: '100%', overflow: 'auto', fontSize: 13 }
 
   if (!serversText.trim()) {
     return (
@@ -133,34 +150,52 @@ function Widget({ config }: PluginWidgetProps) {
       {title && <strong>{title}</strong>}
       {error && <span style={{ color: '#ef4444' }}>{error}</span>}
       {zeilen.map((z) => {
-        const farbe = z.state !== 'ok' ? '#6b7280' : z.busy ? '#22c55e' : '#3b82f6'
+        const an = z.state === 'ok'
+        const farbe = !an ? '#6b7280' : z.busy ? '#34d399' : '#60a5fa'
+        const zustand =
+          z.state === 'off'
+            ? de ? 'aus' : 'off'
+            : z.state === 'no_metrics'
+              ? de ? 'ohne --metrics' : 'no --metrics'
+              : z.state === 'error'
+                ? de ? 'Fehler' : 'error'
+                : z.busy
+                  ? de ? 'arbeitet' : 'busy'
+                  : de ? 'bereit' : 'idle'
         const haupt = z.schreibt ?? z.schnitt
         return (
-          <div key={z.name} style={{ borderLeft: `3px solid ${farbe}`, paddingLeft: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <strong style={{ flex: 1 }}>{z.name}</strong>
-              {z.state === 'ok' && z.busy && <span style={{ color: farbe, fontSize: 11 }}>{de ? 'arbeitet' : 'busy'}</span>}
-              {z.state === 'off' && <span style={{ opacity: 0.6, fontSize: 11 }}>{de ? 'aus' : 'off'}</span>}
-              {z.state === 'no_metrics' && (
-                <span style={{ opacity: 0.6, fontSize: 11 }}>{de ? 'läuft ohne --metrics' : 'running without --metrics'}</span>
-              )}
-              {z.state === 'error' && <span style={{ color: '#ef4444', fontSize: 11 }}>{de ? 'Fehler' : 'error'}</span>}
+          <div
+            key={z.name}
+            style={{ background: 'rgba(128,128,128,.08)', borderRadius: 8, padding: '7px 9px', opacity: an ? 1 : 0.6 }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span
+                style={{
+                  width: 8, height: 8, borderRadius: 4, background: farbe, flexShrink: 0,
+                  boxShadow: z.busy ? `0 0 0 3px ${farbe}33` : 'none',
+                }}
+              />
+              <strong style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.name}</strong>
+              <span style={{ color: z.state === 'error' ? '#ef4444' : farbe, fontSize: 11 }}>{zustand}</span>
             </div>
-            {z.state === 'ok' && (
+            {an && (
               <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{fmt(haupt)}</span>
-                  <span style={{ opacity: 0.7 }}>
-                    t/s {de ? 'schreiben' : 'generation'}
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 4 }}>
+                  <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.1, ...zahlen }}>{fmt(haupt)}</span>
+                  <span style={{ opacity: 0.6, fontSize: 12 }}>
+                    t/s {de ? 'schreiben' : 'out'}
                     {z.schreibt === null && z.schnitt !== null ? (de ? ' (Schnitt)' : ' (avg)') : ''}
                   </span>
                 </div>
-                <div style={{ opacity: 0.75, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
-                  {de ? 'lesen' : 'prompt'} {fmt(z.liest, 0)} t/s
-                  {z.schnitt !== null && z.schreibt !== null && ` · ${de ? 'Schnitt' : 'avg'} ${fmt(z.schnitt)}`}
-                  {z.mtp !== null && ` · MTP ${fmt(z.mtp * 100, 0)} %`}
-                  {haupt === null && ` · ${de ? 'noch keine Antwort seit Start' : 'no reply since start'}`}
-                </div>
+                {haupt === null ? (
+                  <span style={{ fontSize: 11, opacity: 0.55 }}>{de ? 'noch keine Antwort seit Start' : 'no reply since start'}</span>
+                ) : (
+                  <div style={{ display: 'flex', gap: 14, marginTop: 5, flexWrap: 'wrap' }}>
+                    <Wert titel={de ? 'lesen' : 'prompt'} wert={`${fmt(z.liest, 0)} t/s`} />
+                    {z.schreibt !== null && z.schnitt !== null && <Wert titel={de ? 'Schnitt' : 'avg'} wert={`${fmt(z.schnitt)} t/s`} />}
+                    {z.mtp !== null && <Wert titel="MTP" wert={`${fmt(z.mtp * 100, 0)} %`} anteil={z.mtp} />}
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -229,7 +264,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '⚡',
-  version: '1.0.1',
+  version: '1.1.0',
   defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'LLM-Tempo' },
