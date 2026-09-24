@@ -42,21 +42,6 @@ const rate = (tokens?: number, seconds?: number): number | null =>
 
 const zahlen: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
 
-/** Kleiner Nebenwert; mit anteil (0..1) zusaetzlich ein duenner Balken. */
-function Wert({ titel, wert, anteil }: { titel: string; wert: string; anteil?: number }) {
-  return (
-    <div style={{ minWidth: 52 }}>
-      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5, opacity: 0.5 }}>{titel}</div>
-      <div style={{ fontSize: 12.5, ...zahlen }}>{wert}</div>
-      {anteil !== undefined && (
-        <div style={{ marginTop: 2, height: 3, borderRadius: 2, background: 'rgba(128,128,128,.2)', overflow: 'hidden' }}>
-          <div style={{ width: `${Math.min(100, Math.max(0, anteil * 100))}%`, height: '100%', background: '#a78bfa' }} />
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
@@ -163,40 +148,37 @@ function Widget({ config }: PluginWidgetProps) {
                   ? de ? 'arbeitet' : 'busy'
                   : de ? 'bereit' : 'idle'
         const haupt = z.schreibt ?? z.schnitt
+        const neben = [
+          z.liest !== null ? `${de ? 'lesen' : 'in'} ${fmt(z.liest, 0)}` : '',
+          z.schreibt !== null && z.schnitt !== null ? `Ø ${fmt(z.schnitt)}` : '',
+          z.mtp !== null ? `MTP ${fmt(z.mtp * 100, 0)} %` : '',
+        ].filter(Boolean)
         return (
-          <div
-            key={z.name}
-            style={{ background: 'rgba(128,128,128,.08)', borderRadius: 8, padding: '7px 9px', opacity: an ? 1 : 0.6 }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div key={z.name} style={{ opacity: an ? 1 : 0.55 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
               <span
                 style={{
-                  width: 8, height: 8, borderRadius: 4, background: farbe, flexShrink: 0,
+                  width: 7, height: 7, borderRadius: 4, background: farbe, flexShrink: 0, alignSelf: 'center',
                   boxShadow: z.busy ? `0 0 0 3px ${farbe}33` : 'none',
                 }}
               />
               <strong style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.name}</strong>
-              <span style={{ color: z.state === 'error' ? '#ef4444' : farbe, fontSize: 11 }}>{zustand}</span>
+              {an && haupt !== null ? (
+                <span style={{ whiteSpace: 'nowrap', ...zahlen }} title={zustand}>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: z.busy ? farbe : undefined }}>{fmt(haupt)}</span>
+                  <span style={{ fontSize: 11, opacity: 0.6 }}> t/s</span>
+                </span>
+              ) : (
+                <span style={{ color: z.state === 'error' ? '#ef4444' : farbe, fontSize: 11 }}>
+                  {an ? (de ? 'noch keine Antwort' : 'no reply yet') : zustand}
+                </span>
+              )}
             </div>
-            {an && (
-              <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginTop: 4 }}>
-                  <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.1, ...zahlen }}>{fmt(haupt)}</span>
-                  <span style={{ opacity: 0.6, fontSize: 12 }}>
-                    t/s {de ? 'schreiben' : 'out'}
-                    {z.schreibt === null && z.schnitt !== null ? (de ? ' (Schnitt)' : ' (avg)') : ''}
-                  </span>
-                </div>
-                {haupt === null ? (
-                  <span style={{ fontSize: 11, opacity: 0.55 }}>{de ? 'noch keine Antwort seit Start' : 'no reply since start'}</span>
-                ) : (
-                  <div style={{ display: 'flex', gap: 14, marginTop: 5, flexWrap: 'wrap' }}>
-                    <Wert titel={de ? 'lesen' : 'prompt'} wert={`${fmt(z.liest, 0)} t/s`} />
-                    {z.schreibt !== null && z.schnitt !== null && <Wert titel={de ? 'Schnitt' : 'avg'} wert={`${fmt(z.schnitt)} t/s`} />}
-                    {z.mtp !== null && <Wert titel="MTP" wert={`${fmt(z.mtp * 100, 0)} %`} anteil={z.mtp} />}
-                  </div>
-                )}
-              </>
+            {an && haupt !== null && neben.length > 0 && (
+              <div style={{ paddingLeft: 14, fontSize: 11, opacity: 0.6, ...zahlen }}>
+                {neben.join(' · ')}
+                {z.schreibt === null && (de ? ' · Schnitt' : ' · avg')}
+              </div>
             )}
           </div>
         )
@@ -264,7 +246,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '⚡',
-  version: '1.1.0',
+  version: '1.2.0',
   defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'LLM-Tempo' },

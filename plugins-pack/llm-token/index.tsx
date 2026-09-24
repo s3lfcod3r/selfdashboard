@@ -77,45 +77,38 @@ const zahlen: CSSProperties = { fontVariantNumeric: 'tabular-nums' }
 
 function Kennzahl({ wert, text, farbe }: { wert: string; text: string; farbe?: string }) {
   return (
-    <div>
-      <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, ...zahlen }}>{wert}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, opacity: 0.7 }}>
-        {farbe && <span style={{ width: 7, height: 7, borderRadius: 2, background: farbe }} />}
-        {text}
-      </div>
-    </div>
+    <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 4 }}>
+      <span style={{ fontSize: 17, fontWeight: 700, ...zahlen }}>{wert}</span>
+      <span style={{ fontSize: 11, opacity: 0.6, color: farbe }}>{text}</span>
+    </span>
   )
 }
 
 type GruppenZeile = { key: string; name: string; ein: number; aus: number }
 
-/** Ueberschrift + Zeilen mit Balken: Laenge = Anteil am Groessten der Gruppe, blau rein, gruen raus. */
+/** Eine Zeile je Eintrag: Name, Balken (Anteil am Groessten, blau rein / gruen raus), Zahlen. */
 function Gruppe({ titel, zeilen, de }: { titel: string; zeilen: GruppenZeile[]; de: boolean }) {
   if (zeilen.length === 0) return null
   const max = Math.max(...zeilen.map((z) => z.ein + z.aus))
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <div style={{ display: 'flex', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, opacity: 0.5 }}>
-        <span style={{ flex: 1 }}>{titel}</span>
-        <span>{de ? 'rein · raus' : 'in · out'}</span>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, opacity: 0.45 }}>{titel}</div>
       {zeilen.map((z) => {
-        const summe = z.ein + z.aus
-        const breite = max > 0 ? Math.max(2, (summe / max) * 100) : 0
+        const breite = max > 0 ? Math.max(3, ((z.ein + z.aus) / max) * 100) : 0
         return (
-          <div key={z.key}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12.5, ...zahlen }}>
-              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.name}</span>
+          <div key={z.key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, ...zahlen }}>
+            <span style={{ width: '38%', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{z.name}</span>
+            <span style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(128,128,128,.18)', overflow: 'hidden' }}>
+              <span style={{ display: 'flex', width: `${breite}%`, height: '100%' }}>
+                <span style={{ flex: z.ein, background: FARBE_EIN }} />
+                <span style={{ flex: z.aus, background: FARBE_AUS }} />
+              </span>
+            </span>
+            <span style={{ whiteSpace: 'nowrap' }}>
               <span style={{ color: FARBE_EIN }}>{kurz(z.ein, de)}</span>
-              <span style={{ opacity: 0.35 }}>·</span>
-              <span style={{ color: FARBE_AUS, minWidth: 38, textAlign: 'right' }}>{kurz(z.aus, de)}</span>
-            </div>
-            <div style={{ marginTop: 3, height: 3, borderRadius: 2, background: 'rgba(128,128,128,.18)', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', width: `${breite}%`, height: '100%' }}>
-                <div style={{ flex: z.ein, background: FARBE_EIN }} />
-                <div style={{ flex: z.aus, background: FARBE_AUS }} />
-              </div>
-            </div>
+              <span style={{ opacity: 0.35 }}> / </span>
+              <span style={{ color: FARBE_AUS }}>{kurz(z.aus, de)}</span>
+            </span>
           </div>
         )
       })}
@@ -181,7 +174,7 @@ function Widget({ config }: PluginWidgetProps) {
     return () => clearInterval(t)
   }, [load, refreshMs, active])
 
-  const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 8, height: '100%', overflow: 'auto', fontSize: 13 }
+  const wrap: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, height: '100%', overflow: 'auto', fontSize: 13 }
 
   if (!tokenUrl) {
     return (
@@ -242,10 +235,10 @@ function Widget({ config }: PluginWidgetProps) {
 
       {s && (
         <>
-          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
             <Kennzahl wert={kurz(s.gesamt.ein, de)} text={de ? 'rein' : 'in'} farbe={FARBE_EIN} />
             <Kennzahl wert={kurz(s.gesamt.aus, de)} text={de ? 'raus' : 'out'} farbe={FARBE_AUS} />
-            {spitze > 0 && <Kennzahl wert={kurz(spitze, de)} text={de ? 'max. am Stück' : 'peak context'} />}
+            {spitze > 0 && <Kennzahl wert={kurz(spitze, de)} text={de ? 'max. Kontext' : 'peak ctx'} />}
           </div>
 
           <Gruppe
@@ -363,7 +356,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔢',
-  version: '1.3.0',
+  version: '1.4.0',
   defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Token-Zähler' },
