@@ -256,12 +256,9 @@ export function PluginStoreModal({ open, onClose }: Props) {
   const [uninstallingId, setUninstallingId] = useState<string | null>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
   const addPlugin = useDashboardStore((s) => s.addPlugin)
-  const activeDashboard = useDashboardStore((s) => s.activeDashboard)
   const locale = useDashboardStore((s) => s.locale)
-  const existingPlugins = useMemo(
-    () => activeDashboard()?.plugins ?? [],
-    [activeDashboard],
-  )
+  const activePlugins = useDashboardStore((s) => s.activeDashboard()?.plugins)
+  const existingPlugins = useMemo(() => activePlugins ?? [], [activePlugins])
   const [remotePlugins, setRemotePlugins] = useState<RemotePluginRow[]>([])
   const [githubConfigured, setGithubConfigured] = useState(false)
   const [githubRepo, setGithubRepo] = useState('s3lfcod3r/selfdashboard')
