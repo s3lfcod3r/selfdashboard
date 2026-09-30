@@ -258,7 +258,10 @@ export function PluginStoreModal({ open, onClose }: Props) {
   const addPlugin = useDashboardStore((s) => s.addPlugin)
   const activeDashboard = useDashboardStore((s) => s.activeDashboard)
   const locale = useDashboardStore((s) => s.locale)
-  const existingPlugins = activeDashboard()?.plugins ?? []
+  const existingPlugins = useMemo(
+    () => activeDashboard()?.plugins ?? [],
+    [activeDashboard],
+  )
   const [remotePlugins, setRemotePlugins] = useState<RemotePluginRow[]>([])
   const [githubConfigured, setGithubConfigured] = useState(false)
   const [githubRepo, setGithubRepo] = useState('s3lfcod3r/selfdashboard')
