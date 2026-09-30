@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- PostCSS build plugin (CommonJS) */
 /**
  * Macht das generierte CSS auf aelteren WebViews lauffaehig (z.B. Chromium 74
  * auf Billig-Tablets/TV-Boxen), ohne moderne Browser zu beeintraechtigen:
