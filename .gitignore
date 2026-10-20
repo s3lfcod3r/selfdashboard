@@ -39,3 +39,6 @@ npm-install.log
 *.tsbuildinfo
 next-env.d.ts
 .serena/
+
+# Android-Quellcode: nur lokal, NICHT pushen
+/_android-src/
