@@ -2,8 +2,6 @@
 
 <img src="assets/logo.png" width="240" alt="SelfDashboard logo" />
 
-# SelfDashboard
-
 **Self-hosted homelab dashboard — one container, one browser tab, live widgets from a plugin store.**<br>
 *Selbstgehostetes Homelab-Dashboard — ein Container, ein Browser-Tab, Live-Widgets aus dem Plugin-Store.*
 
