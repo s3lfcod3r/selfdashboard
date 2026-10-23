@@ -7,6 +7,7 @@ export const pt: Record<string, string> = {
   dashboardTitle: 'Título do dashboard',
   colorTheme: 'Tema de cores',
   language: 'Idioma',
+  units: 'Unidades',
   editMode: 'Modo de edição',
   editModeHint: 'Arraste e redimensione os widgets',
   mobileStackHint:

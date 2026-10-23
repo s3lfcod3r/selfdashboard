@@ -7,6 +7,7 @@ export const pl: Record<string, string> = {
   dashboardTitle: 'Tytuł pulpitu',
   colorTheme: 'Motyw kolorystyczny',
   language: 'Język',
+  units: 'Jednostki',
   editMode: 'Tryb edycji',
   editModeHint: 'Przeciągaj i zmieniaj rozmiar widżetów',
   mobileStackHint:
