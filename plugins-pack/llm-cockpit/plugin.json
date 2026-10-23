@@ -2,14 +2,14 @@
   "id": "llm-cockpit",
   "name": "LLM-Cockpit",
   "description": "Token-Zaehler, LLM-Tempo und Projektstatus in einer Kachel: oben die Token (heute und Monat, Klick auf den Titel zeigt Monatsauswahl und Tage), darunter das Tempo der RTX2000, darunter die Projekte mit Fortschritt und offenen Fragen. Uebernimmt die Adressen aus vorhandenen Einzel-Kacheln.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "SelfDashboard",
   "category": "system",
   "icon": "🧠",
   "defaultLayout": {
     "w": 4,
     "h": 9,
-    "minW": 3,
+    "minW": 2,
     "minH": 4
   },
   "hasServer": true,

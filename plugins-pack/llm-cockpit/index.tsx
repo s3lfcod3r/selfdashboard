@@ -944,8 +944,8 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🧠',
-  version: '1.0.0',
-  defaultLayout: { w: 4, h: 9, minW: 3, minH: 4 },
+  version: '1.0.1',
+  defaultLayout: { w: 4, h: 9, minW: 2, minH: 4 },
   configSchema: [
     { key: 'tokenUrl', label: 'Sammler-URL', type: 'text', defaultValue: '' },
     { key: 'zeitraum', label: 'Zeitraum', type: 'text', defaultValue: 'heute' },
