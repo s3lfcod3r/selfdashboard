@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-10-23T22:28:40.236Z",
+  "generatedAt": "2026-10-23T23:31:36.665Z",
   "plugins": [
     {
       "id": "adguard",
@@ -993,7 +993,7 @@
       "id": "unraid",
       "name": "Unraid",
       "description": "System-Übersicht per Unraid GraphQL API (7.2+): CPU, RAM, Array, Cache/Pool-Disks, optional Netzwerk-Durchsatz (RX/TX, Interface-Auswahl, API 4.35+). RAM-Anzeige umschaltbar (used / 1−verfügbar / API-%); Darstellung an Theme-Textfarben angeglichen.",
-      "version": "1.7.0",
+      "version": "1.8.0",
       "author": "SelfDashboard",
       "category": "system",
       "icon": "🖥️",
