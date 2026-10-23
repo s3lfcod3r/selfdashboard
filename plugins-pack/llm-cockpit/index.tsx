@@ -217,8 +217,8 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
   const [daten, setDaten] = useState<TokenDaten | null>(null)
   const [fehler, setFehler] = useState('')
   const [stand, setStand] = useState<number | null>(null)
-  const [offen, setOffen] = useState(false)
-  const [monat, setMonat] = useState('')
+  // 'heute' | 'gestern' | 'woche' | 'YYYY-MM'
+  const [wahl, setWahl] = useState(zeitraum)
 
   const load = useCallback(async () => {
     const r = await post<TokenDaten>({ kind: 'tokens', url })
@@ -247,23 +247,16 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
   }
   const monate = Object.keys(daten?.monate ?? {}).sort()
   const aktMonat = monate[monate.length - 1] ?? ''
-  const gewählt = monat && daten?.monate[monat] ? monat : aktMonat
+  const istMonat = /^\d{4}-\d{2}$/.test(wahl)
   const s: Summe | undefined = !daten
     ? undefined
-    : offen && gewählt
-      ? daten.monate[gewählt]
-      : zeitraum === 'woche'
+    : istMonat
+      ? daten.monate[wahl]
+      : wahl === 'woche'
         ? daten.woche
-        : zeitraum === 'gestern'
+        : wahl === 'gestern'
           ? daten.gestern
           : daten.heute
-  const label = offen
-    ? monatName(gewählt, de)
-    : zeitraum === 'woche'
-      ? (de ? '7 Tage' : '7 days')
-      : zeitraum === 'gestern'
-        ? (de ? 'gestern' : 'yesterday')
-        : de ? 'heute' : 'today'
 
   const zeilen = (o: Record<string, Paar> | undefined) =>
     Object.entries(o ?? {})
@@ -271,19 +264,34 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
       .sort((a, b) => b[1].ein + b[1].aus - (a[1].ein + a[1].aus))
   const spitze = Math.max(0, ...Object.values(s?.spitze ?? {}))
   const monatSumme = aktMonat ? daten?.monate[aktMonat]?.gesamt : undefined
-  const tageDesMonats = Object.entries(daten?.tage ?? {})
-    .filter(([t]) => t.startsWith(gewählt))
-    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+  const alleTage = Object.keys(daten?.tage ?? {}).sort()
+  const erfasstSeit = alleTage[0]
+  const leer = !!s && s.gesamt.ein + s.gesamt.aus === 0
+  const tageDesMonats = istMonat
+    ? Object.entries(daten?.tage ?? {})
+        .filter(([t]) => t.startsWith(wahl))
+        .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    : []
 
   return (
     <Abschnitt
       titel={titel}
-      onTitel={() => setOffen((v) => !v)}
       rechts={
-        <>
-          <span style={{ opacity: 0.6, fontSize: 11 }}>{label}</span>
-          <span style={{ opacity: 0.5, fontSize: 11 }}>{offen ? '▲' : '▼'}</span>
-        </>
+        daten && (
+          <Auswahl
+            wert={wahl}
+            onWahl={setWahl}
+            optionen={[
+              { wert: 'heute', text: de ? 'Heute' : 'Today' },
+              { wert: 'gestern', text: de ? 'Gestern' : 'Yesterday' },
+              { wert: 'woche', text: de ? 'Letzte 7 Tage' : 'Last 7 days' },
+              ...monate
+                .slice()
+                .reverse()
+                .map((m) => ({ wert: m, text: monatName(m, de) })),
+            ]}
+          />
+        )
       }
     >
       {fehler && <Hinweis text={fehler} stand={daten ? stand : null} de={de} />}
@@ -291,18 +299,24 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
 
       {s && (
         <>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
-            <Kennzahl wert={kurz(s.gesamt.ein, de)} text={de ? 'rein' : 'in'} farbe={FARBE_EIN} />
-            <Kennzahl wert={kurz(s.gesamt.aus, de)} text={de ? 'raus' : 'out'} farbe={FARBE_AUS} />
-            {spitze > 0 && <Kennzahl wert={kurz(spitze, de)} text={de ? 'max. Kontext' : 'peak ctx'} />}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6 }}>
+            <Kachel wert={kurz(s.gesamt.ein, de)} text={de ? 'rein' : 'in'} farbe={FARBE_EIN} />
+            <Kachel wert={kurz(s.gesamt.aus, de)} text={de ? 'raus' : 'out'} farbe={FARBE_AUS} />
+            <Kachel wert={spitze > 0 ? kurz(spitze, de) : '–'} text={de ? 'max. Kontext' : 'peak ctx'} />
           </div>
-          {!offen && monatSumme && (
+          {leer && erfasstSeit && (
+            <span style={{ fontSize: 11, opacity: 0.55 }}>
+              {de ? `Noch nichts gezählt – erfasst seit ${datumKurz(erfasstSeit, de)}.` : `Nothing counted yet – recording since ${datumKurz(erfasstSeit, de)}.`}
+            </span>
+          )}
+          {!istMonat && monatSumme && (
             <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap', fontSize: 12, opacity: 0.85 }}>
               <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, opacity: 0.55 }}>{monatName(aktMonat, de)}</span>
               <Kennzahl gross={false} wert={kurz(monatSumme.ein, de)} text={de ? 'rein' : 'in'} farbe={FARBE_EIN} />
               <Kennzahl gross={false} wert={kurz(monatSumme.aus, de)} text={de ? 'raus' : 'out'} farbe={FARBE_AUS} />
             </div>
           )}
+          <TageVerlauf tage={daten?.tage ?? {}} monat={istMonat ? wahl : ''} onMonat={setWahl} de={de} />
           <Gruppe titel={de ? 'Agenten' : 'Agents'} zeilen={zeilen(s.agenten).map(([k, v]) => ({ key: k, name: hübsch(k), ...v }))} de={de} />
           <Gruppe
             titel={de ? 'Modelle' : 'Models'}
@@ -312,40 +326,99 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
         </>
       )}
 
-      {offen && daten && (
-        <div style={{ borderTop: '1px solid rgba(128,128,128,.3)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {monate.length > 1 && (
-            <select
-              value={gewählt}
-              onChange={(e) => setMonat(e.target.value)}
-              style={{ padding: '4px 6px', borderRadius: 6, border: '1px solid rgba(128,128,128,.4)', background: 'transparent', color: 'inherit', fontSize: 12 }}
-            >
-              {monate
-                .slice()
-                .reverse()
-                .map((m) => (
-                  <option key={m} value={m}>
-                    {monatName(m, de)}
-                  </option>
-                ))}
-            </select>
-          )}
-          {tageDesMonats.length === 0 && <span style={{ opacity: 0.6, fontSize: 12 }}>{de ? 'Keine Tage erfasst.' : 'No days recorded.'}</span>}
-          {tageDesMonats.length > 0 && (
-            <Gruppe
-              titel={de ? 'Tage' : 'Days'}
-              zeilen={tageDesMonats.map(([t, g]) => ({
-                key: t,
-                name: de ? t.slice(8) + '.' + t.slice(5, 7) + '.' : t.slice(5),
-                ein: g.ein,
-                aus: g.aus,
-              }))}
-              de={de}
-            />
-          )}
+      {istMonat && tageDesMonats.length > 0 && (
+        <div style={{ maxHeight: 160, overflow: 'auto', paddingRight: 2 }}>
+          <Gruppe
+            titel={de ? 'Tage' : 'Days'}
+            zeilen={tageDesMonats.map(([t, g]) => ({ key: t, name: datumKurz(t, de), ein: g.ein, aus: g.aus }))}
+            de={de}
+          />
         </div>
       )}
     </Abschnitt>
+  )
+}
+
+const datumKurz = (t: string, de: boolean): string => (de ? `${t.slice(8)}.${t.slice(5, 7)}.` : t.slice(5))
+
+/** Kompakte Auswahl im Kopf eines Abschnitts (Zeitraum, Filter). */
+function Auswahl({ wert, optionen, onWahl }: { wert: string; optionen: { wert: string; text: string }[]; onWahl: (w: string) => void }) {
+  return (
+    <select
+      value={wert}
+      onChange={(e) => onWahl(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        padding: '2px 6px', borderRadius: 6, border: '1px solid rgba(128,128,128,.35)', background: 'rgba(128,128,128,.12)',
+        color: 'inherit', fontSize: 11, cursor: 'pointer', colorScheme: 'dark light', maxWidth: 130,
+      }}
+    >
+      {optionen.map((o) => (
+        <option key={o.wert} value={o.wert}>
+          {o.text}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+/** Grosse Zahl in einer ruhigen Box. */
+function Kachel({ wert, text, farbe }: { wert: string; text: string; farbe?: string }) {
+  return (
+    <div style={{ background: 'rgba(128,128,128,.08)', borderRadius: 8, padding: '5px 7px', minWidth: 0 }}>
+      <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.15, color: farbe, ...zahlen, ...eineZeile }}>{wert}</div>
+      <div style={{ fontSize: 10, opacity: 0.55, ...eineZeile }}>{text}</div>
+    </div>
+  )
+}
+
+/**
+ * Balken je Tag: ohne Monat die letzten 14 Tage, mit Monat alle Tage des Monats.
+ * Klick auf einen Balken springt in dessen Monat.
+ */
+function TageVerlauf({ tage, monat, onMonat, de }: {
+  tage: Record<string, { ein: number; aus: number }>
+  monat: string
+  onMonat: (m: string) => void
+  de: boolean
+}) {
+  const liste: string[] = []
+  if (monat) {
+    const [j, m] = monat.split('-').map(Number)
+    const anzahl = new Date(j, m, 0).getDate()
+    for (let d = 1; d <= anzahl; d++) liste.push(`${monat}-${String(d).padStart(2, '0')}`)
+  } else {
+    for (let d = 13; d >= 0; d--) {
+      const x = new Date(Date.now() - d * 86400e3)
+      liste.push(`${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`)
+    }
+  }
+  const werte = liste.map((t) => ({ t, ein: tage[t]?.ein ?? 0, aus: tage[t]?.aus ?? 0 }))
+  const max = Math.max(1, ...werte.map((w) => w.ein + w.aus))
+  if (werte.every((w) => w.ein + w.aus === 0)) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.6, opacity: 0.45 }}>
+        {monat ? (de ? 'Verlauf im Monat' : 'This month') : de ? 'Letzte 14 Tage' : 'Last 14 days'}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 34 }}>
+        {werte.map((w) => {
+          const h = ((w.ein + w.aus) / max) * 100
+          return (
+            <button
+              key={w.t}
+              type="button"
+              title={`${datumKurz(w.t, de)}  ${kurz(w.ein, de)} ${de ? 'rein' : 'in'} / ${kurz(w.aus, de)} ${de ? 'raus' : 'out'}`}
+              onClick={() => onMonat(w.t.slice(0, 7))}
+              style={{
+                flex: 1, minWidth: 2, height: `${Math.max(4, h)}%`, padding: 0, border: 'none', borderRadius: 2, cursor: 'pointer',
+                background: w.ein + w.aus === 0 ? 'rgba(128,128,128,.18)' : `linear-gradient(to top, ${FARBE_EIN} ${(w.ein / (w.ein + w.aus)) * 100}%, ${FARBE_AUS} 0)`,
+              }}
+            />
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -573,7 +646,7 @@ const sauber = (t: string): string =>
   t.replace(/\*\*/g, '').replace(/`/g, '').replace(/^[\s✅☑✔️⚠️-]+/u, '').replace(/\s+/g, ' ').trim()
 
 /** Platzhalter, die der Agent statt "keine Fragen" in die Liste schreibt. */
-const LEER = new Set(['keine', 'keine fragen', 'none', 'offen', 'nichts', '-', '–', '—', 'n/a'])
+const LEER = new Set(['keine', '(keine)', 'keine fragen', 'none', '(none)', 'offen', 'nichts', '-', '–', '—', 'n/a'])
 
 function echteFragen(p: Projekt): string[] {
   const gruende = new Set(p.aufgaben.map((a) => sauber(a.text).toLowerCase()))
@@ -599,7 +672,23 @@ function Chip({ farbe, children, voll }: { farbe: string; children: ReactNode; v
   )
 }
 
-const MAX_AUFGABEN = 3
+const MAX_AUFGABEN = 8
+
+/** Umschaltbarer Filter (zweiter Klick hebt ihn wieder auf). */
+function FilterKnopf({ aktiv, farbe, onClick, children }: { aktiv: boolean; farbe: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        font: 'inherit', borderRadius: 10, padding: '2px 8px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer', ...zahlen,
+        border: `1px solid ${aktiv ? farbe : 'transparent'}`, background: aktiv ? `${farbe}33` : `${farbe}17`, color: farbe,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
 
 function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: boolean }) {
   const [auf, setAuf] = useState(false)
@@ -608,7 +697,7 @@ function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: 
   const offen = alle.filter((a) => a.k !== 'fertig')
   const fertig = alle.length - offen.length
   const liste = showDone ? alle : offen
-  const sichtbar = auf ? liste : liste.slice(0, MAX_AUFGABEN)
+  const sichtbar = liste.slice(0, MAX_AUFGABEN)
   const versteckt = liste.length - sichtbar.length
   const farbe = fragen.length ? FARBE.wartet : offen.length ? FARBE.arbeit : FARBE.fertig
   const { vor: praefix, name } = teileName(p.name)
@@ -618,33 +707,29 @@ function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: 
     <button
       type="button"
       onClick={() => setAuf((v) => !v)}
-      title={de ? 'Klicken für alle Details' : 'Click for details'}
+      title={de ? (auf ? 'Zuklappen' : 'Aufklappen') : auf ? 'Collapse' : 'Expand'}
       style={{
-        display: 'flex', flexDirection: 'column', gap: 4, textAlign: 'left', width: '100%',
-        background: 'rgba(128,128,128,.07)', border: 'none', borderLeft: `3px solid ${farbe}`, borderRadius: 8,
+        display: 'flex', flexDirection: 'column', gap: 5, textAlign: 'left', width: '100%',
+        background: auf ? 'rgba(128,128,128,.1)' : 'rgba(128,128,128,.05)', border: 'none', borderRadius: 8,
         padding: '6px 8px', color: 'inherit', font: 'inherit', cursor: 'pointer',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, width: '100%' }}>
-        <strong style={{ flex: 1, minWidth: 0, fontSize: 13, ...eineZeile }}>
-          {name}
-          {praefix && <span style={{ fontWeight: 400, opacity: 0.45, fontSize: 11 }}> · {praefix}</span>}
-        </strong>
-        <span style={{ opacity: 0.5, fontSize: 11, flexShrink: 0 }}>{vor(p.geaendert, de)}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%' }}>
+        <Ring anteil={anteil} farbe={farbe} />
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          <strong style={{ fontSize: 13, ...eineZeile }}>{name}</strong>
+          <span style={{ fontSize: 10, opacity: 0.5, ...eineZeile }}>
+            {praefix && `${praefix} · `}
+            {alle.length > 0 ? `${fertig}/${alle.length} ${de ? 'erledigt' : 'done'} · ` : ''}
+            {vor(p.geaendert, de)}
+          </span>
+        </span>
+        {fragen.length > 0 && <Chip farbe={FARBE_WARTET} voll>? {fragen.length}</Chip>}
+        {offen.length > 0 && <Chip farbe={FARBE_EIN}>{offen.length}</Chip>}
+        <span style={{ fontSize: 10, opacity: 0.4, width: 8 }}>{auf ? '▲' : '▼'}</span>
       </div>
 
-      {alle.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(128,128,128,.2)', overflow: 'hidden' }}>
-            <span style={{ display: 'block', width: `${Math.round(anteil * 100)}%`, height: '100%', background: FARBE.fertig }} />
-          </span>
-          <span style={{ fontSize: 11, opacity: 0.6, ...zahlen }}>
-            {fertig}/{alle.length}
-          </span>
-        </div>
-      )}
-
-      {fragen.length > 0 && (
+      {auf && fragen.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, background: `${FARBE_WARTET}1a`, borderRadius: 6, padding: '3px 6px' }}>
           {fragen.map((f) => (
             <div key={f} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.3, minWidth: 0 }}>
@@ -655,20 +740,40 @@ function ProjektKarte({ p, showDone, de }: { p: Projekt; showDone: boolean; de: 
         </div>
       )}
 
-      {sichtbar.map((a) => (
+      {!auf && fragen.length > 0 && (
+        <span style={{ fontSize: 11, lineHeight: 1.3, color: FARBE_WARTET, paddingLeft: 27, ...eineZeile }}>? {fragen[0]}</span>
+      )}
+
+      {auf && sichtbar.map((a) => (
         <div key={a.name} style={{ display: 'flex', gap: 6, fontSize: 12, lineHeight: 1.3, minWidth: 0, opacity: a.k === 'fertig' ? 0.55 : 0.9 }}>
           <span style={{ color: FARBE[a.k], flexShrink: 0 }}>{a.k === 'fertig' ? '✓' : a.k === 'wartet' ? '◷' : '●'}</span>
-          <span style={auf ? undefined : eineZeile}>
+          <span>
             {a.name}
             {a.text && <span style={{ opacity: 0.6 }}> – {a.text}</span>}
           </span>
         </div>
       ))}
-      {versteckt > 0 && <span style={{ fontSize: 11, opacity: 0.5 }}>+ {versteckt} {de ? 'weitere' : 'more'}</span>}
-      {fragen.length === 0 && liste.length === 0 && (
+      {auf && versteckt > 0 && <span style={{ fontSize: 11, opacity: 0.5 }}>+ {versteckt} {de ? 'weitere' : 'more'}</span>}
+      {auf && fragen.length === 0 && liste.length === 0 && (
         <span style={{ fontSize: 11, opacity: 0.5 }}>{de ? 'nichts offen' : 'nothing open'}</span>
       )}
     </button>
+  )
+}
+
+/** Kleiner Fortschrittsring (Anteil erledigter Aufgaben), innen der Zustand als Punkt. */
+function Ring({ anteil, farbe }: { anteil: number; farbe: string }) {
+  const r = 8
+  const u = 2 * Math.PI * r
+  return (
+    <svg width={20} height={20} viewBox="0 0 20 20" style={{ flexShrink: 0 }} aria-hidden>
+      <circle cx={10} cy={10} r={r} fill="none" stroke="rgba(128,128,128,.25)" strokeWidth={2.5} />
+      <circle
+        cx={10} cy={10} r={r} fill="none" stroke={FARBE_AUS} strokeWidth={2.5} strokeLinecap="round"
+        strokeDasharray={`${anteil * u} ${u}`} transform="rotate(-90 10 10)"
+      />
+      <circle cx={10} cy={10} r={3} fill={farbe} />
+    </svg>
   )
 }
 
@@ -684,6 +789,8 @@ function ProjektTeil({ url, showDone, maxProjekte, refreshMs, active, de }: {
   const [fehler, setFehler] = useState('')
   const [stand, setStand] = useState<number | null>(null)
   const [alleZeigen, setAlleZeigen] = useState(false)
+  const [filter, setFilter] = useState<'alle' | Art>('alle')
+  const [zeit, setZeit] = useState('alle')
 
   const load = useCallback(async () => {
     const r = await post<Status>({ kind: 'status', url })
@@ -706,54 +813,76 @@ function ProjektTeil({ url, showDone, maxProjekte, refreshMs, active, de }: {
     )
   }
 
-  const projekte = [...(data?.projekte ?? [])].sort((a, b) => {
-    const fa = echteFragen(a).length > 0 ? 1 : 0
-    const fb = echteFragen(b).length > 0 ? 1 : 0
-    return fb - fa || (a.geaendert < b.geaendert ? 1 : -1)
-  })
-  let fragen = 0
-  let arbeit = 0
-  let fertig = 0
-  for (const p of projekte) {
-    fragen += echteFragen(p).length
-    for (const a of p.aufgaben) {
-      const k = art(a.zustand)
-      if (k === 'fertig') fertig++
-      else arbeit++
-    }
-  }
-  const sichtbar = alleZeigen || maxProjekte <= 0 ? projekte : projekte.slice(0, maxProjekte)
+  const grenze = zeit === 'alle' ? 0 : Date.now() - Number(zeit) * 86400e3
+  const projekte = [...(data?.projekte ?? [])]
+    .filter((p) => new Date(p.geaendert).getTime() >= grenze)
+    .sort((a, b) => {
+      const fa = echteFragen(a).length > 0 ? 1 : 0
+      const fb = echteFragen(b).length > 0 ? 1 : 0
+      return fb - fa || (a.geaendert < b.geaendert ? 1 : -1)
+    })
+  /** Ein Projekt zaehlt zu genau einer Gruppe: Fragen vor offen vor fertig. */
+  const gruppe = (p: Projekt): Art =>
+    echteFragen(p).length > 0 ? 'wartet' : p.aufgaben.some((a) => art(a.zustand) !== 'fertig') ? 'arbeit' : 'fertig'
+  const anzahl: Record<Art, number> = { wartet: 0, arbeit: 0, fertig: 0 }
+  for (const p of projekte) anzahl[gruppe(p)]++
+  const gefiltert = filter === 'alle' ? projekte : projekte.filter((p) => gruppe(p) === filter)
+  const sichtbar = alleZeigen || maxProjekte <= 0 ? gefiltert : gefiltert.slice(0, maxProjekte)
   const meldungen = data?.updates?.meldungen ?? []
+  const umschalten = (k: Art) => {
+    setFilter((f) => (f === k ? 'alle' : k))
+    setAlleZeigen(false)
+  }
 
   return (
     <Abschnitt
       titel={titel}
       rechts={
         data && (
-          <span style={{ display: 'flex', gap: 4 }}>
-            {fragen > 0 && <Chip farbe={FARBE_WARTET} voll>{fragen} {de ? (fragen === 1 ? 'Frage' : 'Fragen') : fragen === 1 ? 'question' : 'questions'}</Chip>}
-            {arbeit > 0 && <Chip farbe={FARBE_EIN}>{arbeit} {de ? 'offen' : 'open'}</Chip>}
-            {fertig > 0 && <Chip farbe={FARBE_AUS}>{fertig} ✓</Chip>}
-          </span>
+          <Auswahl
+            wert={zeit}
+            onWahl={setZeit}
+            optionen={[
+              { wert: 'alle', text: de ? 'Alle' : 'All' },
+              { wert: '7', text: de ? 'Letzte 7 Tage' : 'Last 7 days' },
+              { wert: '30', text: de ? 'Letzte 30 Tage' : 'Last 30 days' },
+              { wert: '90', text: de ? 'Letzte 3 Monate' : 'Last 3 months' },
+            ]}
+          />
         )
       }
     >
       {fehler && <Hinweis text={fehler} stand={data ? stand : null} de={de} />}
-      {data && projekte.length === 0 && (
+      {data && (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <FilterKnopf aktiv={filter === 'wartet'} farbe={FARBE_WARTET} onClick={() => umschalten('wartet')}>
+            ? {anzahl.wartet} {de ? 'Fragen' : 'questions'}
+          </FilterKnopf>
+          <FilterKnopf aktiv={filter === 'arbeit'} farbe={FARBE_EIN} onClick={() => umschalten('arbeit')}>
+            ● {anzahl.arbeit} {de ? 'in Arbeit' : 'active'}
+          </FilterKnopf>
+          <FilterKnopf aktiv={filter === 'fertig'} farbe={FARBE_AUS} onClick={() => umschalten('fertig')}>
+            ✓ {anzahl.fertig} {de ? 'fertig' : 'done'}
+          </FilterKnopf>
+        </div>
+      )}
+      {data && gefiltert.length === 0 && (
         <span style={{ opacity: 0.7, fontSize: 12 }}>
-          {de ? 'Noch kein Projekt mit STATUS.md – der Agent legt sie bei der ersten Aufgabe an.' : 'No project with STATUS.md yet.'}
+          {data.projekte.length === 0
+            ? de ? 'Noch kein Projekt mit STATUS.md – der Agent legt sie bei der ersten Aufgabe an.' : 'No project with STATUS.md yet.'
+            : de ? 'Keine Projekte für diesen Filter.' : 'No projects for this filter.'}
         </span>
       )}
       {sichtbar.map((p) => (
         <ProjektKarte key={p.name} p={p} showDone={showDone} de={de} />
       ))}
-      {projekte.length > sichtbar.length && (
+      {gefiltert.length > sichtbar.length && (
         <button
           type="button"
           onClick={() => setAlleZeigen(true)}
           style={{ background: 'none', border: 'none', color: 'inherit', font: 'inherit', fontSize: 12, opacity: 0.6, cursor: 'pointer', padding: 0, textAlign: 'left' }}
         >
-          + {projekte.length - sichtbar.length} {de ? 'weitere Projekte' : 'more projects'}
+          + {gefiltert.length - sichtbar.length} {de ? 'weitere Projekte' : 'more projects'}
         </button>
       )}
       {meldungen.map((m) => (
@@ -890,7 +1019,7 @@ function Settings({ config, onChange }: PluginSettingsProps) {
           <input style={inp} value={str(config.tokenUrl)} placeholder={leerHinweis(altToken) || 'http://192.168.1.x:8098/tokens'} onChange={(e) => onChange('tokenUrl', e.target.value)} />
         </div>
         <div>
-          <label style={lab}>{de ? 'Zeitraum (zugeklappt)' : 'Period (collapsed)'}</label>
+          <label style={lab}>{de ? 'Zeitraum beim Laden' : 'Period on load'}</label>
           <select style={inp} value={str(config.zeitraum) || 'heute'} onChange={(e) => onChange('zeitraum', e.target.value)}>
             <option value="heute">{de ? 'heute' : 'today'}</option>
             <option value="gestern">{de ? 'gestern' : 'yesterday'}</option>
@@ -944,7 +1073,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🧠',
-  version: '1.0.1',
+  version: '1.1.0',
   defaultLayout: { w: 4, h: 9, minW: 2, minH: 4 },
   configSchema: [
     { key: 'tokenUrl', label: 'Sammler-URL', type: 'text', defaultValue: '' },
