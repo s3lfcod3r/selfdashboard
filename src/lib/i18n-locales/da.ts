@@ -7,6 +7,7 @@ export const da: Record<string, string> = {
   dashboardTitle: 'Dashboard-titel',
   colorTheme: 'Farvetema',
   language: 'Sprog',
+  units: 'Enheder',
   editMode: 'Redigeringstilstand',
   editModeHint: 'Træk og tilpas størrelse på widgets',
   mobileStackHint:

@@ -7,6 +7,7 @@ export const el: Record<string, string> = {
   dashboardTitle: 'Τίτλος πίνακα',
   colorTheme: 'Χρωματικό θέμα',
   language: 'Γλώσσα',
+  units: 'Μονάδες',
   editMode: 'Λειτουργία επεξεργασίας',
   editModeHint: 'Σύρετε και αλλάξτε μέγεθος των widgets',
   mobileStackHint:

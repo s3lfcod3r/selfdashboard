@@ -7,6 +7,7 @@ export const cs: Record<string, string> = {
   dashboardTitle: 'Název dashboardu',
   colorTheme: 'Barevné téma',
   language: 'Jazyk',
+  units: 'Jednotky',
   editMode: 'Režim úprav',
   editModeHint: 'Přetahování a změna velikosti widgetů',
   mobileStackHint:

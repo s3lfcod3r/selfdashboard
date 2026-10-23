@@ -7,6 +7,7 @@ export const nl: Record<string, string> = {
   dashboardTitle: 'Dashboardtitel',
   colorTheme: 'Kleurthema',
   language: 'Taal',
+  units: 'Eenheden',
   editMode: 'Bewerkmodus',
   editModeHint: 'Widgets slepen en vergroten/verkleinen',
   mobileStackHint:

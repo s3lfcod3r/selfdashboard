@@ -7,6 +7,7 @@ export const fr: Record<string, string> = {
   dashboardTitle: 'Titre du tableau de bord',
   colorTheme: 'Thème de couleur',
   language: 'Langue',
+  units: 'Unités',
   editMode: 'Mode édition',
   editModeHint: 'Déplacer et redimensionner les widgets',
   mobileStackHint:
