@@ -56,6 +56,7 @@ Example layout below — SelfMailer calendar, clock, weather, FRITZ! history & p
 - **Dashboard zoom** (60 %–150 %), adjustable **grid spacing** and outer padding
 - **Navbar options** — icon only, text only or both; toggle dashboard tabs
 - **Responsive layout** — **phone / tablet / desktop** grid based on dashboard width; optional per-widget overrides; compact **navbar search** (full-width row) on narrow viewports
+- **Unit system** — global **metric (°C, km/h) / imperial (°F, mph) / auto** switch (Settings → General); Weather, FRITZ! Smart Home, Homematic and Google Home widgets pick up the choice (auto follows locale, defaults to metric)
 
 **✉️ Navbar mail (IMAP)**
 - Unread badge in the navbar — multiple accounts, Synology/MailPlus-friendly, encrypted passwords, click opens webmail
@@ -244,7 +245,7 @@ Plugins can optionally read the **`layoutMode`** prop (`'phone' | 'tablet' | 'de
 
 #### Settings overview
 
-- **General** — language (DE/EN), dashboard title, navbar web search, navbar mail badge, navbar display style, dashboard tab visibility
+- **General** — language (DE/EN), dashboard title, navbar web search, navbar mail badge, navbar display style, dashboard tab visibility, **unit system** (metric/imperial/auto)
 - **Users** — change password, **2FA (TOTP)**, **kiosk / wall tablet** (admin). Admins also manage users and the plugin whitelist here.
 - **Dashboards** — create, edit, delete dashboards; toggle tab visibility per dashboard; set emoji or custom PNG icon
 - **Design** — navbar display style; grid spacing; **navbar background** (JPG/PNG + overlay); **dashboard background** (off / 1 image / 2 images side by side + overlay); logo upload; color theme; custom color overrides
@@ -631,6 +632,7 @@ Beispiel-Layout unten — SelfMailer-Kalender, Uhr, Wetter, FRITZ! Verlauf & Str
 - **Dashboard-Zoom** (60 %–150 %), einstellbare **Grid-Abstände** und Außenrand
 - **Navbar-Optionen** — nur Icon, nur Text oder beides; Dashboard-Tabs ein-/ausblendbar
 - **Responsives Layout** — **Handy / Tablet / Desktop**-Raster je nach Dashboard-Breite; optionale Overrides pro Widget; **Navbar-Suche** auf schmalen Bildschirmen in eigener voller Zeile
+- **Einheitssystem** — globales **Metrisch (°C, km/h) / Imperial (°F, mph) / Automatisch** (Einstellungen → Allgemein); die Wetter-, FRITZ! Smart Home-, Homematic- und Google-Home-Widgets übernehmen die Wahl (automatisch folgt der Sprache, Standard metrisch)
 
 **✉️ Navbar E-Mail (IMAP)**
 - Ungelesen-Badge in der Navbar — mehrere Konten, Synology/MailPlus-tauglich, verschlüsselte Passwörter, Klick öffnet das Webmail
@@ -818,7 +820,7 @@ Plugins können optional die Prop **`layoutMode`** (`'phone' | 'tablet' | 'deskt
 
 #### Einstellungen im Überblick
 
-- **Allgemein** — Sprache (DE/EN), Dashboard-Titel, Navbar-Websuche, E-Mail-Badge in der Navbar, Navbar-Darstellung, Sichtbarkeit der Dashboard-Tabs
+- **Allgemein** — Sprache (DE/EN), Dashboard-Titel, Navbar-Websuche, E-Mail-Badge in der Navbar, Navbar-Darstellung, Sichtbarkeit der Dashboard-Tabs, **Einheitssystem** (metrisch/imperial/auto)
 - **Benutzer** — Passwort ändern, **2FA (TOTP)**, **Kiosk / Wand-Tablet** (Admin). Admins verwalten hier zusätzlich Benutzer und Plugin-Freigaben.
 - **Dashboards** — Dashboards erstellen, bearbeiten, löschen; Tab-Sichtbarkeit pro Dashboard; Emoji oder eigenes PNG-Icon setzen
 - **Design** — Navbar-Darstellung; Grid-Abstände; **Navbar-Hintergrund** (JPG/PNG + Overlay); **Dashboard-Hintergrund** (aus / 1 Bild / 2 Bilder nebeneinander + Overlay); Logo hochladen; Farbthema; Farben einzeln anpassen
