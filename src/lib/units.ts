@@ -18,6 +18,11 @@ export function resolveUnitSystem(setting: UnitSystem | undefined, localeStr?: s
   }
 }
 
+/** Per-widget override (`metric`/`imperial`); anything else (e.g. '') follows the global setting. */
+export function resolveWidgetUnitSystem(override: unknown, global: ResolvedUnitSystem): ResolvedUnitSystem {
+  return override === 'metric' || override === 'imperial' ? override : global
+}
+
 export function celsiusToFahrenheit(celsius: number): number {
   return (celsius * 9) / 5 + 32
 }
