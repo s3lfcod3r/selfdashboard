@@ -9,6 +9,7 @@
 import https from 'node:https'
 import nodeFetch from 'node-fetch'
 import { assertSafeOutboundUrlResolved } from './ssrf'
+import { assertUpstreamHostUp, noteUpstreamError, noteUpstreamOk } from './upstream-health'
 
 export type CheckedResponse = {
   ok: boolean
@@ -33,16 +34,24 @@ export async function fetchChecked(
   init: CheckedInit = {},
   opts: { insecureTls?: boolean } = {},
 ): Promise<CheckedResponse> {
+  assertUpstreamHostUp(url)
   await assertSafeOutboundUrlResolved(url)
   const isHttps = url.toLowerCase().startsWith('https:')
   const agent =
     isHttps && opts.insecureTls === true ? new https.Agent({ rejectUnauthorized: false }) : undefined
-  const res = await nodeFetch(url, {
-    redirect: 'manual',
-    ...init,
-    ...(agent ? { agent } : {}),
-  } as Record<string, unknown>)
-  return res as unknown as CheckedResponse
+  let res: unknown
+  try {
+    res = await nodeFetch(url, {
+      redirect: 'manual',
+      ...init,
+      ...(agent ? { agent } : {}),
+    } as Record<string, unknown>)
+  } catch (e) {
+    noteUpstreamError(url, e)
+    throw e
+  }
+  noteUpstreamOk(url)
+  return res as CheckedResponse
 }
 
 /** Bequemer JSON-Wrapper: parst defensiv, liefert Text für Fehlerdetails mit. */

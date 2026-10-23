@@ -11,6 +11,7 @@ scripts/*
 !scripts/vendor-builtin-plugins.mjs
 !scripts/auth-reset-password.mjs
 !scripts/docker-entrypoint.sh
+!scripts/build-server-workers.mjs
 # plugins-pack wird auf GitHub verteilt, nicht ins Image kopiert (zu groß)
 plugins-pack/
 plugin-pack/

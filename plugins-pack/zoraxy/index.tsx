@@ -866,7 +866,7 @@ export const meta: PluginMeta = {
   name: 'Zoraxy',
   description:
     'Zoraxy-Übersicht: Proxy-Hosts, Uptime, Requests/Geblockt, Traffic, Redirects, Streams, Blacklist u. m. — Kacheln frei ein-/ausblendbar und sortierbar. (Beta)',
-  version: '0.9.7',
+  version: '0.9.8',
   author: 'SelfDashboard',
   category: 'network',
   icon: '🛡️',

@@ -1,6 +1,7 @@
 import { formatErrorDetail } from '@/lib/pluginLog'
 import { reportClientLog } from '@/lib/reportLog'
 import type { LogLevel } from '@/lib/errorLogTypes'
+import { noteApiTiming } from '@/lib/loadTiming'
 
 const DEDUPE_MS = 4000
 const recent = new Map<string, number>()
@@ -89,8 +90,12 @@ export function installGlobalFetchLogger(): void {
       (url.startsWith('http') && typeof window !== 'undefined' && url.startsWith(window.location.origin + '/api/'))
     const skip = url.includes('/api/logs')
 
+    const t0 = performance.now()
     try {
       const res = await native(input, init)
+      if (isApi && !skip) {
+        noteApiTiming(url, performance.now() - t0, res.status, res.headers.get('server-timing'))
+      }
       if (isApi && !skip && !res.ok) {
         let detail: string | undefined
         let message = `${res.status} ${res.statusText}`.trim()

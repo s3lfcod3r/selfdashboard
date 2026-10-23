@@ -4,38 +4,118 @@ async function logPluginApiFailure(pluginId, operation, message, detail) {
   console.error(`[SelfDashboard][${pluginId}] ${operation}: ${message}${extra}`);
 }
 
-// plugins-pack/_shared/plugin-server-cache.ts
-function createPluginServerCache(options) {
+// plugins-pack/_shared/plugin-stale-cache.ts
+async function snapshot(res) {
+  const headers = [];
+  res.headers.forEach((value, name) => {
+    if (name !== "set-cookie" && name !== "content-length") headers.push([name, value]);
+  });
+  return { status: res.status, headers, body: await res.text() };
+}
+function toResponse(snap, cache, ageMs) {
+  const headers = new Headers(snap.headers);
+  headers.set("X-SD-Cache", cache);
+  headers.set("X-SD-Data-Age", String(Math.round(ageMs / 1e3)));
+  return new Response(snap.body, { status: snap.status, headers });
+}
+function staleOverride() {
+  const raw = process.env.SELFDASHBOARD_STALE_MAX_MS;
+  const n = raw === void 0 || raw === "" ? NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+function createPluginStaleCache(options) {
+  const freshMs = Math.max(0, options.freshMs);
+  const staleMs = Math.max(freshMs, staleOverride() ?? options.staleMs);
   const maxEntries = Math.max(1, options.maxEntries ?? 32);
-  const ttlMs = Math.max(0, options.ttlMs);
-  const cache = /* @__PURE__ */ new Map();
-  function evictIfNeeded() {
-    while (cache.size >= maxEntries) {
-      const first = cache.keys().next().value;
-      if (!first) break;
-      cache.delete(first);
+  const label = options.label ?? "plugin";
+  const maxWaitMs = Math.max(0, options.maxWaitMs ?? 0);
+  const entries = /* @__PURE__ */ new Map();
+  const inflight = /* @__PURE__ */ new Map();
+  const scheduled = /* @__PURE__ */ new Map();
+  let generation = 0;
+  function store(key, snap, cacheable) {
+    if (snap.status < 200 || snap.status >= 300) return;
+    if (cacheable) {
+      try {
+        if (!cacheable(snap.body)) return;
+      } catch {
+        return;
+      }
     }
+    entries.delete(key);
+    while (entries.size >= maxEntries) {
+      const first = entries.keys().next().value;
+      if (first === void 0) break;
+      entries.delete(first);
+    }
+    entries.set(key, { snap, at: Date.now() });
+  }
+  function load(key, loader, cacheable) {
+    const running = inflight.get(key);
+    if (running) return running;
+    const gen = generation;
+    const p = Promise.resolve().then(loader).then(snapshot).then((snap) => {
+      if (gen === generation) store(key, snap, cacheable);
+      return snap;
+    }).finally(() => {
+      if (inflight.get(key) === p) inflight.delete(key);
+    });
+    inflight.set(key, p);
+    return p;
   }
   return {
-    get(key) {
-      const entry = cache.get(key);
-      if (!entry) return null;
-      if (Date.now() > entry.expires) {
-        cache.delete(key);
-        return null;
+    async respond(key, loader, opts) {
+      const cached = entries.get(key);
+      if (cached) {
+        const age = Date.now() - cached.at;
+        if (age < freshMs) return toResponse(cached.snap, "hit", age);
+        if (age < staleMs && maxWaitMs > 0) {
+          const pending2 = load(key, loader, opts?.cacheable).catch((e) => {
+            console.warn(
+              `[SelfDashboard][stale-cache] ${label}: Refresh fehlgeschlagen`,
+              e instanceof Error ? e.message : e
+            );
+            return null;
+          });
+          let timer;
+          const fresh = await Promise.race([
+            pending2,
+            new Promise((resolve) => {
+              timer = setTimeout(() => resolve(null), maxWaitMs);
+            })
+          ]);
+          clearTimeout(timer);
+          if (fresh) return toResponse(fresh, "refresh", 0);
+          return toResponse(cached.snap, "stale", age);
+        }
+        if (age < staleMs) {
+          if (!scheduled.has(key)) {
+            scheduled.set(
+              key,
+              setTimeout(() => {
+                scheduled.delete(key);
+                void load(key, loader, opts?.cacheable).catch((e) => {
+                  console.warn(
+                    `[SelfDashboard][stale-cache] ${label}: Hintergrund-Refresh fehlgeschlagen`,
+                    e instanceof Error ? e.message : e
+                  );
+                });
+              }, 0)
+            );
+          }
+          return toResponse(cached.snap, "stale", age);
+        }
+        entries.delete(key);
       }
-      return entry.data;
-    },
-    set(key, data) {
-      if (ttlMs <= 0) return;
-      evictIfNeeded();
-      cache.set(key, { expires: Date.now() + ttlMs, data });
-    },
-    delete(key) {
-      cache.delete(key);
+      const snap = await load(key, loader, opts?.cacheable);
+      return toResponse(snap, "miss", 0);
     },
     clear() {
-      cache.clear();
+      for (const timer of scheduled.values()) clearTimeout(timer);
+      scheduled.clear();
+      entries.clear();
+      inflight.clear();
+      generation += 1;
     }
   };
 }
@@ -88,6 +168,7 @@ function dockerGet(pathAndQuery) {
   return dockerRequest("GET", pathAndQuery, void 0, 12e3);
 }
 var MIN_SYSTEM_CPU_DELTA_NS = BigInt(1e7);
+var CPU_SAMPLE_MAX_AGE_MS = 10 * 6e4;
 
 // plugins-pack/crowdsec/lib/crowdsecDocker.ts
 function findContainerId(containerName) {
@@ -767,10 +848,77 @@ LIMIT ?`).all(...params, maxAlerts) : db.prepare(sql).all(...params);
   }
 }
 
+// plugins-pack/crowdsec/lib/crowdsecDashboardRunner.ts
+import fs3 from "fs";
+import path3 from "path";
+import { Worker } from "node:worker_threads";
+var MAX_WORKER_FAILURES = 3;
+var WorkerFailure = class extends Error {
+};
+var worker = null;
+var nextId = 1;
+var failures = 0;
+var disabled = false;
+var pending = /* @__PURE__ */ new Map();
+function workerFile() {
+  const file = path3.join(process.cwd(), "server-workers", "crowdsec-worker.mjs");
+  return fs3.existsSync(file) ? file : null;
+}
+function failWorker(w, err) {
+  if (worker === w) worker = null;
+  const failure = new WorkerFailure(err.message);
+  for (const p of pending.values()) p.reject(failure);
+  pending.clear();
+  failures += 1;
+  if (failures >= MAX_WORKER_FAILURES && !disabled) {
+    disabled = true;
+    console.warn(`[SelfDashboard][crowdsec] Worker ${failures}x ausgefallen \u2014 Auswertung l\xE4uft ab jetzt im Hauptthread (${err.message})`);
+  }
+}
+function getWorker() {
+  if (disabled) return null;
+  if (worker) return worker;
+  const file = workerFile();
+  if (!file) {
+    disabled = true;
+    return null;
+  }
+  const w = new Worker(file);
+  w.unref();
+  w.on("message", (msg) => {
+    const p = pending.get(msg.id);
+    if (!p) return;
+    pending.delete(msg.id);
+    failures = 0;
+    if (msg.ok && msg.data) p.resolve(msg.data);
+    else p.reject(new Error(msg.error || "crowdsec_error"));
+  });
+  w.on("error", (err) => failWorker(w, err));
+  w.on("exit", (code) => {
+    if (worker === w) failWorker(w, new Error(`crowdsec_worker_exit_${code}`));
+  });
+  worker = w;
+  return w;
+}
+function loadCrowdsecDashboardOffThread(dbPath, opts = {}) {
+  const w = getWorker();
+  if (!w) return loadCrowdsecDashboard(dbPath, opts);
+  return new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    w.postMessage({ id, dbPath, opts });
+  }).catch((e) => {
+    if (e instanceof WorkerFailure) return loadCrowdsecDashboard(dbPath, opts);
+    throw e;
+  });
+}
+
 // plugins-pack/crowdsec/server.ts
-var dashboardCache = createPluginServerCache({
-  ttlMs: Math.max(0, Number(process.env.CROWDSEC_DASHBOARD_CACHE_MS) || 2e4),
-  maxEntries: 16
+var dashboardCache = createPluginStaleCache({
+  freshMs: Math.max(0, Number(process.env.CROWDSEC_DASHBOARD_CACHE_MS) || 2e4),
+  staleMs: 30 * 6e4,
+  maxEntries: 16,
+  label: "crowdsec"
 });
 async function handleDashboardGet(req) {
   const sp = new URL(req.url).searchParams;
@@ -781,20 +929,18 @@ async function handleDashboardGet(req) {
   const maxAlerts = maxAlertsRaw === 0 ? 0 : Math.min(2e3, Math.max(50, Number.isFinite(maxAlertsRaw) ? maxAlertsRaw : 500));
   const timeoutMs = Math.min(12e4, Math.max(15e3, Number(process.env.CROWDSEC_QUERY_TIMEOUT_MS) || 45e3));
   const cacheKey = `${dbPath}|${daysBack}|${maxAlerts}`;
-  const cached = dashboardCache.get(cacheKey);
-  if (cached) {
-    return Response.json(cached, { headers: { "X-SD-Cache": "hit" } });
-  }
+  return dashboardCache.respond(cacheKey, () => loadDashboard(dbPath, daysBack, maxAlerts, timeoutMs));
+}
+async function loadDashboard(dbPath, daysBack, maxAlerts, timeoutMs) {
   try {
     const resolved = resolveCrowdsecDbPath(dbPath);
     const data = await Promise.race([
-      loadCrowdsecDashboard(resolved, { daysBack, maxAlerts }),
+      loadCrowdsecDashboardOffThread(resolved, { daysBack, maxAlerts }),
       new Promise((_, reject) => {
         setTimeout(() => reject(new Error("crowdsec_timeout")), timeoutMs);
       })
     ]);
-    dashboardCache.set(cacheKey, data);
-    return Response.json(data, { headers: { "X-SD-Cache": "miss" } });
+    return Response.json(data);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "crowdsec_error";
     const status = msg === "crowdsec_timeout" ? 504 : msg === "missing_db_path" || msg === "db_not_found" || msg === "db_not_a_file" ? 404 : msg === "db_path_not_allowed" ? 403 : msg === "db_schema_unsupported" ? 422 : 502;

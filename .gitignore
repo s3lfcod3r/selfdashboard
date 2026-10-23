@@ -19,8 +19,9 @@ build/
 
 # Plugin-Store nur plugins-pack/ auf GitHub (siehe docs/PLUGINS.md, plugins-pack/README.md).
 # plugins/ und plugin-pack/ sind optional — lokal löschbar, werden nicht committet.
-plugins/
-plugin-pack/
+# Mit führendem / — ohne würde z. B. auch src/app/api/plugins/ ignoriert (neue Routen fehlten im Commit).
+/plugins/
+/plugin-pack/
 
 # misc
 .DS_Store

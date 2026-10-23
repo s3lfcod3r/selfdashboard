@@ -3,6 +3,8 @@ import path from 'path'
 import { NextResponse } from 'next/server'
 import { requirePluginAccess } from '@/lib/auth/guard'
 import { customPluginDir, readInstalledPluginVersion } from '@/lib/pluginVolumeInfo'
+import { createServerTiming } from '@/lib/serverTiming'
+import { prepareWidgetJs } from '@/lib/pluginWidgetJs'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,52 +29,32 @@ export async function GET(
   ctx: { params: Promise<{ pluginId: string; file: string }> },
 ) {
   const { pluginId, file } = await ctx.params
-  const denied = requirePluginAccess(req, pluginId)
-  if (denied instanceof NextResponse) return denied
+  const timing = createServerTiming(`GET custom-assets/${pluginId}/${file}`)
+  const denied = timing.measure('auth', () => requirePluginAccess(req, pluginId))
+  if (denied instanceof NextResponse) return timing.apply(denied)
   if (!/^[a-z0-9][a-z0-9-]*$/.test(pluginId) || !safeFile(file)) {
-    return NextResponse.json({ error: 'invalid_path' }, { status: 400 })
+    return timing.apply(NextResponse.json({ error: 'invalid_path' }, { status: 400 }))
   }
 
   const dir = customPluginDir(pluginId)
   const abs = path.join(dir, file)
-  if (!path.resolve(abs).startsWith(path.resolve(dir)) || !fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
-    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  const exists = timing.measure(
+    'stat',
+    () => path.resolve(abs).startsWith(path.resolve(dir)) && fs.existsSync(abs) && fs.statSync(abs).isFile(),
+  )
+  if (!exists) {
+    return timing.apply(NextResponse.json({ error: 'not_found' }, { status: 404 }))
   }
 
   const ext = path.extname(file).toLowerCase()
-  let body = fs.readFileSync(abs)
-  // Aeltere WebViews (z.B. Chromium 74 auf Billig-Tablets/TV-Boxen) verstehen
-  // kein Optional Chaining (?.) o.ae. Plugin-JS wird daher beim Ausliefern auf
-  // ein aelteres Ziel heruntertranspiliert, damit Widgets ueberall laden.
-  // Faellt bei Fehlern auf den Originalinhalt zurueck.
+  let body = timing.measure('read', () => fs.readFileSync(abs))
+  timing.add('size', 0, `${Math.round(body.length / 1024)}KB`)
   if (ext === '.js' || ext === '.mjs') {
-    try {
-      let code = body.toString('utf8')
-      try {
-        const esbuild = await import('esbuild')
-        const transform = (esbuild as { transformSync?: typeof import('esbuild').transformSync }).transformSync
-          ?? (esbuild as { default?: typeof import('esbuild') }).default?.transformSync
-        if (transform) {
-          code = transform(code, { loader: 'js', target: ['es2017'] }).code
-        }
-      } catch {
-        /* esbuild optional — ohne Transpile weiter mit Originalcode. */
-      }
-      // React-Inline-Styles wie {position:"fixed",inset:0,...}: `inset` (erst
-      // Chrome 87) versteht Chromium 74 nicht -> Overlay fuellt den Screen nicht,
-      // Dialoge zentrieren nicht. Auf top/right/bottom/left umschreiben.
-      code = code.replace(
-        /([{,])\s*inset\s*:\s*(0|(["'])0(?:px)?\3)\s*([,}])/g,
-        (_m, pre, val, _q, post) => `${pre}top:${val},right:${val},bottom:${val},left:${val}${post}`,
-      )
-      body = Buffer.from(code, 'utf8')
-    } catch {
-      /* Original ausliefern, wenn Nachbearbeitung nicht moeglich ist. */
-    }
+    body = Buffer.from(await prepareWidgetJs(body.toString('utf8'), timing), 'utf8')
   }
   const isWidgetAsset = file === 'widget.js' || file === 'widget.css'
   const versionParam = new URL(req.url).searchParams.get('v')?.trim() ?? ''
-  const installedVersion = readInstalledPluginVersion(pluginId) ?? ''
+  const installedVersion = timing.measure('version', () => readInstalledPluginVersion(pluginId) ?? '')
   const versionMatches = Boolean(versionParam && installedVersion && versionParam === installedVersion)
   const cacheControl =
     isWidgetAsset && versionMatches
@@ -92,5 +74,5 @@ export async function GET(
     headers['Content-Security-Policy'] = "default-src 'none'; sandbox"
   }
 
-  return new NextResponse(body, { headers })
+  return timing.apply(new NextResponse(body, { headers }))
 }

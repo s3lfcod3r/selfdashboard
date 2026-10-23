@@ -6,6 +6,7 @@ import {
 import { issueKioskToken, applyKioskCookie, kioskAccessGranted } from '@/lib/kiosk/session'
 import { sealDashboardSecrets } from '@/lib/widgetSecrets'
 import { isSealedSecret } from '@/lib/secretCrypto'
+import { expandDashboardBlobs, requestOrigin } from '@/lib/dashboardBlobs'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,7 +68,9 @@ export async function GET(req: Request) {
 
   // Never expose plaintext widget secrets to the (possibly public) kiosk view:
   // seal what can be sealed, then blank any remaining plaintext secret-looking fields.
-  const res = NextResponse.json(redactPlaintextSecrets(sealDashboardSecrets(state).state))
+  const res = NextResponse.json(
+    expandDashboardBlobs(redactPlaintextSecrets(sealDashboardSecrets(state).state), requestOrigin(req)),
+  )
   const granted = kioskAccessGranted(req, config)
   if (config.passwordHash) {
     if (granted) {

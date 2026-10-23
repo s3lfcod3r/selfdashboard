@@ -1,8 +1,9 @@
 'use client'
 
-import type { ComponentType } from 'react'
+import { Profiler, useEffect, useLayoutEffect, useRef, type ComponentType, type ProfilerOnRenderCallback } from 'react'
 import type { PluginMeta, PluginComponent, PluginWidgetProps } from '@/types'
 import { WidgetErrorBoundary } from '@/components/plugins/WidgetErrorBoundary'
+import { noteWidgetEffects, noteWidgetRender } from '@/lib/renderTiming'
 
 // ── Plugin Registry ──────────────────────────────────────────
 // Each plugin registers itself here with metadata + component.
@@ -13,12 +14,44 @@ interface RegisteredPlugin {
   component: PluginComponent
 }
 
+const onWidgetRender: ProfilerOnRenderCallback = (id, phase, actualDuration) => {
+  noteWidgetRender(id, phase, actualDuration)
+}
+
+type EffectMarks = { layout?: number; passive?: number }
+
+/**
+ * Steht VOR dem Widget: React führt Effekte in Baum-Reihenfolge aus (Marker → Widget →
+ * SafeWidget), die Differenz bis zu den Effekten in SafeWidget = Effekte des Widgets.
+ */
+function EffectMarker({ marks }: { marks: { current: EffectMarks } }) {
+  useLayoutEffect(() => {
+    marks.current.layout = performance.now()
+  })
+  useEffect(() => {
+    marks.current.passive = performance.now()
+  })
+  return null
+}
+
 function wrapWidgetWithLogging(meta: PluginMeta, Widget: ComponentType<PluginWidgetProps>) {
   function SafeWidget(props: PluginWidgetProps) {
+    const marks = useRef<EffectMarks>({})
+    useLayoutEffect(() => {
+      if (marks.current.layout !== undefined) noteWidgetEffects(meta.id, 'layout', performance.now() - marks.current.layout)
+      marks.current.layout = undefined
+    })
+    useEffect(() => {
+      if (marks.current.passive !== undefined) noteWidgetEffects(meta.id, 'passive', performance.now() - marks.current.passive)
+      marks.current.passive = undefined
+    })
     return (
-      <WidgetErrorBoundary pluginId={meta.id} instanceId={props.instanceId}>
-        <Widget {...props} />
-      </WidgetErrorBoundary>
+      <Profiler id={meta.id} onRender={onWidgetRender}>
+        <WidgetErrorBoundary pluginId={meta.id} instanceId={props.instanceId}>
+          <EffectMarker marks={marks} />
+          <Widget {...props} />
+        </WidgetErrorBoundary>
+      </Profiler>
     )
   }
   SafeWidget.displayName = `Widget(${meta.id})`
@@ -27,10 +60,22 @@ function wrapWidgetWithLogging(meta: PluginMeta, Widget: ComponentType<PluginWid
 
 let registryVersion = 0
 const registryListeners = new Set<() => void>()
+let notifyQueued = false
 
+/**
+ * Gebündelt per Microtask: useSyncExternalStore rendert bei jeder Benachrichtigung
+ * SYNCHRON neu — ein Widget-Bundle mit 19 registerPlugin-Aufrufen löste sonst 19
+ * komplette Dashboard-Renders hintereinander aus. Die Registry selbst ist sofort
+ * aktuell; nur die Listener laufen einmal nach dem aktuellen Skript.
+ */
 function notifyPluginRegistry() {
   registryVersion += 1
-  for (const fn of registryListeners) fn()
+  if (notifyQueued) return
+  notifyQueued = true
+  queueMicrotask(() => {
+    notifyQueued = false
+    for (const fn of registryListeners) fn()
+  })
 }
 
 export function subscribePluginRegistry(onStoreChange: () => void): () => void {

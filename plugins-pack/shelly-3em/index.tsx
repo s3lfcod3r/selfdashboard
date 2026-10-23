@@ -551,7 +551,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '⚡',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.0.0',
+  version: '1.0.1',
   defaultLayout: { w: 4, h: 4, minW: 3, minH: 3 },
   configSchema: [
     { key: 'devices', label: 'Geräte', type: 'text', defaultValue: '[]' },

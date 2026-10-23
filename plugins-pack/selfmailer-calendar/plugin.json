@@ -2,7 +2,7 @@
   "id": "selfmailer-calendar",
   "name": "SelfMailer Kalender",
   "description": "Kommende Termine aus SelfMailer anzeigen UND neue Termine anlegen — direkt in SelfMailer, mit automatischem Push in den gewählten Google-Kalender. Quelle: SelfMailer-Server (Basis-URL + Token), kein eigener Kalender-Speicher.",
-  "version": "1.10.2",
+  "version": "1.10.3",
   "author": "SelfDashboard",
   "category": "productivity",
   "icon": "📅",
@@ -11,5 +11,16 @@
     "h": 4,
     "minW": 2,
     "minH": 3
+  },
+  "readCache": {
+    "methods": [
+      "POST"
+    ],
+    "readActions": [
+      null,
+      "summary",
+      "targets",
+      "calendars"
+    ]
   }
 }

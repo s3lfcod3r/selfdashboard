@@ -1272,7 +1272,7 @@ export const meta: PluginMeta = {
   name: 'NetzWacht',
   description:
     'Netzwerk-Wächter: Live-Durchsatz, Top-Geräte und Suricata-Sicherheitsalarme vom ntopng-Stack. (Beta)',
-  version: '0.7.0',
+  version: '0.7.1',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',

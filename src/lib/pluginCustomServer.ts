@@ -3,6 +3,7 @@ import 'server-only'
 import fs from 'fs'
 import path from 'path'
 import { pathToFileURL } from 'url'
+import { requireAdmin, requireAuth, requireFullAdmin } from '@/lib/auth/guard'
 import {
   registerPluginServerHandler,
   unregisterPluginServerHandler,
@@ -10,8 +11,21 @@ import {
   type PluginServerHandler,
 } from '@/lib/pluginServerRegistry'
 import { customPluginDir, getCustomServerPluginIds } from '@/lib/pluginVolumeInfo'
+import { logServerTiming } from '@/lib/serverTiming'
 
 const loadedCustomServerIds = new Set<string>()
+
+/**
+ * Volume-server.mjs können `@/lib/auth/guard` nicht importieren — sie greifen über
+ * plugins-pack/_shared/host-guard.ts auf diese Brücke zu (fehlt sie, lehnt das Plugin ab).
+ */
+function installServerHostBridge(): void {
+  ;(globalThis as Record<string, unknown>).__selfDashboardServerHost = {
+    requireAuth,
+    requireAdmin,
+    requireFullAdmin,
+  }
+}
 
 function resolveServerModulePath(id: string): string | null {
   const dir = customPluginDir(id)
@@ -65,18 +79,33 @@ export async function loadCustomPluginServers(): Promise<string[]> {
 }
 
 export async function reloadCustomPluginServers(): Promise<string[]> {
+  installServerHostBridge()
   for (const id of loadedCustomServerIds) {
     unregisterPluginServerHandler(id)
   }
   loadedCustomServerIds.clear()
 
   const loaded: string[] = []
+  const durations: Array<[string, number]> = []
+  const t0 = performance.now()
   for (const id of getCustomServerPluginIds()) {
+    const t = performance.now()
     const handler = await importVolumeServer(id)
+    durations.push([id, performance.now() - t])
     if (!handler) continue
     registerPluginServerHandler(id, handler, { source: 'custom', replace: true })
     loadedCustomServerIds.add(id)
     loaded.push(id)
   }
+  const total = performance.now() - t0
+  const slowest = [...durations]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, ms]) => `${id} ${ms.toFixed(0)}ms`)
+    .join(', ')
+  logServerTiming(
+    `server.mjs geladen: ${loaded.length}/${durations.length} in ${total.toFixed(0)}ms (pid ${process.pid}) — langsamste: ${slowest || '-'}`,
+    total >= 2000,
+  )
   return loaded
 }

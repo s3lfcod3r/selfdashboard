@@ -122,6 +122,8 @@ export function DashboardGrid() {
   const [scaledWrapHeight, setScaledWrapHeight] = useState<number | null>(null)
 
   // Measure the grid track width so columns use the full main area (avoids a dead band on the right).
+  // Nur im ResizeObserver-Callback messen: der läuft nach dem Layout (kein erzwungener Reflow)
+  // und feuert direkt nach observe() noch vor dem ersten Paint — kein Flackern.
   useLayoutEffect(() => {
     const el = measureRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -135,7 +137,6 @@ export function DashboardGrid() {
       setContainerWidth((prev) => (prev === next ? prev : next))
     }
 
-    apply()
     const ro = new ResizeObserver(() => apply())
     ro.observe(el)
     return () => ro.disconnect()
@@ -198,16 +199,16 @@ export function DashboardGrid() {
         return prev === next ? prev : next
       })
     }
-    measure()
+    // Früher zusätzlich synchron + per Timer gemessen — bei jedem Registry-Update direkt nach
+    // dem Einfügen neuer Widgets → erzwungener Reflow des ganzen Rasters (~200 ms beim Laden).
+    // Der ResizeObserver meldet jede Höhenänderung nach dem Layout, inkl. initial nach observe().
+    if (typeof ResizeObserver === 'undefined') {
+      measure()
+      return
+    }
     const ro = new ResizeObserver(() => measure())
     ro.observe(el)
-    const t0 = window.setTimeout(measure, 0)
-    const t1 = window.setTimeout(measure, 120)
-    return () => {
-      window.clearTimeout(t0)
-      window.clearTimeout(t1)
-      ro.disconnect()
-    }
+    return () => ro.disconnect()
   }, [zoom, containerWidth, plugins.length, gridGap, gridPadding, editMode, registryVersion])
 
   const handleLayoutChange = useCallback(

@@ -8,10 +8,17 @@ export type NavbarSlotProps = { locale: Locale }
 const slots = new Map<string, ComponentType<NavbarSlotProps>>()
 const listeners = new Set<() => void>()
 let version = 0
+let notifyQueued = false
 
+/** Gebündelt per Microtask (siehe pluginRegistry: useSyncExternalStore rendert synchron). */
 function notifyNavbarSlots() {
   version += 1
-  for (const fn of listeners) fn()
+  if (notifyQueued) return
+  notifyQueued = true
+  queueMicrotask(() => {
+    notifyQueued = false
+    for (const fn of listeners) fn()
+  })
 }
 
 export function subscribeNavbarSlots(onStoreChange: () => void): () => void {
