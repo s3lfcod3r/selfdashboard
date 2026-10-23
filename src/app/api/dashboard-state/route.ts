@@ -9,6 +9,7 @@ import {
   type DashboardStatePersisted,
 } from '@/lib/dashboardStatePayload'
 import { stripRemovedPlugins } from '@/lib/removedPlugins'
+import { expandDashboardBlobs, extractDashboardBlobs, requestOrigin } from '@/lib/dashboardBlobs'
 import { sealDashboardSecrets } from '@/lib/widgetSecrets'
 
 export const dynamic = 'force-dynamic'
@@ -40,19 +41,26 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'invalid file contents' }, { status: 500 })
     }
     // Upgrade legacy plaintext widget secrets on read: seal + persist once.
+    // Ebenso große eingebettete Bilder einmalig auslagern (siehe dashboardBlobs).
     const sealed = sealDashboardSecrets(parsed)
-    if (sealed.changed) {
+    const extracted = extractDashboardBlobs(sealed.state)
+    if (sealed.changed || extracted.changed) {
       try {
-        await writeStateAtomic(file, sealed.state)
+        await writeStateAtomic(file, extracted.state)
       } catch {
         /* keep serving the sealed copy even if the rewrite fails */
       }
     }
-    const filtered = filterDashboardStatePlugins(sealed.state, auth.userId, auth.role)
-    return NextResponse.json({
-      ...filtered,
-      dashboards: stripRemovedPlugins(filtered.dashboards),
-    })
+    const filtered = filterDashboardStatePlugins(extracted.state, auth.userId, auth.role)
+    return NextResponse.json(
+      expandDashboardBlobs(
+        {
+          ...filtered,
+          dashboards: stripRemovedPlugins(filtered.dashboards),
+        },
+        requestOrigin(req),
+      ),
+    )
   } catch (e: unknown) {
     const code = e && typeof e === 'object' && 'code' in e ? String((e as { code?: unknown }).code) : ''
     if (code === 'ENOENT') return NextResponse.json({ error: 'not found' }, { status: 404 })
@@ -84,10 +92,12 @@ export async function PUT(req: Request) {
     auth.userId,
     auth.role,
   )
-  const cleaned: DashboardStatePersisted = sealDashboardSecrets({
-    ...safe,
-    dashboards: stripRemovedPlugins(safe.dashboards),
-  }).state
+  const cleaned: DashboardStatePersisted = extractDashboardBlobs(
+    sealDashboardSecrets({
+      ...safe,
+      dashboards: stripRemovedPlugins(safe.dashboards),
+    }).state,
+  ).state
   const file = userDashboardPath(auth.userId)
   try {
     await writeStateAtomic(file, cleaned)

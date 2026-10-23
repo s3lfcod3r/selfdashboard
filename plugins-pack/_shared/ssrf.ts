@@ -4,6 +4,7 @@
  */
 import net from 'node:net'
 import { lookup } from 'node:dns/promises'
+import { assertUpstreamHostUp, noteUpstreamError, noteUpstreamOk } from './upstream-health'
 
 const BLOCKED_HOSTNAMES = new Set([
   'localhost',
@@ -144,11 +145,19 @@ export async function fetchWithSsrfGuard(
   init?: RequestInit,
   maxRedirects = 5,
 ): Promise<Response> {
+  assertUpstreamHostUp(urlStr)
   await assertSafeOutboundUrlResolved(urlStr)
   let current = urlStr
 
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const resp = await fetch(current, { ...init, redirect: 'manual' })
+    let resp: Response
+    try {
+      resp = await fetch(current, { ...init, redirect: 'manual' })
+    } catch (e) {
+      noteUpstreamError(current, e)
+      throw e
+    }
+    noteUpstreamOk(current)
     if (resp.status < 300 || resp.status >= 400) return resp
 
     const location = resp.headers.get('location')

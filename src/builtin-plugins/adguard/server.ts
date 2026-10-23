@@ -2,11 +2,14 @@ import { NextResponse } from 'next/server'
 import { logPluginApiFailure } from '@/lib/pluginLogServer'
 import { openSealedSecret } from '@/lib/secretCrypto'
 import { fetchWithSsrfGuard, UnsafeOutboundUrlError } from '@/lib/security/ssrf'
+import { createPluginStaleCache, staleCacheKey } from '@/lib/pluginStaleCache'
 import type { PluginServerContext } from '@/lib/pluginServerRegistry'
 
 export const dynamic = 'force-dynamic'
 
 const FETCH_TIMEOUT_MS = 12_000
+
+const statsCache = createPluginStaleCache({ freshMs: 10_000, staleMs: 10 * 60_000, maxEntries: 16, label: 'adguard' })
 
 /** 7 days — must be a multiple of 1h per AdGuard API */
 const STATS_RECENT_MS = 7 * 24 * 60 * 60 * 1000
@@ -204,34 +207,64 @@ export async function handleAdguardPluginRequest(req: Request): Promise<Response
     headers.Authorization = `Basic ${token}`
   }
 
+  if (body.action !== 'protection') {
+    // Lesender Abruf: Stale-while-revalidate. Schlüssel = Ziel + Zugangsdaten (wie im Request).
+    const key = staleCacheKey(base, user, String(body.password ?? ''))
+    return statsCache.respond(key, () => loadStats(base, headers))
+  }
+
   const ac = new AbortController()
   const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    if (body.action === 'protection') {
-      if (typeof body.enabled !== 'boolean') {
-        return NextResponse.json({ error: 'missing_enabled' }, { status: 400 })
-      }
-      const url = controlEndpoint(base, 'control/protection')
-      const pr = await fetchJsonPost(url, headers, { enabled: body.enabled }, ac.signal)
-      if (!pr.ok) {
-        const detail =
-          isStatsObject(pr.json) && 'message' in pr.json
-            ? String((pr.json as { message?: string }).message ?? '')
-            : pr.text.slice(0, 240)
-        return NextResponse.json(
-          { error: 'protection_failed', status: pr.status, detail: detail || pr.text.slice(0, 240) },
-          { status: pr.status === 401 || pr.status === 403 ? pr.status : 502 },
-        )
-      }
-      const statusUrl = controlEndpoint(base, 'control/status')
-      const statusRes = await fetchJson(statusUrl, headers, ac.signal)
-      return NextResponse.json({
-        ok: true,
-        status: statusRes.ok && isStatsObject(statusRes.json) ? statusRes.json : null,
-      })
+    if (typeof body.enabled !== 'boolean') {
+      return NextResponse.json({ error: 'missing_enabled' }, { status: 400 })
     }
+    const url = controlEndpoint(base, 'control/protection')
+    const pr = await fetchJsonPost(url, headers, { enabled: body.enabled }, ac.signal)
+    if (!pr.ok) {
+      const detail =
+        isStatsObject(pr.json) && 'message' in pr.json
+          ? String((pr.json as { message?: string }).message ?? '')
+          : pr.text.slice(0, 240)
+      return NextResponse.json(
+        { error: 'protection_failed', status: pr.status, detail: detail || pr.text.slice(0, 240) },
+        { status: pr.status === 401 || pr.status === 403 ? pr.status : 502 },
+      )
+    }
+    statsCache.clear()
+    const statusUrl = controlEndpoint(base, 'control/status')
+    const statusRes = await fetchJson(statusUrl, headers, ac.signal)
+    return NextResponse.json({
+      ok: true,
+      status: statusRes.ok && isStatsObject(statusRes.json) ? statusRes.json : null,
+    })
+  } catch (e) {
+    return requestFailed(e)
+  } finally {
+    clearTimeout(t)
+  }
+}
 
+function requestFailed(e: unknown): Response {
+  if (e instanceof UnsafeOutboundUrlError) {
+    void logPluginApiFailure('adguard', 'request', `blocked_url:${e.message}`)
+    return NextResponse.json({ error: 'blocked_url', detail: e.message }, { status: 400 })
+  }
+  const msg = e instanceof Error ? e.message : String(e)
+  const aborted = e instanceof Error && e.name === 'AbortError'
+  void logPluginApiFailure('adguard', 'request', aborted ? 'timeout' : msg)
+  return NextResponse.json(
+    { error: aborted ? 'timeout' : 'fetch_failed', detail: msg },
+    { status: aborted ? 504 : 502 },
+  )
+}
+
+async function loadStats(base: string, headers: Record<string, string>): Promise<Response> {
+  const ac = new AbortController()
+  const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS)
+
+  try {
     const statsBundle = await fetchStatsBundle(base, headers, ac.signal)
     if ('error' in statsBundle) {
       const st = statsBundle.status === 401 || statsBundle.status === 403 ? statsBundle.status : 502
@@ -260,17 +293,7 @@ export async function handleAdguardPluginRequest(req: Request): Promise<Response
       statsConfig,
     })
   } catch (e) {
-    if (e instanceof UnsafeOutboundUrlError) {
-      void logPluginApiFailure('adguard', 'request', `blocked_url:${e.message}`)
-      return NextResponse.json({ error: 'blocked_url', detail: e.message }, { status: 400 })
-    }
-    const msg = e instanceof Error ? e.message : String(e)
-    const aborted = e instanceof Error && e.name === 'AbortError'
-    void logPluginApiFailure('adguard', 'request', aborted ? 'timeout' : msg)
-    return NextResponse.json(
-      { error: aborted ? 'timeout' : 'fetch_failed', detail: msg },
-      { status: aborted ? 504 : 502 },
-    )
+    return requestFailed(e)
   } finally {
     clearTimeout(t)
   }

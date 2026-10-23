@@ -2,8 +2,13 @@
   "id": "weather",
   "name": "Weather",
   "description": "Stadt oder PLZ — aktuelles Wetter mit 3-Stunden-Verlauf (0, 3, 6 … 21, 24) und optional 7-Tage-Vorschau. Open-Meteo, kein API-Key. API: /api/plugins/weather/resolve.",
-  "version": "1.10.8",
+  "version": "1.10.9",
   "author": "SelfDashboard",
   "category": "utility",
-  "icon": "🌤️"
+  "icon": "🌤️",
+  "readCache": {
+    "methods": [
+      "GET"
+    ]
+  }
 }

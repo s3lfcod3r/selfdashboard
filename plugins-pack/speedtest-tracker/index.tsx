@@ -317,7 +317,7 @@ export const meta: PluginMeta = {
   name: 'Speedtest Tracker',
   description:
     'Letzter Speedtest aus Speedtest Tracker: Download, Upload, Ping + Zeitpunkt (Bearer-API-Token).',
-  version: '0.9.1',
+  version: '0.9.2',
   author: 'SelfDashboard',
   category: 'network',
   icon: '🚀',

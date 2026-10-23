@@ -12,9 +12,12 @@ function hasLoginSession(req: Request): boolean {
 
 function isKioskPluginAssetRequest(req: Request): boolean {
   const url = new URL(req.url)
-  if (!url.pathname.startsWith('/api/plugins/custom-assets/')) return false
+  const isBlob = url.pathname.startsWith('/api/dashboard-blob/')
+  if (!url.pathname.startsWith('/api/plugins/custom-assets/') && url.pathname !== '/api/plugins/widgets-bundle' && !isBlob) {
+    return false
+  }
   const dest = req.headers.get('sec-fetch-dest')
-  if (dest === 'script' || dest === 'style') return true
+  if (dest === 'script' || dest === 'style' || (isBlob && dest === 'image')) return true
   const referer = req.headers.get('referer') ?? ''
   return referer.includes('/kiosk')
 }

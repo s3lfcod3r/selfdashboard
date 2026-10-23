@@ -77,11 +77,16 @@ Nach Änderungen an **`server.ts`** / **`lib/`** (Builtin im Image):
   "category": "utility",
   "icon": "✨",
   "iconUrl": "/plugin-logos/meinplugin.png",
-  "defaultLayout": { "w": 3, "h": 2, "minW": 2, "minH": 2 }
+  "defaultLayout": { "w": 3, "h": 2, "minW": 2, "minH": 2 },
+  "readCache": { "methods": ["POST"], "readActions": [null, "status"] }
 }
 ```
 
 **Regeln für `id`:** nur Kleinbuchstaben, Ziffern, Bindestrich — z. B. `mein-plugin`.
+
+**`version`:** bei **jeder** Änderung erhöhen (auch wenn sich nur `server.mjs` ändert) — der Store bietet Updates nur bei höherer Version an, und der Browser-Cache hängt an ihr.
+
+**`readCache` (optional):** erlaubt dem Server, **lesende** Anfragen deines Plugins zwischenzuspeichern, damit langsame Dienste das Dashboard nicht ausbremsen. `methods`: `GET`/`POST`; `readActions`: erlaubte Werte von `body.action` bei POST (`null` = kein `action`-Feld). Aktionen wie `switch`/`set`/`delete` **nie** eintragen. Ohne `readCache` wird nichts gecacht. Details: [PLUGIN_PERFORMANCE.md](./PLUGIN_PERFORMANCE.md#zentraler-lese-cache-readcache-in-pluginjson).
 
 **Kategorien (`category`):**  
 `media` | `system` | `network` | `storage` | `security` | `productivity` | `utility`
@@ -205,6 +210,16 @@ Legacy-Routen (`/api/pihole`, `/api/calendar/…`, …) wurden entfernt — nur 
 
 Details und Deploy: **[PLUGIN_ARCHITECTURE.md](./PLUGIN_ARCHITECTURE.md)**.
 
+**Regeln für Server-Code (`server.ts` → `server.mjs`):**
+
+| Regel | Warum |
+|-------|-------|
+| Upstreams über `fetchWithSsrfGuard` (`../_shared/ssrf`) bzw. `fetchChecked` (`../_shared/insecure-fetch`) | SSRF-Schutz **und** Offline-Merker: nicht erreichbare Hosts kosten nur beim ersten Mal ~3 s |
+| Teure Abfragen mit `createPluginStaleCache` (`@/lib/pluginStaleCache`) cachen, nach Aktionen `clear()` | Antwort sofort, Auffrischen im Hintergrund |
+| Keine lange **synchrone** Arbeit (große DB-Abfragen, riesige JSON) | Blockiert den ganzen Server; sonst `worker_thread` (Vorbild `crowdsec`) |
+| Auth: `import { requireFullAdmin } from '@/lib/auth/guard'` funktioniert auch im Volume-`server.mjs` — Ergebnis mit **`instanceof Response`** prüfen (nicht `NextResponse`) | Im Bundle ist `NextResponse` eine andere Klasse als die des Hosts; der Guard lehnt ab, wenn der Host ihn nicht bereitstellt |
+| `default export` = Handler-Funktion | Sonst lädt der Host die `server.mjs` nicht (`no default export handler`) |
+
 ---
 
 ## 6. Erweitert: Navbar & App-Einstellungen
@@ -322,6 +337,10 @@ Kein Eintrag in `plugins-index.json` nötig.
 | `config` & Layout in `dashboard.json` speichern | `onChange` in Settings nutzen |
 | Fehler unter **Einstellungen → Protokoll** | `reportPluginCatch` in `catch` |
 | `layoutMode` übergeben | optional auswerten |
+| `widget.js` gebündelt mit den anderen Widgets laden, Fehler isolieren | nichts |
+| Langsame/offline Upstreams abfedern (Offline-Merker) | Fetch-Helfer aus `_shared` nutzen |
+| Lese-Anfragen serverseitig cachen | `readCache` in `plugin.json` |
+| Ladezeit & Renderzeit pro Widget messen (Perf-Bericht) | nichts |
 
 | Nicht automatisch | |
 |------------------|---|
@@ -338,6 +357,9 @@ Kein Eintrag in `plugins-index.json` nötig.
 - [ ] `category` gesetzt (eine der 7 Kategorien)
 - [ ] Widget: `height: 100%`, Theme-Variablen
 - [ ] Optional: Settings, `pluginApiJson`, Server-Route
+- [ ] `version` erhöht
+- [ ] `readCache` gesetzt, wenn das Plugin langsame Dienste liest (nur Lese-Aktionen!)
+- [ ] Widget: unveränderte Poll-Daten nicht neu setzen, lange Listen portionsweise ([PLUGIN_PERFORMANCE.md](./PLUGIN_PERFORMANCE.md))
 - [ ] `npm run publish:plugin-pack` ohne Fehler
 - [ ] `plugins-pack/<id>/widget.js` vorhanden
 - [ ] `plugins-index.json` enthält Eintrag
@@ -355,6 +377,10 @@ Kein Eintrag in `plugins-index.json` nötig.
 | `fetch_failed:plugin.json:404` | `plugins-pack/<id>/` nicht gepusht |
 | Build: `Can't resolve plugins/...` | `plugins/` liegt nicht unter Repo oder `../plugins` |
 | API 404 | Pfad `/api/plugins/<id>/…`, Handler registriert? |
+| Log: `no default export handler` | `server.ts` braucht `export default` |
+| Widget zeigt nach Update alten Stand | `version` nicht erhöht → Browser/Bundle-Cache |
+| Schalter wirkt erst nach einiger Zeit | Schalt-Aktion fälschlich in `readCache.readActions` |
+| Fehler nur im Bundle sichtbar | `localStorage.setItem('sd:noBundle','1')` → einzeln laden, Fehler im Protokoll |
 | Navbar/Settings fehlt | Mail-Plugin installiert? `registerNavbarSlot` in `index.tsx`? |
 
 ---
@@ -388,4 +414,8 @@ Kein Eintrag in `plugins-index.json` nötig.
 - **Users install** via GitHub Store or ZIP upload; hard-reload after install.
 - **No `pluginLoader.ts`** — widgets are not compiled into the Docker image anymore.
 - Call APIs with `pluginApiJson(pluginId, path)` → `/api/plugins/<id>/…`.
+- **Bump `version`** on every change (also server-only) — store updates and browser caching depend on it.
+- Optional **`readCache`** in `plugin.json` lets the server cache read-only requests (`methods`, `readActions`); never list actions.
+- Server code: call upstreams via `fetchWithSsrfGuard` / `fetchChecked` (SSRF guard + offline-host memory), use `createPluginStaleCache`, avoid long synchronous work; check host guards with `instanceof Response`.
+- Measure with the browser console perf report (`copy(__sdPerfReport.text)`) — see **[PLUGIN_PERFORMANCE.md](./PLUGIN_PERFORMANCE.md)**.
 - See **[LOGGING.md](./LOGGING.md)** for error reporting.

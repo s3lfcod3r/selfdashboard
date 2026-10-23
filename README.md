@@ -326,6 +326,7 @@ There is **no email reset** (would need SMTP — not typical for homelab). Simpl
 | Problem | Solution |
 |---|---|
 | Dashboard not loading | Check logs: `docker logs selfdashboard` |
+| **Dashboard / widgets load slowly** | Measure first: browser console (F12) ~10 s after loading → `copy(__sdPerfReport.text)` shows render time per widget and what blocks the browser; server side `docker logs selfdashboard 2>&1 \| grep timing` shows slow plugin requests (`handler` = the service behind the plugin) and offline hosts (`[upstream]`). Widgets of devices that are permanently off cost ~3 s once after each restart — remove them. See [docs/PLUGIN_PERFORMANCE.md](docs/PLUGIN_PERFORMANCE.md) |
 | **Plugin / mail fails with `blocked_url` / `private_ip_blocked`** | The target service runs on a **private LAN IP** (e.g. `192.168.x`), which is blocked by default since **2026-07**. Add **`SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`** to the container and recreate it. Affects AdGuard, Pi-hole, FRITZ!, SelfMailer and any other LAN-hosted backend. |
 | **500 error after update** (`SQLITE_READONLY` in logs) | The container runs **non-root** (PUID/PGID). The entrypoint fixes volume ownership automatically on start; if you set `SELFDASHBOARD_SKIP_CHOWN=1`, run `chown -R <PUID>:<PGID>` on your appdata folder yourself. |
 | **CrowdSec: `unable to open database file`** (often after nightly backups) | Set the container's **PUID/PGID to the same values as your CrowdSec container** (Unraid default 99/100). Then SelfDashboard reads `crowdsec.db` as the owner — permanently, no chmod. |
@@ -478,6 +479,11 @@ Environment variables, mostly with the prefix `SELFDASHBOARD_`, plus a few runti
 | `CROWDSEC_DB_PATH` | – | – | Default DB file if widget path is empty |
 | `CROWDSEC_CONTAINER` | – | `crowdsec` | Docker container name for optional unban via `cscli` |
 | `NODE_TLS_REJECT_UNAUTHORIZED` | – | empty | `0` disables TLS certificate checks for all outgoing HTTPS — only for self-signed homelab certs; see [unraid/README.md](unraid/README.md) |
+| `SELFDASHBOARD_PLUGIN_READ_CACHE` | – | on | `0` turns off the central read cache for plugin APIs (plugins opt in via `readCache` in their `plugin.json`) |
+| `SELFDASHBOARD_HOST_DOWN_MS` | – | on | `0` turns off the offline-host memory (unreachable LAN hosts are answered instantly instead of waiting ~3 s each time) |
+| `SELFDASHBOARD_STALE_MAX_MS` | – | per cache | Global maximum age (ms) for "stale" plugin data served while refreshing in the background; `0` = fresh data only |
+| `SELFDASHBOARD_TIMING_LOG` | – | off | `1` logs every plugin request with its server timing (otherwise only slow ones) |
+| `SELFDASHBOARD_TIMING_SLOW_MS` | – | `500` | Plugin requests slower than this (ms) are always logged |
 
 <a id="en-backups"></a>
 
@@ -485,7 +491,7 @@ Environment variables, mostly with the prefix `SELFDASHBOARD_`, plus a few runti
 
 Back up both host folders regularly — ideally offline / immutable, so ransomware on the mount cannot take data **and** key:
 
-- **`/app/data`** — per-user dashboards (`users/`), auth DB (`auth/auth.db`), calendar, central log and the auto-generated key files (`.calendar-key`, `.secret-salt`)
+- **`/app/data`** — per-user dashboards (`users/`), images moved out of widget settings (`blobs/`, e.g. bookmark icons), auth DB (`auth/auth.db`), calendar, central log and the auto-generated key files (`.calendar-key`, `.secret-salt`)
 - **`/app/plugins/custom`** — installed plugins
 
 Also keep your `SELFDASHBOARD_SECRET_KEY` in a password manager — without it, stored credentials cannot be decrypted.
@@ -894,6 +900,7 @@ Es gibt **keinen E-Mail-Reset** (bräuchte SMTP — im Homelab unüblich). Am ei
 | Problem | Lösung |
 |---|---|
 | Dashboard lädt nicht | Logs prüfen: `docker logs selfdashboard` |
+| **Dashboard / Widgets laden langsam** | Erst messen: Browser-Konsole (F12) ~10 s nach dem Laden → `copy(__sdPerfReport.text)` zeigt die Renderzeit pro Widget und was den Browser blockiert; serverseitig zeigt `docker logs selfdashboard 2>&1 \| grep timing` langsame Plugin-Anfragen (`handler` = der Dienst hinter dem Plugin) und nicht erreichbare Hosts (`[upstream]`). Widgets von dauerhaft ausgeschalteten Geräten kosten nach jedem Neustart einmal ~3 s — entfernen. Siehe [docs/PLUGIN_PERFORMANCE.md](docs/PLUGIN_PERFORMANCE.md) |
 | **Plugin / E-Mail scheitert mit `blocked_url` / `private_ip_blocked`** | Der Zieldienst läuft auf einer **privaten LAN-IP** (z. B. `192.168.x`), die seit **07/2026** standardmäßig blockiert ist. **`SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`** am Container ergänzen und ihn neu erstellen. Betrifft AdGuard, Pi-hole, FRITZ!, SelfMailer und jeden anderen Dienst im LAN. |
 | **500-Fehler nach Update** (`SQLITE_READONLY` im Log) | Der Container läuft **ohne Root** (PUID/PGID). Der Entrypoint korrigiert die Volume-Rechte beim Start automatisch; bei `SELFDASHBOARD_SKIP_CHOWN=1` selbst `chown -R <PUID>:<PGID>` auf den Appdata-Ordner ausführen. |
 | **CrowdSec: `unable to open database file`** (oft nach nächtlichem Backup) | **PUID/PGID des Containers auf dieselben Werte wie dein CrowdSec-Container** setzen (Unraid-Standard 99/100). Dann liest SelfDashboard die `crowdsec.db` als Eigentümer — dauerhaft, ohne chmod. |
@@ -1046,6 +1053,11 @@ Umgebungsvariablen, meist mit dem Präfix `SELFDASHBOARD_`, dazu einige Laufzeit
 | `CROWDSEC_DB_PATH` | – | – | Standard-DB-Datei, wenn im Widget kein Pfad gesetzt ist |
 | `CROWDSEC_CONTAINER` | – | `crowdsec` | Docker-Container-Name für optionales Entsperren per `cscli` |
 | `NODE_TLS_REJECT_UNAUTHORIZED` | – | leer | `0` schaltet die Zertifikatsprüfung für alle ausgehenden HTTPS-Verbindungen ab — nur für selbstsignierte Homelab-Zertifikate; siehe [unraid/README.md](unraid/README.md) |
+| `SELFDASHBOARD_PLUGIN_READ_CACHE` | – | an | `0` schaltet den zentralen Lese-Cache für Plugin-APIs ab (Plugins melden sich per `readCache` in ihrer `plugin.json` an) |
+| `SELFDASHBOARD_HOST_DOWN_MS` | – | an | `0` schaltet den Offline-Merker ab (nicht erreichbare LAN-Hosts werden sofort beantwortet statt jedes Mal ~3 s zu warten) |
+| `SELFDASHBOARD_STALE_MAX_MS` | – | je Cache | Globales Höchstalter (ms) für ältere Plugin-Daten, die während des Auffrischens im Hintergrund ausgeliefert werden; `0` = nur frische Daten |
+| `SELFDASHBOARD_TIMING_LOG` | – | aus | `1` protokolliert jede Plugin-Anfrage mit Server-Timing (sonst nur langsame) |
+| `SELFDASHBOARD_TIMING_SLOW_MS` | – | `500` | Plugin-Anfragen, die länger dauern (ms), werden immer protokolliert |
 
 <a id="de-backups"></a>
 
@@ -1053,7 +1065,7 @@ Umgebungsvariablen, meist mit dem Präfix `SELFDASHBOARD_`, dazu einige Laufzeit
 
 Beide Host-Ordner regelmäßig sichern — am besten offline / unveränderbar, damit Ransomware auf dem Mount nicht Daten **und** Schlüssel erwischt:
 
-- **`/app/data`** — Dashboards pro Benutzer (`users/`), Anmelde-DB (`auth/auth.db`), Kalender, zentrales Protokoll und die automatisch erzeugten Schlüsseldateien (`.calendar-key`, `.secret-salt`)
+- **`/app/data`** — Dashboards pro Benutzer (`users/`), aus Widget-Einstellungen ausgelagerte Bilder (`blobs/`, z. B. Bookmark-Icons), Anmelde-DB (`auth/auth.db`), Kalender, zentrales Protokoll und die automatisch erzeugten Schlüsseldateien (`.calendar-key`, `.secret-salt`)
 - **`/app/plugins/custom`** — installierte Plugins
 
 Bewahre außerdem deinen `SELFDASHBOARD_SECRET_KEY` im Passwort-Manager auf — ohne ihn lassen sich gespeicherte Zugangsdaten nicht mehr entschlüsseln.

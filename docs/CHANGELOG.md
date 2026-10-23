@@ -6,6 +6,22 @@ This file summarizes **notable plugin and API behaviour** that may not fit in th
 
 ## 🇬🇧 English
 
+### Core app + plugins (2026-10) — loading performance
+
+Measured on a dashboard with 24 widgets: browser blocking while loading **1.7 s → 0.07 s**, dashboard state **2.2 MB → 13 KB**, Docker widget **6–8 s → < 0.1 s**, unreachable hosts **3 s per request → instant**. **New image + Plugin Store → Update all → Ctrl+F5.**
+
+| Topic | Change |
+|--------|--------|
+| **Widget bundle** | All `widget.js` (and `widget.css`) of a dashboard load in **one** request (`/api/plugins/widgets-bundle`), each widget isolated (errors don't break the others; failures fall back to single loading). `widget.css` is only requested where it exists. Debug: `localStorage.setItem('sd:noBundle','1')`. |
+| **Central read cache** | Plugins opt in with **`readCache`** in `plugin.json`; the server then answers read requests within ≤ 300 ms (fresh if possible, otherwise the last answer while refreshing). Actions are never cached and clear the plugin's cache. Off: `SELFDASHBOARD_PLUGIN_READ_CACHE=0`. |
+| **Offline-host memory** | Unreachable LAN hosts (`EHOSTUNREACH`, ~3 s each) are answered instantly; a background TCP probe every 15 s detects when they are back. Off: `SELFDASHBOARD_HOST_DOWN_MS=0`. |
+| **Stale-while-revalidate** | Docker, AdGuard, CrowdSec, NetzWacht, Project status serve the last data instantly and refresh in the background. |
+| **Docker** | Container stats via `one-shot` (no 1–2 s wait per container); CPU % from the previous sample. Volume `server.mjs` now uses the host's admin guard (previously start/stop had no admin check in the volume build). |
+| **CrowdSec** | Database evaluation in a **worker thread** (no longer blocks the server); widget renders the feed in portions and skips identical poll data. |
+| **Images in widget settings** | Large embedded images (e.g. bookmark icons as `data:` URIs) are moved to `/app/data/blobs/` and served as cacheable files — include `blobs/` in backups. |
+| **Rendering** | Plugin registration notifies once per script (was once per plugin); grid measures size via `ResizeObserver` only (no forced reflow). |
+| **Measuring** | `Server-Timing` on plugin APIs, slow requests in the container log, perf report in the browser console (`copy(__sdPerfReport.text)`); see [PLUGIN_PERFORMANCE.md](PLUGIN_PERFORMANCE.md). |
+
 ### Core app (2026-07) — SSRF default flipped to block private IPs
 
 | Topic | Change |
@@ -74,6 +90,22 @@ After **Update all**: **Ctrl+F5**. Existing plaintext passwords are migrated aut
 ---
 
 ## 🇩🇪 Deutsch
+
+### Kern-App + Plugins (2026-10) — Ladezeit
+
+Gemessen an einem Dashboard mit 24 Widgets: Browser-Blockade beim Laden **1,7 s → 0,07 s**, Dashboard-Zustand **2,2 MB → 13 KB**, Docker-Widget **6–8 s → < 0,1 s**, nicht erreichbare Hosts **3 s pro Anfrage → sofort**. **Neues Image + Plugin-Store → Alle aktualisieren → Strg+F5.**
+
+| Thema | Änderung |
+|--------|--------|
+| **Widget-Bundle** | Alle `widget.js` (und `widget.css`) eines Dashboards laden in **einer** Anfrage (`/api/plugins/widgets-bundle`), jedes Widget gekapselt (Fehler reißen die anderen nicht mit; Gescheitertes wird einzeln nachgeladen). `widget.css` wird nur noch angefragt, wo es existiert. Debug: `localStorage.setItem('sd:noBundle','1')`. |
+| **Zentraler Lese-Cache** | Plugins melden sich mit **`readCache`** in der `plugin.json` an; der Server beantwortet Lese-Anfragen dann in ≤ 300 ms (frisch wenn möglich, sonst die letzte Antwort, während im Hintergrund aufgefrischt wird). Aktionen werden nie gecacht und leeren den Cache des Plugins. Aus: `SELFDASHBOARD_PLUGIN_READ_CACHE=0`. |
+| **Offline-Merker** | Nicht erreichbare LAN-Hosts (`EHOSTUNREACH`, je ~3 s) werden sofort beantwortet; eine TCP-Probe im Hintergrund prüft alle 15 s, ob sie wieder da sind. Aus: `SELFDASHBOARD_HOST_DOWN_MS=0`. |
+| **Stale-while-revalidate** | Docker, AdGuard, CrowdSec, NetzWacht, Projektstatus liefern die letzten Daten sofort und frischen im Hintergrund auf. |
+| **Docker** | Container-Stats per `one-shot` (kein 1–2-s-Warten pro Container); CPU-% aus der vorherigen Messung. Volume-`server.mjs` nutzt jetzt den Admin-Guard des Hosts (Start/Stop hatte im Volume-Build vorher keinen Admin-Check). |
+| **CrowdSec** | Datenbank-Auswertung in einem **Worker-Thread** (blockiert den Server nicht mehr); das Widget rendert den Feed portionsweise und überspringt identische Poll-Daten. |
+| **Bilder in Widget-Einstellungen** | Große eingebettete Bilder (z. B. Bookmark-Icons als `data:`-URI) werden nach `/app/data/blobs/` ausgelagert und als cachebare Dateien ausgeliefert — `blobs/` mitsichern. |
+| **Rendern** | Plugin-Registrierung benachrichtigt einmal pro Skript (vorher pro Plugin); das Raster misst Größen nur noch per `ResizeObserver` (kein erzwungener Reflow). |
+| **Messen** | `Server-Timing` an Plugin-APIs, langsame Anfragen im Container-Log, Perf-Bericht in der Browser-Konsole (`copy(__sdPerfReport.text)`); siehe [PLUGIN_PERFORMANCE.md](PLUGIN_PERFORMANCE.md). |
 
 ### Kern-App (2026-07) — SSRF-Default blockt jetzt private IPs
 

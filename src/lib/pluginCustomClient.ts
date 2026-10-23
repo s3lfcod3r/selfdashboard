@@ -2,7 +2,10 @@
 
 import { installPluginExternalBridge } from '@/lib/pluginExternalBridge'
 import { kioskAwareFetch } from '@/lib/kiosk/kioskClientFetch'
+import { logPluginBootstrapTiming, noteWidgetTiming, scheduleLoadTimingSummary } from '@/lib/loadTiming'
 import { setPluginVolumeLoadPhase } from '@/lib/pluginVolumeLoad'
+import { noteWidgetBundleUrl, startRenderTiming } from '@/lib/renderTiming'
+import { widgetBundleVersionKey } from '@/lib/widgetBundleKey'
 
 export type PluginVolumeClientInfo = {
   customRoot: string
@@ -10,6 +13,8 @@ export type PluginVolumeClientInfo = {
   installedIds: string[]
   widgetOverrideIds: string[]
   customWidgetIds: string[]
+  /** Plugins mit widget.css (fehlt bei älteren Servern). */
+  widgetCssIds?: string[]
   customServerIds: string[]
   /** plugin.json version per id — used as cache key for widget.js / widget.css */
   pluginVersions?: Record<string, string>
@@ -26,6 +31,8 @@ type BootstrapVolumePluginsOptions = {
 
 /** Loaded even when not on the dashboard (navbar slots, global UI). */
 const ALWAYS_BOOTSTRAP_PLUGIN_IDS = ['mail'] as const
+
+let bootstrapRun = 0
 
 export async function fetchPluginVolumeInfo(): Promise<PluginVolumeClientInfo> {
   const res = await kioskAwareFetch('/api/plugins/volume', { cache: 'no-store' })
@@ -64,17 +71,96 @@ function loadStylesheet(href: string): Promise<void> {
   })
 }
 
-async function loadPluginWidgetAssets(pluginId: string, version: string): Promise<void> {
+/** @param hasCss false = kein widget.css laut Volume-Info (spart den 404-Request); undefined = versuchen. */
+async function loadPluginWidgetAssets(pluginId: string, version: string, hasCss?: boolean): Promise<void> {
   const v = encodeURIComponent(version || '0')
   const base = `/api/plugins/custom-assets/${encodeURIComponent(pluginId)}`
   const cssUrl = `${base}/widget.css?v=${v}`
   const jsUrl = `${base}/widget.js?v=${v}`
+  const t0 = performance.now()
   await Promise.all([
-    loadStylesheet(cssUrl).catch(() => {
-      /* widget.css is optional for plugins without separate styles */
-    }),
+    hasCss === false
+      ? null
+      : loadStylesheet(cssUrl).catch(() => {
+          /* widget.css is optional for plugins without separate styles */
+        }),
     loadScript(jsUrl),
   ])
+  noteWidgetTiming(pluginId, performance.now() - t0, jsUrl)
+}
+
+type WidgetBundleResults = Record<string, true | string>
+
+declare global {
+  interface Window {
+    __sdWidgetBundleResults?: WidgetBundleResults
+  }
+}
+
+function widgetBundleDisabled(): boolean {
+  try {
+    return window.localStorage.getItem('sd:noBundle') === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Lädt widget.js (und widget.css) mehrerer Plugins in je EINEM Request über
+ * /api/plugins/widgets-bundle. Was im Bundle fehlt oder scheitert, wird einzeln
+ * nachgeladen (gleiches Verhalten/Fehler-Logging wie vorher).
+ * Abschalten zum Debuggen: localStorage.setItem('sd:noBundle', '1').
+ */
+async function loadVolumeWidgetBundle(
+  pluginIds: string[],
+  versions: Record<string, string>,
+  cssIds: Set<string> | null,
+  label: string,
+): Promise<void> {
+  installPluginExternalBridge()
+  if (pluginIds.length === 0) return
+  if (widgetBundleDisabled() || pluginIds.length === 1) {
+    return loadVolumeWidgetScripts(pluginIds, versions, cssIds)
+  }
+
+  const ids = [...pluginIds].sort()
+  const query = `ids=${ids.map(encodeURIComponent).join(',')}&v=${widgetBundleVersionKey(ids, versions)}`
+  const jsUrl = `/api/plugins/widgets-bundle?type=js&${query}`
+  const cssList = cssIds ? ids.filter((id) => cssIds.has(id)) : ids
+  const cssUrl = cssList.length > 0
+    ? `/api/plugins/widgets-bundle?type=css&ids=${cssList.map(encodeURIComponent).join(',')}&v=${widgetBundleVersionKey(cssList, versions)}`
+    : null
+
+  const results = (window.__sdWidgetBundleResults ??= {})
+  for (const id of ids) delete results[id]
+
+  const t0 = performance.now()
+  try {
+    await Promise.all([
+      cssUrl
+        ? loadStylesheet(cssUrl).catch(() => {
+            /* CSS optional */
+          })
+        : null,
+      loadScript(jsUrl),
+    ])
+  } catch (e) {
+    console.warn('[SelfDashboard] Widget-Bundle fehlgeschlagen — lade einzeln', e)
+    return loadVolumeWidgetScripts(pluginIds, versions, cssIds)
+  }
+  noteWidgetTiming(`bundle:${label}`, performance.now() - t0, jsUrl)
+  noteWidgetBundleUrl(jsUrl)
+
+  const loaded = ids.filter((id) => results[id] === true)
+  const failed = ids.filter((id) => results[id] !== true)
+  console.info(`[SelfDashboard] Widget-Bundle (${label}): ${loaded.length}/${ids.length} geladen`)
+  if (failed.length > 0) {
+    console.warn(
+      '[SelfDashboard] Im Bundle nicht geladen — einzeln nachladen:',
+      failed.map((id) => `${id} (${results[id] ?? 'fehlt'})`).join(', '),
+    )
+    await loadVolumeWidgetScripts(failed, versions, cssIds)
+  }
 }
 
 /** Remove loaded widget.js / widget.css for one plugin (after uninstall). */
@@ -93,13 +179,14 @@ export function unloadPluginWidgetAssets(pluginId: string): void {
 export async function loadVolumeWidgetScripts(
   pluginIds: string[],
   versions: Record<string, string> = {},
+  cssIds: Set<string> | null = null,
 ): Promise<void> {
   installPluginExternalBridge()
   if (pluginIds.length === 0) return
 
   const results = await Promise.allSettled(
     pluginIds.map(async (id) => {
-      await loadPluginWidgetAssets(id, versions[id] ?? '0')
+      await loadPluginWidgetAssets(id, versions[id] ?? '0', cssIds ? cssIds.has(id) : undefined)
       console.info(`[SelfDashboard] Volume widget loaded: ${id}`)
     }),
   )
@@ -122,8 +209,13 @@ export async function loadVolumeWidgetScriptsResolved(pluginIds: string[]): Prom
 export async function bootstrapVolumePlugins(options?: BootstrapVolumePluginsOptions): Promise<void> {
   setPluginVolumeLoadPhase('loading')
   installPluginExternalBridge()
+  scheduleLoadTimingSummary()
+  startRenderTiming()
+  const run = ++bootstrapRun
+  const startedAt = performance.now()
   try {
     const info = await fetchPluginVolumeInfo()
+    const volumeMs = performance.now() - startedAt
     const versions = info.pluginVersions ?? {}
     const requested = new Set(
       [...ALWAYS_BOOTSTRAP_PLUGIN_IDS, ...(options?.pluginIds ?? [])]
@@ -147,16 +239,25 @@ export async function bootstrapVolumePlugins(options?: BootstrapVolumePluginsOpt
     ])
     const priority = customWidgets.filter((id) => prioritySet.has(id))
     const deferred = customWidgets.filter((id) => !prioritySet.has(id))
+    // Ältere Server ohne widgetCssIds: CSS wie bisher für alle versuchen.
+    const cssIds = info.widgetCssIds ? new Set(info.widgetCssIds) : null
 
     if (priority.length > 0) {
-      await loadVolumeWidgetScripts(priority, versions)
+      await loadVolumeWidgetBundle(priority, versions, cssIds, 'priority')
     }
+    const priorityReadyAt = performance.now()
     setPluginVolumeLoadPhase('ready')
 
+    const timing = { run, startedAt, volumeMs, priorityIds: priority, priorityReadyAt, deferredIds: deferred }
     if (deferred.length > 0) {
-      void loadVolumeWidgetScripts(deferred, versions).catch((e) => {
-        console.warn('[SelfDashboard] Deferred plugin volume load failed', e)
-      })
+      void loadVolumeWidgetBundle(deferred, versions, cssIds, 'deferred')
+        .then(() => logPluginBootstrapTiming({ ...timing, allDoneAt: performance.now() }))
+        .catch((e) => {
+          console.warn('[SelfDashboard] Deferred plugin volume load failed', e)
+          logPluginBootstrapTiming({ ...timing, allDoneAt: performance.now(), failed: true })
+        })
+    } else {
+      logPluginBootstrapTiming({ ...timing, allDoneAt: priorityReadyAt })
     }
   } catch (e) {
     console.warn('[SelfDashboard] Plugin volume load failed', e)

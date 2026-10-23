@@ -366,7 +366,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔢',
-  version: '1.5.0',
+  version: '1.5.1',
   defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'title', label: 'Widget-Titel', type: 'text', defaultValue: 'Token-Zähler' },

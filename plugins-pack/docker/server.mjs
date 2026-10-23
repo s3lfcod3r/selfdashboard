@@ -1,14 +1,17 @@
-// sd-server-shim:next-server-stub
-var NextResponse = class extends Response {
-  static json(data, init) {
-    const status = init && typeof init.status === "number" ? init.status : 200;
-    const headers = init && init.headers ? init.headers : void 0;
-    return Response.json(data, { status, headers });
+// plugins-pack/_shared/host-guard.ts
+function hostGuards() {
+  return globalThis.__selfDashboardServerHost;
+}
+function call(name, req) {
+  const fn = hostGuards()?.[name];
+  if (typeof fn !== "function") {
+    return Response.json({ error: "forbidden", detail: "host_guard_missing" }, { status: 403 });
   }
-};
-
-// plugins-pack/docker/server.ts
-import { requireFullAdmin } from "@/lib/auth/guard";
+  return fn(req);
+}
+function requireFullAdmin(req) {
+  return call("requireFullAdmin", req);
+}
 
 // plugins-pack/_shared/log.ts
 async function logPluginApiFailure(pluginId, operation, message, detail) {
@@ -16,38 +19,98 @@ async function logPluginApiFailure(pluginId, operation, message, detail) {
   console.error(`[SelfDashboard][${pluginId}] ${operation}: ${message}${extra}`);
 }
 
-// plugins-pack/_shared/plugin-server-cache.ts
-function createPluginServerCache(options) {
+// plugins-pack/_shared/plugin-stale-cache.ts
+async function snapshot(res) {
+  const headers = [];
+  res.headers.forEach((value, name) => {
+    if (name !== "set-cookie" && name !== "content-length") headers.push([name, value]);
+  });
+  return { status: res.status, headers, body: await res.text() };
+}
+function toResponse(snap, cache, ageMs) {
+  const headers = new Headers(snap.headers);
+  headers.set("X-SD-Cache", cache);
+  headers.set("X-SD-Data-Age", String(Math.round(ageMs / 1e3)));
+  return new Response(snap.body, { status: snap.status, headers });
+}
+function staleOverride() {
+  const raw = process.env.SELFDASHBOARD_STALE_MAX_MS;
+  const n = raw === void 0 || raw === "" ? NaN : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+function createPluginStaleCache(options) {
+  const freshMs = Math.max(0, options.freshMs);
+  const staleMs = Math.max(freshMs, staleOverride() ?? options.staleMs);
   const maxEntries = Math.max(1, options.maxEntries ?? 32);
-  const ttlMs = Math.max(0, options.ttlMs);
-  const cache = /* @__PURE__ */ new Map();
-  function evictIfNeeded() {
-    while (cache.size >= maxEntries) {
-      const first = cache.keys().next().value;
-      if (!first) break;
-      cache.delete(first);
+  const label = options.label ?? "plugin";
+  const entries = /* @__PURE__ */ new Map();
+  const inflight = /* @__PURE__ */ new Map();
+  const scheduled = /* @__PURE__ */ new Map();
+  let generation = 0;
+  function store(key, snap, cacheable) {
+    if (snap.status < 200 || snap.status >= 300) return;
+    if (cacheable) {
+      try {
+        if (!cacheable(snap.body)) return;
+      } catch {
+        return;
+      }
     }
+    entries.delete(key);
+    while (entries.size >= maxEntries) {
+      const first = entries.keys().next().value;
+      if (first === void 0) break;
+      entries.delete(first);
+    }
+    entries.set(key, { snap, at: Date.now() });
+  }
+  function load(key, loader, cacheable) {
+    const running = inflight.get(key);
+    if (running) return running;
+    const gen = generation;
+    const p = Promise.resolve().then(loader).then(snapshot).then((snap) => {
+      if (gen === generation) store(key, snap, cacheable);
+      return snap;
+    }).finally(() => {
+      if (inflight.get(key) === p) inflight.delete(key);
+    });
+    inflight.set(key, p);
+    return p;
   }
   return {
-    get(key) {
-      const entry = cache.get(key);
-      if (!entry) return null;
-      if (Date.now() > entry.expires) {
-        cache.delete(key);
-        return null;
+    async respond(key, loader, opts) {
+      const cached = entries.get(key);
+      if (cached) {
+        const age = Date.now() - cached.at;
+        if (age < freshMs) return toResponse(cached.snap, "hit", age);
+        if (age < staleMs) {
+          if (!scheduled.has(key)) {
+            scheduled.set(
+              key,
+              setTimeout(() => {
+                scheduled.delete(key);
+                void load(key, loader, opts?.cacheable).catch((e) => {
+                  console.warn(
+                    `[SelfDashboard][stale-cache] ${label}: Hintergrund-Refresh fehlgeschlagen`,
+                    e instanceof Error ? e.message : e
+                  );
+                });
+              }, 0)
+            );
+          }
+          return toResponse(cached.snap, "stale", age);
+        }
+        entries.delete(key);
       }
-      return entry.data;
-    },
-    set(key, data) {
-      if (ttlMs <= 0) return;
-      evictIfNeeded();
-      cache.set(key, { expires: Date.now() + ttlMs, data });
-    },
-    delete(key) {
-      cache.delete(key);
+      const snap = await load(key, loader, opts?.cacheable);
+      return toResponse(snap, "miss", 0);
     },
     clear() {
-      cache.clear();
+      for (const timer of scheduled.values()) clearTimeout(timer);
+      scheduled.clear();
+      entries.clear();
+      inflight.clear();
+      generation += 1;
     }
   };
 }
@@ -150,7 +213,18 @@ function memoryUsageBytesNoCache(mem) {
   }
   return { usage: memUsageBytes, limit: memLimitBytes };
 }
-function parseOneShotStats(body) {
+var CPU_SAMPLE_MAX_AGE_MS = 10 * 6e4;
+var lastCpuSample = /* @__PURE__ */ new Map();
+function rememberCpuSample(id, sample) {
+  lastCpuSample.set(id, sample);
+  if (lastCpuSample.size > 512) {
+    const cutoff = Date.now() - CPU_SAMPLE_MAX_AGE_MS;
+    for (const [key, s] of lastCpuSample) {
+      if (s.at < cutoff) lastCpuSample.delete(key);
+    }
+  }
+}
+function parseStatsBody(body, prev) {
   const j = parseDockerStatsJson(body);
   if (!j) return null;
   const ms = j.memory_stats;
@@ -168,29 +242,45 @@ function parseOneShotStats(body) {
     const per = cpuUsage(cs)?.percpu_usage;
     return Array.isArray(per) && per.length > 0 ? per.length : 1;
   };
-  let cpuPct = null;
-  if (cpu_stats && precpu_stats && Object.keys(precpu_stats).length > 0) {
-    const cpuDelta = totalUsage(cpuUsage(cpu_stats)) - totalUsage(cpuUsage(precpu_stats));
-    const sysDelta = toBigU(cpu_stats.system_cpu_usage) - toBigU(precpu_stats.system_cpu_usage);
+  const zero = BigInt(0);
+  const cpuPercent = (cpuDelta, sysDelta) => {
     const ncpus = ncpusFrom(cpu_stats);
-    if (sysDelta >= MIN_SYSTEM_CPU_DELTA_NS && cpuDelta > BigInt(0) && ncpus > 0) {
-      const pRaw = cpuDelta * BigInt(ncpus) * BigInt(100) / sysDelta;
-      const p = Number(pRaw);
-      if (Number.isFinite(p)) cpuPct = Math.min(9999, Math.max(0, p));
+    if (sysDelta < MIN_SYSTEM_CPU_DELTA_NS || cpuDelta <= zero || ncpus <= 0) return null;
+    const p = Number(cpuDelta * BigInt(ncpus) * BigInt(100) / sysDelta);
+    return Number.isFinite(p) ? Math.min(9999, Math.max(0, p)) : null;
+  };
+  const curTotal = totalUsage(cpuUsage(cpu_stats));
+  const curSystem = toBigU(cpu_stats?.system_cpu_usage);
+  let sample = curSystem > zero ? { total: curTotal, system: curSystem, at: Date.now() } : null;
+  let cpuPct = null;
+  const preSystem = toBigU(precpu_stats?.system_cpu_usage);
+  if (cpu_stats && precpu_stats && preSystem > zero) {
+    cpuPct = cpuPercent(curTotal - totalUsage(cpuUsage(precpu_stats)), curSystem - preSystem);
+  } else if (prev && sample) {
+    const sysDelta = curSystem - prev.system;
+    if (sysDelta < MIN_SYSTEM_CPU_DELTA_NS) {
+      sample = null;
+    } else {
+      cpuPct = cpuPercent(curTotal - prev.total, sysDelta);
     }
   }
-  return { cpuPct, memUsageBytes, memLimitBytes, memPct };
+  return { stats: { cpuPct, memUsageBytes, memLimitBytes, memPct }, sample };
 }
 async function fetchContainerStats(id) {
   try {
-    const pathPrimed = `/containers/${encodeURIComponent(id)}/stats?stream=false&one-shot=false`;
+    const pathOneShot = `/containers/${encodeURIComponent(id)}/stats?stream=false&one-shot=true`;
     const pathLegacy = `/containers/${encodeURIComponent(id)}/stats?stream=false`;
-    let r = await dockerRequest("GET", pathPrimed, void 0, STATS_ONE_SHOT_TIMEOUT_MS);
+    let r = await dockerRequest("GET", pathOneShot, void 0, STATS_ONE_SHOT_TIMEOUT_MS);
     if (!r.ok && r.status === 400) {
       r = await dockerRequest("GET", pathLegacy, void 0, STATS_ONE_SHOT_TIMEOUT_MS);
     }
     if (!r.ok) return null;
-    return parseOneShotStats(r.body);
+    const prev = lastCpuSample.get(id);
+    const usablePrev = prev && Date.now() - prev.at <= CPU_SAMPLE_MAX_AGE_MS ? prev : null;
+    const parsed = parseStatsBody(r.body, usablePrev);
+    if (!parsed) return null;
+    if (parsed.sample) rememberCpuSample(id, parsed.sample);
+    return parsed.stats;
   } catch {
     return null;
   }
@@ -211,9 +301,11 @@ async function poolMap(items, concurrency, fn) {
 }
 
 // plugins-pack/docker/server.ts
-var listCache = createPluginServerCache({
-  ttlMs: Math.max(0, Number(process.env.DOCKER_LIST_CACHE_MS) || 8e3),
-  maxEntries: 8
+var listCache = createPluginStaleCache({
+  freshMs: Math.max(0, Number(process.env.DOCKER_LIST_CACHE_MS) || 5e3),
+  staleMs: 10 * 6e4,
+  maxEntries: 8,
+  label: "docker"
 });
 function parseContainerAction(body) {
   if (!body || typeof body !== "object") return null;
@@ -228,11 +320,9 @@ async function handleListGet(req) {
   const { searchParams } = new URL(req.url);
   const all = searchParams.get("all") === "1" ? "true" : "false";
   const includeStats = searchParams.get("stats") === "1";
-  const cacheKey = `list:${all}:${includeStats ? "1" : "0"}`;
-  const cached = listCache.get(cacheKey);
-  if (cached) {
-    return Response.json(cached, { headers: { "X-SD-Cache": "hit" } });
-  }
+  return listCache.respond(`list:${all}:${includeStats ? "1" : "0"}`, () => loadList(all, includeStats));
+}
+async function loadList(all, includeStats) {
   try {
     const r = await dockerGet(`/containers/json?all=${all}`);
     if (!r.ok) {
@@ -268,8 +358,7 @@ async function handleListGet(req) {
         }
       }
     }
-    listCache.set(cacheKey, data);
-    return Response.json(data, { headers: { "X-SD-Cache": "miss" } });
+    return Response.json(data);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/EACCES|permission denied/i.test(msg)) {
@@ -288,7 +377,7 @@ async function handleListGet(req) {
 }
 async function handleActionPost(req) {
   const auth = requireFullAdmin(req);
-  if (auth instanceof NextResponse) return auth;
+  if (auth instanceof Response) return auth;
   let parsed;
   try {
     const raw = await req.text();

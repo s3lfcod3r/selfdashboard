@@ -144,6 +144,7 @@ export const RESERVED_PLUGINS_API_SEGMENTS = new Set([
   'upload-zip',
   'uninstall',
   'custom-assets',
+  'widgets-bundle',
 ])
 
 export function isReservedPluginApiSegment(segment: string): boolean {

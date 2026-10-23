@@ -11,10 +11,17 @@ export type AppSettingsPanelProps = {
 const panels = new Map<string, { label: { de: string; en: string }; component: ComponentType<AppSettingsPanelProps> }>()
 const listeners = new Set<() => void>()
 let version = 0
+let notifyQueued = false
 
+/** Gebündelt per Microtask (siehe pluginRegistry: useSyncExternalStore rendert synchron). */
 function notifyAppSettings() {
   version += 1
-  for (const fn of listeners) fn()
+  if (notifyQueued) return
+  notifyQueued = true
+  queueMicrotask(() => {
+    notifyQueued = false
+    for (const fn of listeners) fn()
+  })
 }
 
 export function subscribeAppSettingsPanels(onStoreChange: () => void): () => void {

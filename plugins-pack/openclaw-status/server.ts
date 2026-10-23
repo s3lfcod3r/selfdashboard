@@ -1,5 +1,6 @@
 import { logPluginApiFailure } from '../_shared/log'
 import { fetchWithSsrfGuard, UnsafeOutboundUrlError } from '../_shared/ssrf'
+import { createPluginStaleCache } from '../_shared/plugin-stale-cache'
 import type { PluginServerContext } from '../_shared/plugin-server-types'
 
 // Holt die Statusliste vom Projektstatus-Dienst (liest die STATUS.md-Dateien
@@ -9,6 +10,8 @@ import type { PluginServerContext } from '../_shared/plugin-server-types'
 
 const PLUGIN_ID = 'openclaw-status'
 const TIMEOUT_MS = 8000
+
+const statusCache = createPluginStaleCache({ freshMs: 15_000, staleMs: 10 * 60_000, maxEntries: 8, label: PLUGIN_ID })
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -29,6 +32,10 @@ async function handle(request: Request): Promise<Response> {
   }
   if (!statusUrl) return json({ error: 'missing_url' }, 400)
 
+  return statusCache.respond(statusUrl, () => loadStatus(statusUrl))
+}
+
+async function loadStatus(statusUrl: string): Promise<Response> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
   try {

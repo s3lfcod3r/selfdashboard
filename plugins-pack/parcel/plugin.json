@@ -2,7 +2,7 @@
   "id": "parcel",
   "name": "Paketverfolgung",
   "description": "Sendungsverfolgung für DHL, Hermes und DPD — kostenlos, ohne API-Key. Mehrere Pakete mit Status, letztem Scan, voraussichtlicher Zustellung und Direktlink zum Anbieter. Drei Dichtestufen. API: /api/plugins/parcel/track.",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "SelfDashboard",
   "category": "utility",
   "icon": "📦",
@@ -12,5 +12,10 @@
     "minW": 2,
     "minH": 2
   },
-  "hasServer": true
+  "hasServer": true,
+  "readCache": {
+    "methods": [
+      "GET"
+    ]
+  }
 }

@@ -57,7 +57,12 @@ function allowKioskPluginApi(request: NextRequest): NextResponse | null {
   const kioskAccess = resolveKioskAccess(request)
   if (!kioskAccess) return null
   const pluginId = resolvePluginIdFromApiPath(pathname)
-  const volumeOk = pathname === '/api/plugins/volume'
+  // Volume-Info und Widget-Bundle prüfen die Plugin-Rechte selbst (pro Id);
+  // ausgelagerte Dashboard-Bilder braucht der Kiosk für seine Widgets.
+  const volumeOk =
+    pathname === '/api/plugins/volume' ||
+    pathname === '/api/plugins/widgets-bundle' ||
+    pathname.startsWith('/api/dashboard-blob/')
   if (!volumeOk && !(pluginId && isPluginAllowedForKiosk(kioskAccess, pluginId))) return null
   return nextWithKioskHeaders(request, kioskAccess)
 }

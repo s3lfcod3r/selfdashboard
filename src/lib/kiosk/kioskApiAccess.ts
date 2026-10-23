@@ -4,6 +4,7 @@ export { resolvePluginIdFromApiPath }
 
 export function isKioskPluginApi(pathname: string): boolean {
   if (pathname === '/api/plugins/volume') return true
+  if (pathname === '/api/plugins/widgets-bundle') return true
   const pluginId = resolvePluginIdFromApiPath(pathname)
   return pluginId !== null
 }

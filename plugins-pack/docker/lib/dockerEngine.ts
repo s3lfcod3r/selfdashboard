@@ -126,7 +126,36 @@ function memoryUsageBytesNoCache(mem: Record<string, unknown> | undefined): { us
   return { usage: memUsageBytes, limit: memLimitBytes }
 }
 
+/** Letzte CPU-Messung pro Container — ersetzt das 1–2 s lange „Priming“ von Docker (one-shot=false). */
+type CpuSample = { total: bigint; system: bigint; at: number }
+
+const CPU_SAMPLE_MAX_AGE_MS = 10 * 60_000
+const lastCpuSample = new Map<string, CpuSample>()
+
+function rememberCpuSample(id: string, sample: CpuSample): void {
+  lastCpuSample.set(id, sample)
+  if (lastCpuSample.size > 512) {
+    const cutoff = Date.now() - CPU_SAMPLE_MAX_AGE_MS
+    for (const [key, s] of lastCpuSample) {
+      if (s.at < cutoff) lastCpuSample.delete(key)
+    }
+  }
+}
+
 export function parseOneShotStats(body: string): SdContainerStats | null {
+  return parseStatsBody(body, null)?.stats ?? null
+}
+
+/**
+ * CPU-% bevorzugt aus `precpu_stats` (one-shot=false liefert das), sonst aus der
+ * vorherigen eigenen Messung `prev` (one-shot=true liefert kein precpu).
+ * `sample` = neue Messung zum Merken; null, wenn die alte behalten werden soll
+ * (Abstand zu kurz für einen sinnvollen Delta-Wert).
+ */
+function parseStatsBody(
+  body: string,
+  prev: CpuSample | null,
+): { stats: SdContainerStats; sample: CpuSample | null } | null {
   const j = parseDockerStatsJson(body)
   if (!j) return null
 
@@ -152,31 +181,54 @@ export function parseOneShotStats(body: string): SdContainerStats | null {
     return Array.isArray(per) && per.length > 0 ? per.length : 1
   }
 
-  let cpuPct: number | null = null
-  if (cpu_stats && precpu_stats && Object.keys(precpu_stats).length > 0) {
-    const cpuDelta = totalUsage(cpuUsage(cpu_stats)) - totalUsage(cpuUsage(precpu_stats))
-    const sysDelta = toBigU(cpu_stats.system_cpu_usage) - toBigU(precpu_stats.system_cpu_usage)
+  const zero = BigInt(0)
+  const cpuPercent = (cpuDelta: bigint, sysDelta: bigint): number | null => {
     const ncpus = ncpusFrom(cpu_stats)
-    if (sysDelta >= MIN_SYSTEM_CPU_DELTA_NS && cpuDelta > BigInt(0) && ncpus > 0) {
-      const pRaw = (cpuDelta * BigInt(ncpus) * BigInt(100)) / sysDelta
-      const p = Number(pRaw)
-      if (Number.isFinite(p)) cpuPct = Math.min(9999, Math.max(0, p))
+    if (sysDelta < MIN_SYSTEM_CPU_DELTA_NS || cpuDelta <= zero || ncpus <= 0) return null
+    const p = Number((cpuDelta * BigInt(ncpus) * BigInt(100)) / sysDelta)
+    return Number.isFinite(p) ? Math.min(9999, Math.max(0, p)) : null
+  }
+
+  const curTotal = totalUsage(cpuUsage(cpu_stats))
+  const curSystem = toBigU(cpu_stats?.system_cpu_usage)
+  let sample: CpuSample | null = curSystem > zero ? { total: curTotal, system: curSystem, at: Date.now() } : null
+
+  let cpuPct: number | null = null
+  const preSystem = toBigU(precpu_stats?.system_cpu_usage)
+  if (cpu_stats && precpu_stats && preSystem > zero) {
+    cpuPct = cpuPercent(curTotal - totalUsage(cpuUsage(precpu_stats)), curSystem - preSystem)
+  } else if (prev && sample) {
+    const sysDelta = curSystem - prev.system
+    if (sysDelta < MIN_SYSTEM_CPU_DELTA_NS) {
+      sample = null // zu kurz seit der letzten Messung — alte als Basis behalten
+    } else {
+      cpuPct = cpuPercent(curTotal - prev.total, sysDelta)
     }
   }
 
-  return { cpuPct, memUsageBytes, memLimitBytes, memPct }
+  return { stats: { cpuPct, memUsageBytes, memLimitBytes, memPct }, sample }
 }
 
+/**
+ * one-shot=true antwortet sofort (statt 1–2 s auf eine zweite Docker-Messung zu
+ * warten). CPU-% kommt aus dem Abstand zur vorherigen Abfrage; beim allerersten
+ * Abruf nach dem Start ist sie daher null und ab dem nächsten Refresh da.
+ */
 export async function fetchContainerStats(id: string): Promise<SdContainerStats | null> {
   try {
-    const pathPrimed = `/containers/${encodeURIComponent(id)}/stats?stream=false&one-shot=false`
+    const pathOneShot = `/containers/${encodeURIComponent(id)}/stats?stream=false&one-shot=true`
     const pathLegacy = `/containers/${encodeURIComponent(id)}/stats?stream=false`
-    let r = await dockerRequest('GET', pathPrimed, undefined, STATS_ONE_SHOT_TIMEOUT_MS)
+    let r = await dockerRequest('GET', pathOneShot, undefined, STATS_ONE_SHOT_TIMEOUT_MS)
     if (!r.ok && r.status === 400) {
       r = await dockerRequest('GET', pathLegacy, undefined, STATS_ONE_SHOT_TIMEOUT_MS)
     }
     if (!r.ok) return null
-    return parseOneShotStats(r.body)
+    const prev = lastCpuSample.get(id)
+    const usablePrev = prev && Date.now() - prev.at <= CPU_SAMPLE_MAX_AGE_MS ? prev : null
+    const parsed = parseStatsBody(r.body, usablePrev)
+    if (!parsed) return null
+    if (parsed.sample) rememberCpuSample(id, parsed.sample)
+    return parsed.stats
   } catch {
     return null
   }

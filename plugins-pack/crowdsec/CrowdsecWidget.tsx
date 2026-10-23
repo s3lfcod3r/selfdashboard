@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { Copy, Globe, Search, Shield, Trash2 } from 'lucide-react'
 import { pluginApiJson, pluginApiJsonWithStale, reportPluginError } from '@/lib/pluginDev'
 import { usePollingActive } from '@/hooks/usePollingActive'
@@ -13,6 +13,8 @@ import { LOOKUP_SERVICES } from './ipLookup'
 import { alertRangeLabel } from './presets'
 import type { CrowdsecDashboardData, CrowdsecFeedItem } from './types'
 import { WorldMap, type WorldMapPoint } from './WorldMap'
+
+const FEED_PAGE = 60
 
 function formatInt(n: number, locale: 'de' | 'en'): string {
   return Math.round(n).toLocaleString(locale === 'en' ? 'en-GB' : 'de-DE')
@@ -137,6 +139,7 @@ export function CrowdsecWidget({
   )
 
   const { active } = usePollingActive()
+  const lastDataSig = useRef('')
 
   const fetchData = useCallback(async () => {
     const params = new URLSearchParams({
@@ -149,12 +152,18 @@ export function CrowdsecWidget({
         timeoutMs: 50_000,
         staleMaxAgeMs: 60_000,
       })
-      setData(json)
+      // Unveränderte Daten nicht neu setzen — ein Render mit Karte + Feed kostet bis ~250 ms.
+      const sig = JSON.stringify(json)
+      if (sig !== lastDataSig.current) {
+        lastDataSig.current = sig
+        setData(json)
+      }
       setError(null)
     } catch (e) {
       const code = e instanceof Error ? e.message : 'crowdsec_error'
       reportPluginError('crowdsec', code, { category: 'fetch' })
       setError(code.startsWith('HTTP ') ? 'network_error' : code)
+      lastDataSig.current = ''
       setData(null)
     } finally {
       setLoading(false)
@@ -172,6 +181,26 @@ export function CrowdsecWidget({
   const q = search.trim().toLowerCase()
   const baseFeed = useMemo(() => data?.feed ?? [], [data])
   const filteredFeed = useMemo(() => baseFeed.filter((f) => feedMatchesSearch(f, q)), [baseFeed, q])
+  // Feed portionsweise rendern (statt aller ~400 Karten auf einmal); ein Marker am
+  // Listenende lädt beim Scrollen die nächste Portion nach.
+  const [feedLimit, setFeedLimit] = useState(FEED_PAGE)
+  const feedSentinel = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    setFeedLimit(FEED_PAGE)
+  }, [q])
+  const hasMoreFeed = filteredFeed.length > feedLimit
+  useEffect(() => {
+    const el = feedSentinel.current
+    if (!el || !hasMoreFeed || typeof IntersectionObserver === 'undefined') return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) setFeedLimit((n) => n + FEED_PAGE)
+      },
+      { rootMargin: '300px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasMoreFeed, feedLimit])
   // Punkte am (fast) selben Ort zusammenfassen — sonst stapeln sich an
   // Hotspots dutzende identische Maximal-Kreise (hässliche Blobs).
   const mapPoints = useMemo<WorldMapPoint[]>(() => {
@@ -427,7 +456,7 @@ export function CrowdsecWidget({
               <p className="cs-empty">{de ? 'Keine Einträge im Zeitraum.' : 'No entries in this period.'}</p>
             ) : null}
 
-            {filteredFeed.map((item) => {
+            {filteredFeed.slice(0, feedLimit).map((item) => {
               const cc = normalizeCountryCode(item.country)
               const key = `${item.alertId}-${item.ip}`
               const selected = selectedKey === key
@@ -534,6 +563,7 @@ export function CrowdsecWidget({
                 </article>
               )
             })}
+            {hasMoreFeed ? <div ref={feedSentinel} aria-hidden style={{ height: 1, flexShrink: 0 }} /> : null}
           </section>
           )}
         </section>

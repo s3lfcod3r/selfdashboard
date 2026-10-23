@@ -421,7 +421,7 @@ export const meta: PluginMeta = {
   name: 'SelfMailer',
   description:
     'Ungelesene Mails über ALLE SelfMailer-Postfächer gebündelt: Gesamtzahl, je Konto und die neuesten Mails. Quelle: SelfMailer-Server (Basis-URL + Token).',
-  version: '1.1.0',
+  version: '1.1.1',
   author: 'SelfDashboard',
   category: 'productivity',
   icon: '📬',

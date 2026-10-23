@@ -1,7 +1,6 @@
-import { NextResponse } from 'next/server'
 import { requireFullAdmin } from '@/lib/auth/guard'
 import { logPluginApiFailure } from '@/lib/pluginLogServer'
-import { createPluginServerCache } from '@/lib/pluginServerCache'
+import { createPluginStaleCache } from '@/lib/pluginStaleCache'
 import type { PluginServerContext } from '@/lib/pluginServerRegistry'
 import {
   CONTAINER_ID_RE,
@@ -11,9 +10,13 @@ import {
   poolMap,
 } from './lib/dockerEngine'
 
-const listCache = createPluginServerCache({
-  ttlMs: Math.max(0, Number(process.env.DOCKER_LIST_CACHE_MS) || 8_000),
+// Liste kommt sofort aus dem Cache; ältere Daten (bis staleMs) werden im
+// Hintergrund aufgefrischt. Start/Stop/Restart leert den Cache.
+const listCache = createPluginStaleCache({
+  freshMs: Math.max(0, Number(process.env.DOCKER_LIST_CACHE_MS) || 5_000),
+  staleMs: 10 * 60_000,
   maxEntries: 8,
+  label: 'docker',
 })
 
 function parseContainerAction(body: unknown): { id: string; action: 'start' | 'stop' | 'restart' } | null {
@@ -30,11 +33,10 @@ async function handleListGet(req: Request): Promise<Response> {
   const { searchParams } = new URL(req.url)
   const all = searchParams.get('all') === '1' ? 'true' : 'false'
   const includeStats = searchParams.get('stats') === '1'
-  const cacheKey = `list:${all}:${includeStats ? '1' : '0'}`
-  const cached = listCache.get(cacheKey)
-  if (cached) {
-    return Response.json(cached, { headers: { 'X-SD-Cache': 'hit' } })
-  }
+  return listCache.respond(`list:${all}:${includeStats ? '1' : '0'}`, () => loadList(all, includeStats))
+}
+
+async function loadList(all: 'true' | 'false', includeStats: boolean): Promise<Response> {
   try {
     const r = await dockerGet(`/containers/json?all=${all}`)
     if (!r.ok) {
@@ -73,8 +75,7 @@ async function handleListGet(req: Request): Promise<Response> {
       }
     }
 
-    listCache.set(cacheKey, data)
-    return Response.json(data, { headers: { 'X-SD-Cache': 'miss' } })
+    return Response.json(data)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     if (/EACCES|permission denied/i.test(msg)) {
@@ -101,7 +102,9 @@ async function handleActionPost(req: Request): Promise<Response> {
   // with the Docker widget could otherwise stop the dashboard itself or other
   // services. Require an admin who has completed MFA (kiosk sessions excluded).
   const auth = requireFullAdmin(req)
-  if (auth instanceof NextResponse) return auth
+  // instanceof Response (nicht NextResponse): im Volume-Bundle ist NextResponse
+  // eine andere Klasse als die, die der Host-Guard zurückgibt.
+  if (auth instanceof Response) return auth
 
   let parsed: { id: string; action: 'start' | 'stop' | 'restart' }
   try {

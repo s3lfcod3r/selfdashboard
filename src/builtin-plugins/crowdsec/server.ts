@@ -1,12 +1,16 @@
 import { logPluginApiFailure } from '@/lib/pluginLogServer'
-import { createPluginServerCache } from '@/lib/pluginServerCache'
+import { createPluginStaleCache } from '@/lib/pluginStaleCache'
 import type { PluginServerContext } from '@/lib/pluginServerRegistry'
 import { crowdsecUnbanIp } from './lib/crowdsecDocker'
-import { loadCrowdsecDashboard, resolveCrowdsecDbPath } from './lib/crowdsecDb'
+import { resolveCrowdsecDbPath } from './lib/crowdsecDb'
+import { loadCrowdsecDashboardOffThread } from './lib/crowdsecDashboardRunner'
 
-const dashboardCache = createPluginServerCache({
-  ttlMs: Math.max(0, Number(process.env.CROWDSEC_DASHBOARD_CACHE_MS) || 20_000),
+// DB-Auswertung ist teuer (~1 s) — ältere Daten sofort zeigen, im Hintergrund auffrischen.
+const dashboardCache = createPluginStaleCache({
+  freshMs: Math.max(0, Number(process.env.CROWDSEC_DASHBOARD_CACHE_MS) || 20_000),
+  staleMs: 30 * 60_000,
   maxEntries: 16,
+  label: 'crowdsec',
 })
 
 async function handleDashboardGet(req: Request): Promise<Response> {
@@ -20,22 +24,19 @@ async function handleDashboardGet(req: Request): Promise<Response> {
     maxAlertsRaw === 0 ? 0 : Math.min(2000, Math.max(50, Number.isFinite(maxAlertsRaw) ? maxAlertsRaw : 500))
   const timeoutMs = Math.min(120_000, Math.max(15_000, Number(process.env.CROWDSEC_QUERY_TIMEOUT_MS) || 45_000))
   const cacheKey = `${dbPath}|${daysBack}|${maxAlerts}`
+  return dashboardCache.respond(cacheKey, () => loadDashboard(dbPath, daysBack, maxAlerts, timeoutMs))
+}
 
-  const cached = dashboardCache.get(cacheKey)
-  if (cached) {
-    return Response.json(cached, { headers: { 'X-SD-Cache': 'hit' } })
-  }
-
+async function loadDashboard(dbPath: string, daysBack: number, maxAlerts: number, timeoutMs: number): Promise<Response> {
   try {
     const resolved = resolveCrowdsecDbPath(dbPath)
     const data = await Promise.race([
-      loadCrowdsecDashboard(resolved, { daysBack, maxAlerts }),
+      loadCrowdsecDashboardOffThread(resolved, { daysBack, maxAlerts }),
       new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('crowdsec_timeout')), timeoutMs)
       }),
     ])
-    dashboardCache.set(cacheKey, data)
-    return Response.json(data, { headers: { 'X-SD-Cache': 'miss' } })
+    return Response.json(data)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'crowdsec_error'
     const status =

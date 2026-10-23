@@ -3,6 +3,7 @@ import { openSealedSecret } from '../_shared/secret-crypto'
 import { fetchCheckedJson } from '../_shared/insecure-fetch'
 import { UnsafeOutboundUrlError } from '../_shared/ssrf'
 import { createPluginServerCache } from '../_shared/plugin-server-cache'
+import { createPluginStaleCache, staleCacheKey } from '../_shared/plugin-stale-cache'
 import type { PluginServerContext } from '../_shared/plugin-server-types'
 
 export const dynamic = 'force-dynamic'
@@ -10,7 +11,8 @@ export const dynamic = 'force-dynamic'
 const FETCH_TIMEOUT_MS = 10_000
 
 // Live-Polling mehrerer Browser gleichzeitig soll ntopng nicht fluten.
-const cache = createPluginServerCache({ ttlMs: 5_000, maxEntries: 8 })
+// Sofort letzte Daten zeigen, im Hintergrund auffrischen (nur wenn ntopng oder Suricata ok war).
+const cache = createPluginStaleCache({ freshMs: 5_000, staleMs: 10 * 60_000, maxEntries: 8, label: 'netzwacht' })
 
 type ReqBody = {
   ntopngUrl?: string
@@ -235,10 +237,29 @@ async function handlePost(req: Request): Promise<Response> {
   const maxAlerts = Math.min(25, Math.max(1, num(body.maxAlerts) || 6))
   const importantOnly = body.importantOnly !== false
 
-  const cacheKey = `${ntopngBase}|${ifid}|${alertsUrl}|${maxAlerts}|${importantOnly}|${username}`
-  const cached = cache.get(cacheKey)
-  if (cached) return Response.json(cached)
+  const cacheKey = staleCacheKey(ntopngBase, ifid, alertsUrl, maxAlerts, importantOnly, username, body.password, body.alertsToken)
+  return cache.respond(
+    cacheKey,
+    () => loadPayload(ntopngBase, username, password, ifid, alertsUrl, alertsToken, maxAlerts, importantOnly),
+    {
+      cacheable: (text) => {
+        const p = JSON.parse(text) as NetzwachtPayload
+        return Boolean(p.ntopng?.ok || p.suricata?.ok)
+      },
+    },
+  )
+}
 
+async function loadPayload(
+  ntopngBase: string,
+  username: string,
+  password: string,
+  ifid: number,
+  alertsUrl: string,
+  alertsToken: string,
+  maxAlerts: number,
+  importantOnly: boolean,
+): Promise<Response> {
   const ac = new AbortController()
   const t = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS)
 
@@ -261,7 +282,6 @@ async function handlePost(req: Request): Promise<Response> {
           ? suricataResult.value
           : { ok: false, configured: true, error: settleError(suricataResult.reason) },
     }
-    if (payload.ntopng.ok || payload.suricata.ok) cache.set(cacheKey, payload)
     return Response.json(payload)
   } finally {
     clearTimeout(t)
