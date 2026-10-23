@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { usePluginLocale } from '@/lib/pluginLocale'
 import { usePluginUnitSystem } from '@/lib/pluginUnits'
+import { resolveWidgetUnitSystem } from '@/lib/units'
 import { usePollingActive } from '@/hooks/usePollingActive'
 import { useDashboardStore } from '@/lib/store'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
@@ -437,7 +438,8 @@ const SIDE_BY_SIDE = 420
 
 function Widget({ config, instanceId, editMode }: PluginWidgetProps) {
   const { de } = usePluginLocale()
-  const { resolved: unitSystem } = usePluginUnitSystem()
+  const { resolved: globalUnits } = usePluginUnitSystem()
+  const unitSystem = resolveWidgetUnitSystem(config.unitSystem, globalUnits)
   const windUnit = unitSystem === 'imperial' ? 'mph' : 'km/h'
   const cfg = config as Record<string, unknown>
   const name = str(cfg.locationQuery)
@@ -1245,6 +1247,14 @@ function Settings({ config, onChange }: PluginSettingsProps) {
         <input style={inp} value={str(cfg.countryCode)} onChange={(e) => onChange('countryCode', e.target.value.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2))} placeholder={de ? 'z. B. DE' : 'e.g. DE'} maxLength={2} />
       </div>
       <div>
+        <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>{de ? 'Einheiten' : 'Units'}</label>
+        <select style={inp} value={str(cfg.unitSystem)} onChange={(e) => onChange('unitSystem', e.target.value)}>
+          <option value="">{de ? 'Wie global (Einstellungen)' : 'Same as global setting'}</option>
+          <option value="metric">{de ? 'Metrisch (°C, km/h)' : 'Metric (°C, km/h)'}</option>
+          <option value="imperial">{de ? 'Imperial (°F, mph)' : 'Imperial (°F, mph)'}</option>
+        </select>
+      </div>
+      <div>
         <label style={{ fontSize: 11, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Layout</label>
         <select style={inp} value={str(cfg.layout) || 'sidebar'} onChange={(e) => onChange('layout', e.target.value)}>
           <option value="sidebar">{de ? 'Sidebar-Liste' : 'Sidebar list'}</option>
@@ -1319,6 +1329,7 @@ export const meta: PluginMeta = {
     { key: 'locationQuery', label: 'Stadt oder PLZ', type: 'text', placeholder: 'z. B. Berlin, Hamburg, 10115', defaultValue: '' },
     { key: 'countryCode', label: 'Land (ISO, optional)', type: 'text', placeholder: 'DE — hilft bei PLZ', defaultValue: 'DE' },
     { key: 'refreshMinutes', label: 'Aktualisieren alle (Minuten)', type: 'number', defaultValue: 15 },
+    { key: 'unitSystem', label: 'Einheiten (leer = global)', type: 'text', defaultValue: '' },
     { key: 'showDailyForecast', label: '7-Tage-Vorschau', type: 'boolean', defaultValue: true },
     { key: 'showPlaceLabel', label: 'Ort / Stadtnamen anzeigen', type: 'boolean', defaultValue: true },
     { key: 'showHumidityWind', label: 'Luftfeuchtigkeit & Wind', type: 'boolean', defaultValue: true },

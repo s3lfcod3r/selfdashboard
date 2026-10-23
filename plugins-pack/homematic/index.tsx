@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { usePluginLocale } from '@/lib/pluginLocale'
 import { usePluginUnitSystem } from '@/lib/pluginUnits'
-import { celsiusToFahrenheit, type ResolvedUnitSystem } from '@/lib/units'
+import { celsiusToFahrenheit, resolveWidgetUnitSystem, type ResolvedUnitSystem } from '@/lib/units'
 import { usePollingActive } from '@/hooks/usePollingActive'
 import { useDashboardStore } from '@/lib/store'
 import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProps } from '@/types'
@@ -335,7 +335,8 @@ function WindowIcon({ open, color }: { open: boolean; color: string }) {
 
 function Widget({ config, instanceId, editMode }: PluginWidgetProps) {
   const { de } = usePluginLocale()
-  const { resolved: unitSystem } = usePluginUnitSystem()
+  const { resolved: globalUnits } = usePluginUnitSystem()
+  const unitSystem = resolveWidgetUnitSystem(config.unitSystem, globalUnits)
   const fmtTemp = (c: number) =>
     unitSystem === 'imperial' ? `${Math.round(celsiusToFahrenheit(c))} °F` : `${round(c, 1)} °C`
   const updatePluginConfig = useDashboardStore((s) => s.updatePluginConfig)
@@ -937,6 +938,14 @@ function Settings({ config, onChange }: PluginSettingsProps) {
         </select>
       </div>
       <div>
+        <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>{de ? 'Einheiten' : 'Units'}</label>
+        <select style={inp} value={str(config.unitSystem)} onChange={(e) => onChange('unitSystem', e.target.value)}>
+          <option value="">{de ? 'Wie global (Einstellungen)' : 'Same as global setting'}</option>
+          <option value="metric">{de ? 'Metrisch (°C)' : 'Metric (°C)'}</option>
+          <option value="imperial">{de ? 'Imperial (°F)' : 'Imperial (°F)'}</option>
+        </select>
+      </div>
+      <div>
         <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>{de ? 'Aktualisieren (Sek.)' : 'Refresh (seconds)'}</label>
         <input style={inp} type="number" min={10} max={300} value={num(config.refreshSeconds) || 30} onChange={(e) => onChange('refreshSeconds', Math.max(10, num(e.target.value) || 30))} />
       </div>
@@ -964,6 +973,7 @@ export const meta: PluginMeta = {
     { key: 'sysvars', label: 'Variablen (JSON)', type: 'text', defaultValue: '' },
     { key: 'programs', label: 'Programme (JSON)', type: 'text', defaultValue: '' },
     { key: 'columns', label: 'Spalten', type: 'text', defaultValue: '1' },
+    { key: 'unitSystem', label: 'Einheiten (leer = global)', type: 'text', defaultValue: '' },
     { key: 'names', label: 'Eigene Namen (JSON)', type: 'text', defaultValue: '' },
     { key: 'roomOrder', label: 'Raum-Reihenfolge (JSON)', type: 'text', defaultValue: '' },
     { key: 'refreshSeconds', label: 'Aktualisieren (Sek.)', type: 'number', defaultValue: 30 },
