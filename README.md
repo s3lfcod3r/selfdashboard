@@ -6,7 +6,7 @@
 *Selbstgehostetes Homelab-Dashboard — ein Container, ein Browser-Tab, Live-Widgets aus dem Plugin-Store.*
 
 [![Build](https://github.com/s3lfcod3r/selfdashboard/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/s3lfcod3r/selfdashboard/actions/workflows/docker-publish.yml)
-![Version](https://img.shields.io/badge/version-2.0.0-33A78C)
+![Version](https://img.shields.io/badge/version-2.2.0-33A78C)
 [![License](https://img.shields.io/badge/license-All%20rights%20reserved-8A9CAA)](LICENSE)
 ![Backend](https://img.shields.io/badge/backend-Next.js%2015%20%2B%20Node%2022-1F7763)
 ![Web](https://img.shields.io/badge/web-React%2018%20%2B%20Tailwind-43D3AD)
@@ -277,7 +277,7 @@ The **SelfDashboard Android app** shows the dashboard full screen on wall tablet
 | Topic | Details |
 |---|---|
 | **Modes** | **Login mode** (normal dashboard with login) or **kiosk mode** (view-only, no login) |
-| **Download (APK)** | [github.com/s3lfcod3r/selfdashboard/releases/latest](https://github.com/s3lfcod3r/selfdashboard/releases/latest) — currently **v1.0.4** (app version, separate from the dashboard version 2.0.0) |
+| **Download (APK)** | [github.com/s3lfcod3r/selfdashboard/releases/latest](https://github.com/s3lfcod3r/selfdashboard/releases/latest) — currently **v1.0.4** (app version, separate from the dashboard version 2.2.0) |
 | **Features** | WebView, pull-to-refresh, full screen, screen saver |
 
 <a id="en-login"></a>
@@ -853,7 +853,7 @@ Die **SelfDashboard Android-App** zeigt das Dashboard bildschirmfüllend auf Wan
 | Thema | Details |
 |---|---|
 | **Modi** | **Login-Modus** (normales Dashboard mit Login) oder **Kiosk-Modus** (nur Ansicht, kein Login) |
-| **Download (APK)** | [github.com/s3lfcod3r/selfdashboard/releases/latest](https://github.com/s3lfcod3r/selfdashboard/releases/latest) — aktuell **v1.0.4** (App-Version, getrennt von der Dashboard-Version 2.0.0) |
+| **Download (APK)** | [github.com/s3lfcod3r/selfdashboard/releases/latest](https://github.com/s3lfcod3r/selfdashboard/releases/latest) — aktuell **v1.0.4** (App-Version, getrennt von der Dashboard-Version 2.2.0) |
 | **Funktionen** | WebView, Pull-to-Refresh, Vollbild, Bildschirmschoner |
 
 <a id="de-login"></a>
