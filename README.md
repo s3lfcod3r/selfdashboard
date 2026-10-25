@@ -7,7 +7,7 @@
 
 [![Build](https://github.com/s3lfcod3r/selfdashboard/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/s3lfcod3r/selfdashboard/actions/workflows/docker-publish.yml)
 ![Version](https://img.shields.io/badge/version-2.0.0-33A78C)
-[![License](https://img.shields.io/badge/license-MIT-8A9CAA)](LICENSE)
+[![License](https://img.shields.io/badge/license-All%20rights%20reserved-8A9CAA)](LICENSE)
 ![Backend](https://img.shields.io/badge/backend-Next.js%2015%20%2B%20Node%2022-1F7763)
 ![Web](https://img.shields.io/badge/web-React%2018%20%2B%20Tailwind-43D3AD)
 ![Deploy](https://img.shields.io/badge/deploy-Docker%20%7C%20Unraid-6F95AD)
@@ -1168,6 +1168,26 @@ Docker-Image bauen: [docs/DOCKER_BUILD.md](docs/DOCKER_BUILD.md) · Plugins entw
 - [ ] Beta-Plugins gegen weitere Server-Versionen testen
 
 <p align="right"><a href="#-deutsch">⬆ nach oben</a></p>
+
+---
+
+## ⚖️ Lizenz / License
+
+**🇩🇪 Alle Rechte vorbehalten.** © 2026 s3lfcod3r / SelfCoder
+
+Du darfst die Software **privat und nicht-kommerziell** installieren und benutzen (z. B. im Homelab, über Docker oder Unraid).
+
+**Ohne schriftliche Erlaubnis verboten:** kommerzielle Nutzung · Kopieren · Verändern · Weitergeben · Einbauen in eigene Projekte (auch Closed Source) · Verkaufen.
+
+Details: [LICENSE](LICENSE)
+
+**🇬🇧 All rights reserved.** © 2026 s3lfcod3r / SelfCoder
+
+You may install and use the software **privately and non-commercially** (e.g. in your home lab, via Docker or Unraid).
+
+**Not permitted without written permission:** commercial use · copying · modifying · redistributing · incorporating into other projects (including closed source) · selling.
+
+Details: [LICENSE](LICENSE)
 
 ---
 
