@@ -106,9 +106,10 @@ kann die Kachel ihn wieder starten: Unter der Zeile in den Einstellungen die
 **MAC-Adresse** seiner Netzwerkkarte eintragen.
 
 - Ist die Steckdose **an**, das Gerät zieht aber **unter 3 W** (heruntergefahren),
-  erscheint in der Zeile und im Popup der Knopf **„Starten"**.
+  erscheint in der Zeile und im Popup ein rundes **Power-Symbol**.
 - Ein Klick schickt ein **Wake-on-LAN-Paket** (Magic Packet, UDP-Broadcast an
-  Port 9 und 7). Danach steht dort **„startet…"**, bis die Steckdose wieder
+  Port 9 und 7). Danach dreht sich dort ein Ladekreis und die Zeile zeigt
+  **„startet"**, bis die Steckdose wieder
   Verbrauch misst, längstens 6 Minuten.
 - Ist die Steckdose selbst **aus**, gibt es keinen Knopf — dann ist der Schalter
   der Weg.
@@ -171,9 +172,9 @@ is always `admin`. See the German section above for how the two passwords are
 stored.
 
 **Wake-on-LAN:** give a plug the MAC of the machine behind it and the row (and
-popup) shows **Start** whenever the plug is on but the machine draws under 3 W,
+popup) shows a round **power button** whenever the plug is on but the machine draws under 3 W,
 i.e. it has shut down. The button sends a magic packet (UDP broadcast, ports 9
-and 7) and shows *starting…* until the plug sees load again, for up to 6
+and 7) and shows a spinner and *starting* until the plug sees load again, for up to 6
 minutes. The broadcast cannot leave a Docker bridge network — run the container
 on `host` or macvlan/ipvlan (Unraid `br0`), and enable WoL on the machine.
 

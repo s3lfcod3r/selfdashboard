@@ -289,9 +289,38 @@ function wakeStateFor(device: Device, result: DeviceResult | undefined, wakingSi
   return 'none'
 }
 
+const WAKING_COLOR = '#f59e0b'
+
+function IconPower({ size = 12, color = 'currentColor' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M7 6a7.75 7.75 0 1 0 10 0" />
+      <path d="M12 4v8" />
+    </svg>
+  )
+}
+
+/** Spins via SMIL, so it needs no stylesheet/keyframes from the host. */
+function IconSpinner({ size = 12, color = 'currentColor' }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" aria-hidden>
+      <path d="M12 3a9 9 0 1 0 9 9">
+        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite" />
+      </path>
+    </svg>
+  )
+}
+
+/**
+ * Round power symbol, no label — it sits between name and figures, so a text
+ * button would squeeze the name to an ellipsis. Spinner while waking.
+ */
 function WakeButton({ state, onClick, de, size = 'small' }: { state: WakeState; onClick: () => void; de: boolean; size?: 'small' | 'large' }) {
   if (state === 'none') return null
   const waking = state === 'waking'
+  const box = size === 'large' ? 28 : 18
+  const icon = size === 'large' ? 15 : 11
+  const label = waking ? (de ? 'Weck-Paket gesendet, Gerät startet' : 'Wake packet sent, machine is starting') : de ? 'Per Wake-on-LAN starten' : 'Start via Wake-on-LAN'
   return (
     <button
       type="button"
@@ -300,22 +329,24 @@ function WakeButton({ state, onClick, de, size = 'small' }: { state: WakeState; 
         e.stopPropagation()
         onClick()
       }}
-      title={waking ? (de ? 'Weck-Paket gesendet, Gerät startet' : 'Wake packet sent, machine is starting') : de ? 'Per Wake-on-LAN starten' : 'Start via Wake-on-LAN'}
+      title={label}
+      aria-label={label}
       style={{
-        border: 'none',
-        borderRadius: size === 'large' ? 7 : 4,
-        padding: size === 'large' ? '5px 12px' : '1px 6px',
-        background: waking ? 'transparent' : 'var(--accent)',
-        color: waking ? '#f59e0b' : '#fff',
-        fontWeight: 700,
-        fontSize: size === 'large' ? 12 : '0.82em',
-        cursor: waking ? 'default' : 'pointer',
-        lineHeight: 1.3,
+        width: box,
+        height: box,
         flexShrink: 0,
-        whiteSpace: 'nowrap',
+        borderRadius: '50%',
+        border: waking ? 'none' : '1px solid #22c55e',
+        background: 'transparent',
+        color: waking ? WAKING_COLOR : '#22c55e',
+        cursor: waking ? 'default' : 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
       }}
     >
-      {waking ? (de ? 'startet…' : 'starting…') : de ? 'Starten' : 'Start'}
+      {waking ? <IconSpinner size={icon} /> : <IconPower size={icon} />}
     </button>
   )
 }
@@ -653,17 +684,32 @@ function CompactRow({
   const offline = result != null && !result.online
   const on = result?.output === true
   const name = device.name || device.ip
-  const color = offline ? '#ef4444' : loading ? 'var(--text-muted)' : on ? '#22c55e' : 'var(--text-muted)'
+  // Plug on but the machine behind it shut down: grey "off", amber while waking.
+  const asleep = wakeState === 'available'
+  const waking = wakeState === 'waking'
+  const color = offline
+    ? '#ef4444'
+    : waking
+      ? WAKING_COLOR
+      : loading || asleep
+        ? 'var(--text-muted)'
+        : on
+          ? '#22c55e'
+          : 'var(--text-muted)'
 
   const value = loading
     ? '…'
     : offline
       ? shortError(result?.error, de)
-      : on
-        ? fmtPower(result?.power ?? 0, de)
-        : de
-          ? 'Aus'
-          : 'Off'
+      : waking
+        ? de
+          ? 'startet'
+          : 'starting'
+        : on && !asleep
+          ? fmtPower(result?.power ?? 0, de)
+          : de
+            ? 'Aus'
+            : 'Off'
 
   const monthKwh = result?.energy ? fmtKwh(result.energy.month, de) : null
   const month = showMonth ? monthKwh : null
@@ -1510,7 +1556,7 @@ export const meta: PluginMeta = {
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.6.0',
+  version: '1.6.1',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
