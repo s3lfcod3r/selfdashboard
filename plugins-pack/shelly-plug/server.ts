@@ -10,12 +10,14 @@
  *   { action?: 'status', devices, password?, track? }  → live readings for all
  *   { action: 'switch', device, on, password? }         → set one socket on/off
  *   { action: 'history', device, from, to, unit }       → kWh per hour or day
+ *   { action: 'wake', device }                          → Wake-on-LAN to device.mac
  *
  * `password` is the plugin-wide fallback. A device entry may carry its own
  * `password`, which wins — sockets on different passwords work in one widget.
  * Both are plaintext-at-rest (pack plugins are excluded from the host's seal
  * allowlist) but only reachable by logged-in dashboard users.
  */
+import dgram from 'node:dgram'
 import { logPluginApiFailure } from '../_shared/log'
 import { openSealedSecret } from '../_shared/secret-crypto'
 import type { PluginServerContext } from '../_shared/plugin-server-types'
@@ -53,7 +55,7 @@ const MAX_DEVICES = 16
 const MAX_BUCKETS = 1200
 
 type ReqBody = {
-  action?: 'status' | 'switch' | 'history'
+  action?: 'status' | 'switch' | 'history' | 'wake'
   devices?: unknown
   device?: unknown
   on?: unknown
@@ -222,6 +224,49 @@ function handleHistory(body: ReqBody): Response {
   })
 }
 
+/** `aa:bb:cc:dd:ee:ff` or `aa-bb-…` → 6 bytes, or null if it is not a MAC. */
+function parseMac(raw: unknown): Buffer | null {
+  const s = str(raw).toLowerCase()
+  if (!/^[0-9a-f]{2}([:-]?[0-9a-f]{2}){5}$/.test(s)) return null
+  return Buffer.from(s.replace(/[:-]/g, ''), 'hex')
+}
+
+/**
+ * Wake-on-LAN for the machine behind a plug — the plug only tells us it draws
+ * nothing, the PC itself is woken by its NIC. The magic packet is a UDP
+ * broadcast, so it only reaches the LAN when the container sits directly on it
+ * (host or macvlan/ipvlan network); from a Docker bridge it never leaves the host.
+ */
+async function handleWake(body: ReqBody): Promise<Response> {
+  const dev = (typeof body.device === 'object' && body.device !== null ? body.device : {}) as Record<string, unknown>
+  const mac = parseMac(dev.mac)
+  if (!mac) return Response.json({ error: 'invalid_mac' }, { status: 400 })
+
+  const packet = Buffer.concat([Buffer.alloc(6, 0xff), ...Array<Buffer>(16).fill(mac)])
+  const socket = dgram.createSocket('udp4')
+  try {
+    await new Promise<void>((resolve, reject) => {
+      socket.once('error', reject)
+      socket.bind(() => {
+        socket.setBroadcast(true)
+        resolve()
+      })
+    })
+    // Port 9 (discard) is the common one, 7 (echo) what some BIOSes listen on.
+    for (const port of [9, 7]) {
+      await new Promise<void>((resolve, reject) =>
+        socket.send(packet, port, '255.255.255.255', (err) => (err ? reject(err) : resolve())),
+      )
+    }
+    return Response.json({ ok: true })
+  } catch (e) {
+    void logPluginApiFailure(PLUGIN_ID, 'wake', e instanceof Error ? e.message : 'send_failed')
+    return Response.json({ error: 'send_failed' }, { status: 502 })
+  } finally {
+    socket.close()
+  }
+}
+
 async function handlePost(req: Request): Promise<Response> {
   let body: ReqBody
   try {
@@ -232,6 +277,7 @@ async function handlePost(req: Request): Promise<Response> {
 
   // Answered from the local history file — no device call, no password needed.
   if (body.action === 'history') return handleHistory(body)
+  if (body.action === 'wake') return handleWake(body)
 
   const password = openSealedSecret(str(body.password))
   const ac = new AbortController()
