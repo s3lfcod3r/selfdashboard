@@ -1,3 +1,6 @@
+// plugins-pack/shelly-plug/server.ts
+import dgram from "node:dgram";
+
 // plugins-pack/_shared/log.ts
 async function logPluginApiFailure(pluginId, operation, message, detail) {
   const extra = detail ? ` ${JSON.stringify(detail).slice(0, 500)}` : "";
@@ -722,6 +725,38 @@ function handleHistory(body) {
     buckets
   });
 }
+function parseMac(raw) {
+  const s = str(raw).toLowerCase();
+  if (!/^[0-9a-f]{2}([:-]?[0-9a-f]{2}){5}$/.test(s)) return null;
+  return Buffer.from(s.replace(/[:-]/g, ""), "hex");
+}
+async function handleWake(body) {
+  const dev = typeof body.device === "object" && body.device !== null ? body.device : {};
+  const mac = parseMac(dev.mac);
+  if (!mac) return Response.json({ error: "invalid_mac" }, { status: 400 });
+  const packet = Buffer.concat([Buffer.alloc(6, 255), ...Array(16).fill(mac)]);
+  const socket = dgram.createSocket("udp4");
+  try {
+    await new Promise((resolve, reject) => {
+      socket.once("error", reject);
+      socket.bind(() => {
+        socket.setBroadcast(true);
+        resolve();
+      });
+    });
+    for (const port of [9, 7]) {
+      await new Promise(
+        (resolve, reject) => socket.send(packet, port, "255.255.255.255", (err) => err ? reject(err) : resolve())
+      );
+    }
+    return Response.json({ ok: true });
+  } catch (e) {
+    void logPluginApiFailure(PLUGIN_ID, "wake", e instanceof Error ? e.message : "send_failed");
+    return Response.json({ error: "send_failed" }, { status: 502 });
+  } finally {
+    socket.close();
+  }
+}
 async function handlePost(req) {
   let body;
   try {
@@ -730,6 +765,7 @@ async function handlePost(req) {
     return Response.json({ error: "invalid_json" }, { status: 400 });
   }
   if (body.action === "history") return handleHistory(body);
+  if (body.action === "wake") return handleWake(body);
   const password = openSealedSecret(str(body.password));
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), SHELLY_TIMEOUT_MS);

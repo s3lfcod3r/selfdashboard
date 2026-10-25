@@ -99,6 +99,24 @@ Zwei Ebenen, damit beide Fälle sauber funktionieren:
 > **Schalten** ist nur für angemeldete Dashboard-Nutzer möglich (jeder
 > Plugin-Aufruf läuft über die Login-Prüfung des Hosts).
 
+### Wake-on-LAN
+
+Hängt an einer Steckdose ein Rechner oder Server, der sich selbst herunterfährt,
+kann die Kachel ihn wieder starten: Unter der Zeile in den Einstellungen die
+**MAC-Adresse** seiner Netzwerkkarte eintragen.
+
+- Ist die Steckdose **an**, das Gerät zieht aber **unter 3 W** (heruntergefahren),
+  erscheint in der Zeile und im Popup der Knopf **„Starten"**.
+- Ein Klick schickt ein **Wake-on-LAN-Paket** (Magic Packet, UDP-Broadcast an
+  Port 9 und 7). Danach steht dort **„startet…"**, bis die Steckdose wieder
+  Verbrauch misst, längstens 6 Minuten.
+- Ist die Steckdose selbst **aus**, gibt es keinen Knopf — dann ist der Schalter
+  der Weg.
+
+> **Netzwerk:** Ein Broadcast verlässt kein Docker-Bridge-Netz. Der Container
+> muss direkt im Heimnetz hängen (`host` oder macvlan/ipvlan, unter Unraid z. B.
+> `br0`). Am Gerät muss Wake-on-LAN im BIOS und im Betriebssystem aktiv sein.
+
 ## Technik
 
 - Status: `Switch.GetStatus?id=0` (`apower`, `voltage`, `current`,
@@ -108,6 +126,8 @@ Zwei Ebenen, damit beide Fälle sauber funktionieren:
   `{ action: 'history', device, from, to, unit: 'hour'|'day' }` — antwortet aus
   der lokalen Verlaufsdatei, ohne Geräteaufruf und ohne Passwort. Töpfe richten
   sich nach der lokalen Uhr (Tag = lokale Mitternacht).
+- Wake-on-LAN: `POST /api/plugins/shelly-plug` mit `{ action: 'wake', device }`
+  — Magic Packet an `device.mac`, Broadcast `255.255.255.255`, Ports 9 und 7.
 - Auth: HTTP Digest (RFC 7616, SHA-256), Benutzer fest `admin`.
 - Verlauf: Zählerstands-Schnappschüsse im Daten-Volume; kWh je Zeitfenster =
   Summe positiver Deltas (zählerreset-fest). Aufbewahrung ~40 Tage, die letzten
@@ -149,6 +169,13 @@ a **shared password** for all plugs, and an optional **per-plug password** that
 overrides it — needed when the devices use different passwords. The Shelly user
 is always `admin`. See the German section above for how the two passwords are
 stored.
+
+**Wake-on-LAN:** give a plug the MAC of the machine behind it and the row (and
+popup) shows **Start** whenever the plug is on but the machine draws under 3 W,
+i.e. it has shut down. The button sends a magic packet (UDP broadcast, ports 9
+and 7) and shows *starting…* until the plug sees load again, for up to 6
+minutes. The broadcast cannot leave a Docker bridge network — run the container
+on `host` or macvlan/ipvlan (Unraid `br0`), and enable WoL on the machine.
 
 The container needs `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1` to reach LAN devices.
 Switching is restricted to logged-in dashboard users. History starts when you

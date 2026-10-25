@@ -10,8 +10,11 @@ import type { PluginComponent, PluginMeta, PluginSettingsProps, PluginWidgetProp
 // Types — mirror the normalized shape from server.ts.
 // ---------------------------------------------------------------------------
 
-/** `password` is optional and per-device; empty means "use the shared one". */
-type Device = { id: string; name: string; ip: string; password?: string }
+/**
+ * `password` is optional and per-device; empty means "use the shared one".
+ * `mac` is optional too: the NIC of the machine on this plug, for Wake-on-LAN.
+ */
+type Device = { id: string; name: string; ip: string; password?: string; mac?: string }
 
 /** `month` is the calendar month (resets on the 1st), not a rolling 30 days. */
 type EnergyReading = { today: number; week: number; month: number }
@@ -30,6 +33,18 @@ type DeviceResult = {
 }
 
 const MAX_DEVICES = 16
+
+/**
+ * Below this a plug with power on counts as "machine is off" and offers the
+ * Wake-on-LAN button. A shut-down PC with WoL armed draws well under 1 W, a
+ * running one far more, so 3 W leaves room for odd standby figures.
+ */
+const WAKE_IDLE_W = 3
+
+/** "startet…" gives up after this long without the plug seeing any load. */
+const WAKE_TIMEOUT_MS = 6 * 60_000
+
+const MAC_RE = /^[0-9a-f]{2}([:-]?[0-9a-f]{2}){5}$/i
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,6 +96,7 @@ function parseDevices(raw: unknown): Device[] {
       const dev: Device = { id: str(o.id) || newId(), name: str(o.name), ip: str(o.ip) }
       // Kept verbatim, not trimmed: a password may start or end with a space.
       if (typeof o.password === 'string' && o.password) dev.password = o.password
+      if (typeof o.mac === 'string' && o.mac) dev.mac = o.mac
       return dev
     })
     .filter((d): d is Device => d !== null)
@@ -244,6 +260,66 @@ async function sendSwitch(device: Device, on: boolean, password: string): Promis
   }
 }
 
+async function sendWake(device: Device): Promise<boolean> {
+  try {
+    const res = await fetch('/api/plugins/shelly-plug', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'wake', device }),
+      cache: 'no-store',
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 'available' = a MAC is set, the plug is on but the machine draws next to
+ * nothing (shut down) → offer "Start". 'waking' = packet sent, waiting for the
+ * plug to see load. Never offered while the plug itself is off — then there is
+ * no power to wake from, the switch is the way.
+ */
+type WakeState = 'none' | 'available' | 'waking'
+
+function wakeStateFor(device: Device, result: DeviceResult | undefined, wakingSince: number | undefined): WakeState {
+  if (!device.mac || !MAC_RE.test(device.mac)) return 'none'
+  if (wakingSince != null) return 'waking'
+  if (result?.online && result.output === true && (result.power ?? 0) < WAKE_IDLE_W) return 'available'
+  return 'none'
+}
+
+function WakeButton({ state, onClick, de, size = 'small' }: { state: WakeState; onClick: () => void; de: boolean; size?: 'small' | 'large' }) {
+  if (state === 'none') return null
+  const waking = state === 'waking'
+  return (
+    <button
+      type="button"
+      disabled={waking}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      title={waking ? (de ? 'Weck-Paket gesendet, Gerät startet' : 'Wake packet sent, machine is starting') : de ? 'Per Wake-on-LAN starten' : 'Start via Wake-on-LAN'}
+      style={{
+        border: 'none',
+        borderRadius: size === 'large' ? 7 : 4,
+        padding: size === 'large' ? '5px 12px' : '1px 6px',
+        background: waking ? 'transparent' : 'var(--accent)',
+        color: waking ? '#f59e0b' : '#fff',
+        fontWeight: 700,
+        fontSize: size === 'large' ? 12 : '0.82em',
+        cursor: waking ? 'default' : 'pointer',
+        lineHeight: 1.3,
+        flexShrink: 0,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {waking ? (de ? 'startet…' : 'starting…') : de ? 'Starten' : 'Start'}
+    </button>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
@@ -270,6 +346,8 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const [pending, setPending] = useState<Record<string, boolean>>({})
   const [confirming, setConfirming] = useState<Record<string, boolean>>({})
   const [powerHist, setPowerHist] = useState<Record<string, number[]>>({})
+  /** Device id → when its wake packet went out; cleared once load shows up. */
+  const [wakingSince, setWakingSince] = useState<Record<string, number>>({})
   /** Device id whose detail popup is open, or null. */
   const [openId, setOpenId] = useState<string | null>(null)
   const busyRef = useRef(false)
@@ -357,6 +435,28 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
   const cancelOff = useCallback((device: Device) => {
     setConfirming((c) => ({ ...c, [device.id]: false }))
   }, [])
+
+  const wake = useCallback(async (device: Device) => {
+    if (await sendWake(device)) setWakingSince((w) => ({ ...w, [device.id]: Date.now() }))
+  }, [])
+
+  // "startet…" ends as soon as the plug sees load again, or gives up after a
+  // while so a machine that never came up offers the button once more.
+  useEffect(() => {
+    if (!results) return
+    setWakingSince((prev) => {
+      const ids = Object.keys(prev)
+      if (ids.length === 0) return prev
+      const now = Date.now()
+      const next: Record<string, number> = {}
+      for (const id of ids) {
+        const r = results.find((x) => x.id === id)
+        const up = r?.online === true && (r.power ?? 0) >= WAKE_IDLE_W
+        if (!up && now - prev[id] < WAKE_TIMEOUT_MS) next[id] = prev[id]
+      }
+      return Object.keys(next).length === ids.length ? prev : next
+    })
+  }, [results])
 
   const shell: CSSProperties = {
     height: '100%',
@@ -449,9 +549,11 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
               allowSwitch={allowSwitch}
               pending={Boolean(pending[d.id])}
               confirming={Boolean(confirming[d.id])}
+              wakeState={wakeStateFor(d, byId.get(d.id), wakingSince[d.id])}
               onToggle={requestToggle}
               onConfirm={confirmOff}
               onCancel={cancelOff}
+              onWake={wake}
               onOpen={(dev) => setOpenId(dev.id)}
             />
           ))}
@@ -469,9 +571,11 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
               pending={Boolean(pending[d.id])}
               confirming={Boolean(confirming[d.id])}
               history={powerHist[d.id]}
+              wakeState={wakeStateFor(d, byId.get(d.id), wakingSince[d.id])}
               onToggle={requestToggle}
               onConfirm={confirmOff}
               onCancel={cancelOff}
+              onWake={wake}
             />
           ))}
         </div>
@@ -484,7 +588,9 @@ function Widget({ config, instanceId }: PluginWidgetProps) {
           de={de}
           allowSwitch={allowSwitch}
           pending={Boolean(pending[openDevice.id])}
+          wakeState={wakeStateFor(openDevice, byId.get(openDevice.id), wakingSince[openDevice.id])}
           onToggle={requestToggle}
+          onWake={wake}
           onClose={() => setOpenId(null)}
         />
       ) : null}
@@ -520,9 +626,11 @@ function CompactRow({
   allowSwitch,
   pending,
   confirming,
+  wakeState,
   onToggle,
   onConfirm,
   onCancel,
+  onWake,
   onOpen,
 }: {
   device: Device
@@ -533,9 +641,11 @@ function CompactRow({
   allowSwitch: boolean
   pending: boolean
   confirming: boolean
+  wakeState: WakeState
   onToggle: (d: Device, current: boolean) => void
   onConfirm: (d: Device) => void
   onCancel: (d: Device) => void
+  onWake: (d: Device) => void
   /** Click anywhere but the dot opens the detail popup. */
   onOpen: (d: Device) => void
 }) {
@@ -660,6 +770,7 @@ function CompactRow({
           </span>
         ) : (
           <>
+            <WakeButton state={wakeState} onClick={() => onWake(device)} de={de} />
             {month ? (
               <span
                 style={{
@@ -786,7 +897,9 @@ function DetailModal({
   de,
   allowSwitch,
   pending,
+  wakeState,
   onToggle,
+  onWake,
   onClose,
 }: {
   device: Device
@@ -794,7 +907,9 @@ function DetailModal({
   de: boolean
   allowSwitch: boolean
   pending: boolean
+  wakeState: WakeState
   onToggle: (d: Device, current: boolean) => void
+  onWake: (d: Device) => void
   onClose: () => void
 }) {
   const name = device.name || device.ip
@@ -919,6 +1034,7 @@ function DetailModal({
             <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
             <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)' }}>{device.ip}{statusLoading ? (de ? ' · wird geladen…' : ' · loading…') : result?.error ? ` · ${errorText(result.error, de)}` : ''}</p>
           </div>
+          <WakeButton state={wakeState} onClick={() => onWake(device)} de={de} size="large" />
           {allowSwitch && online && result?.output != null ? (
             <Toggle on={on} pending={pending} disabled={false} onClick={() => onToggle(device, on)} de={de} />
           ) : null}
@@ -1025,9 +1141,11 @@ function PlugRow({
   pending,
   confirming,
   history,
+  wakeState,
   onToggle,
   onConfirm,
   onCancel,
+  onWake,
 }: {
   device: Device
   result: DeviceResult | undefined
@@ -1037,9 +1155,11 @@ function PlugRow({
   pending: boolean
   confirming: boolean
   history?: number[]
+  wakeState: WakeState
   onToggle: (d: Device, current: boolean) => void
   onConfirm: (d: Device) => void
   onCancel: (d: Device) => void
+  onWake: (d: Device) => void
 }) {
   const loading = result === undefined
   const offline = result != null && !result.online
@@ -1054,6 +1174,7 @@ function PlugRow({
         <span style={{ fontSize: 'clamp(11px, 3cqmin, 13px)', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }} title={name}>
           {name}
         </span>
+        {!confirming ? <WakeButton state={wakeState} onClick={() => onWake(device)} de={de} /> : null}
         {allowSwitch && !offline && !loading && !confirming ? (
           <Toggle on={on} pending={pending} disabled={result?.output == null} onClick={() => onToggle(device, on)} de={de} />
         ) : null}
@@ -1305,6 +1426,18 @@ function Settings({ config, onChange }: PluginSettingsProps) {
                 placeholder={de ? 'eigenes Passwort (leer = gemeinsames unten)' : 'own password (empty = shared one below)'}
                 onChange={(e) => update(d.id, { password: e.target.value })}
               />
+              <input
+                style={{
+                  ...inp,
+                  fontSize: 11.5,
+                  marginRight: 27,
+                  borderColor: d.mac && !MAC_RE.test(d.mac.trim()) ? '#ef4444' : 'var(--border)',
+                }}
+                value={d.mac ?? ''}
+                spellCheck={false}
+                placeholder={de ? 'MAC für Wake-on-LAN (optional, z. B. 00:e0:4c:5c:66:51)' : 'MAC for Wake-on-LAN (optional, e.g. 00:e0:4c:5c:66:51)'}
+                onChange={(e) => update(d.id, { mac: e.target.value.trim() })}
+              />
             </div>
           ))}
         </div>
@@ -1313,6 +1446,11 @@ function Settings({ config, onChange }: PluginSettingsProps) {
             <IconPlus size={15} /> {de ? 'Steckdose hinzufügen' : 'Add plug'}
           </button>
         ) : null}
+        <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '6px 0 0', lineHeight: 1.5 }}>
+          {de
+            ? `Mit MAC erscheint „Starten", sobald die Steckdose an ist, das Gerät daran aber unter ${WAKE_IDLE_W} W zieht (heruntergefahren). Der Knopf schickt ein Wake-on-LAN-Paket an die Netzwerkkarte. Das kommt nur im LAN an, wenn der Container direkt im Heimnetz hängt (host oder macvlan, z. B. br0), nicht aus einem Docker-Bridge-Netz.`
+            : `With a MAC set, "Start" appears while the plug is on but the machine draws under ${WAKE_IDLE_W} W (shut down). It sends a Wake-on-LAN packet to the network card. That only reaches the LAN when the container sits directly on it (host or macvlan, e.g. br0), not from a Docker bridge network.`}
+        </p>
       </div>
 
       <div>
@@ -1367,12 +1505,12 @@ export const meta: PluginMeta = {
   id: 'shelly-plug',
   name: 'Shelly Plug',
   description:
-    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — kompakte Zeilenansicht mit Statuspunkt, Name und Momentanleistung. Klick auf eine Zeile öffnet ein Detail-Popup mit Live-Werten und Verbrauch über einen frei wählbaren Zeitraum (Stunden oder Tage, Diagramm und Liste). kWh heute / laufender Monat, Passwort je Steckdose, An/Aus-Schalten. Ohne Cloud, ohne API-Key.',
+    'Shelly Plug PM Gen3 / Plug S Gen3 (und andere Gen2+ Steckdosen): mehrere Steckdosen in einer Kachel — kompakte Zeilenansicht mit Statuspunkt, Name und Momentanleistung. Klick auf eine Zeile öffnet ein Detail-Popup mit Live-Werten und Verbrauch über einen frei wählbaren Zeitraum (Stunden oder Tage, Diagramm und Liste). kWh heute / laufender Monat, Passwort je Steckdose, An/Aus-Schalten, Wake-on-LAN für heruntergefahrene Geräte. Ohne Cloud, ohne API-Key.',
   author: 'SelfDashboard',
   category: 'system',
   icon: '🔌',
   iconUrl: 'https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelly.png',
-  version: '1.5.3',
+  version: '1.6.0',
   defaultLayout: { w: 3, h: 4, minW: 2, minH: 2 },
   configSchema: [
     { key: 'devices', label: 'Steckdosen', type: 'text', defaultValue: '[]' },
