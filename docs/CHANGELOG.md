@@ -6,6 +6,19 @@ This file summarizes **notable plugin and API behaviour** that may not fit in th
 
 ## 🇬🇧 English
 
+### LLM-Cockpit plugin **1.1.x** (new, 2026-10)
+
+Token counter, LLM speed and project status in **one** tile. The single tiles `llm-token`, `llm-tempo` and `openclaw-status` stay available. **Plugin Store → install "LLM-Cockpit" → Ctrl+F5.**
+
+| Topic | Change |
+|--------|--------|
+| **Token counter** | In / out / peak context; dropdown for today, yesterday, last 7 days and every recorded month; bar chart of the last 14 days (or all days of the selected month, with a day list). |
+| **LLM speed** | Only the servers listed in **"Only these servers"** (default `RTX2000`), with a small history of the last measurements. |
+| **Project status** | One compact row per project (progress ring, done/total, open questions), click to expand; filters for questions / in progress / done and a time filter (7 / 30 / 90 days). Placeholders like `(keine)` no longer count as questions. |
+| **Setup** | Empty addresses are taken over from existing `llm-token` / `llm-tempo` / `openclaw-status` tiles. Errors name the unreachable host and keep the last data visible. |
+| **Collector service** | `/tokens` and `/status` come from a small collector container (e.g. `llm-sammler`: token totals per day and month from the llama.cpp `/metrics`, project status from the `STATUS.md` files). |
+| **Layout** | Minimum width 2 columns. |
+
 ### Core app + plugins (2026-10) — loading performance
 
 Measured on a dashboard with 24 widgets: browser blocking while loading **1.7 s → 0.07 s**, dashboard state **2.2 MB → 13 KB**, Docker widget **6–8 s → < 0.1 s**, unreachable hosts **3 s per request → instant**. **New image + Plugin Store → Update all → Ctrl+F5.**
@@ -90,6 +103,19 @@ After **Update all**: **Ctrl+F5**. Existing plaintext passwords are migrated aut
 ---
 
 ## 🇩🇪 Deutsch
+
+### LLM-Cockpit-Plugin **1.1.x** (neu, 2026-10)
+
+Token-Zähler, LLM-Tempo und Projektstatus in **einer** Kachel. Die Einzel-Kacheln `llm-token`, `llm-tempo` und `openclaw-status` bleiben verfügbar. **Plugin-Store → „LLM-Cockpit“ installieren → Strg+F5.**
+
+| Thema | Änderung |
+|--------|--------|
+| **Token-Zähler** | Rein / raus / max. Kontext; Auswahl für heute, gestern, letzte 7 Tage und jeden erfassten Monat; Balkendiagramm der letzten 14 Tage (bzw. aller Tage des gewählten Monats, mit Tagesliste). |
+| **LLM-Tempo** | Nur die Server aus **„Nur diese Server“** (Standard `RTX2000`), mit kleinem Verlauf der letzten Messungen. |
+| **Projektstatus** | Eine kompakte Zeile je Projekt (Fortschrittsring, erledigt/gesamt, offene Fragen), per Klick aufklappbar; Filter für Fragen / in Arbeit / fertig und ein Zeitfilter (7 / 30 / 90 Tage). Platzhalter wie `(keine)` zählen nicht mehr als Frage. |
+| **Einrichtung** | Leere Adressen werden aus vorhandenen `llm-token`- / `llm-tempo`- / `openclaw-status`-Kacheln übernommen. Fehler nennen den nicht erreichbaren Host, die letzten Daten bleiben sichtbar. |
+| **Sammel-Dienst** | `/tokens` und `/status` liefert ein kleiner Sammel-Container (z. B. `llm-sammler`: Token-Summen je Tag und Monat aus den llama.cpp-`/metrics`, Projektstatus aus den `STATUS.md`-Dateien). |
+| **Layout** | Mindestbreite 2 Spalten. |
 
 ### Kern-App + Plugins (2026-10) — Ladezeit
 

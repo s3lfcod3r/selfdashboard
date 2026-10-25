@@ -27,7 +27,7 @@ Nach Install: **Strg+F5** (Hard-Reload), damit `widget.js` geladen wird.
 
 ### Updates von GitHub
 
-1. Maintainer erhöht `version` in `plugins-pack/<id>/plugin.json`, passt `widget.js` an und pusht `plugins-pack/` (danach `npm run generate:plugins-index` für `plugins-index.json`).
+1. Maintainer erhöht `version` in `plugins-pack/<id>/plugin.json`, passt `widget.js` an und pusht `plugins-pack/` nach `main`. `plugins-index.json` erzeugt danach die GitHub-Action **Auto-generate plugin index** (`.github/workflows/plugins-index.yml`) automatisch.
 2. SelfDashboard lädt `plugins-index.json` vom konfigurierten Branch (Cache ~5 Min.).
 3. Installierte Plugins: Vergleich **Version auf Platte** (`/app/plugins/custom/<id>/plugin.json`) mit **Version im Index**.
 4. Bei neuerer Version: **Hinweis-Leiste** unter der Navbar + orangener Punkt am **+** (Bearbeitungsmodus).
@@ -60,7 +60,7 @@ selfdashboard/
 | `plugin-pack/` | **Nein** (lokal optional, `.gitignore`) | Nein |
 | `/app/plugins/custom/<id>/` | Nein | **Ja** — `plugin.json` + `widget.js` (+ `server.mjs` bei API) |
 
-**Workflow Plugin-UI:** `plugins-pack/<id>/plugin.json` (Version) + `widget.js` anpassen → `npm run generate:plugins-index` → `plugins-pack/` pushen.
+**Workflow Plugin-UI:** `plugins-pack/<id>/plugin.json` (Version) + `widget.js` anpassen → `plugins-pack/` pushen (Index erzeugt die GitHub-Action).
 
 Optional: `index.tsx` im gleichen Ordner (`plugins-pack/<id>/`) für saubere TS-Entwicklung → `npm run build:plugin-pack -- <id>` erzeugt `widget.js`.
 
@@ -76,8 +76,8 @@ Ordner `plugins/` und `plugin-pack/` sind **nicht auf GitHub** (`.gitignore`) un
 Die **Inhaltsliste des GitHub-Stores**. Enthält pro Plugin: ID, Name, Version, welche Dateien installiert werden.
 
 - **Wird nicht** beim Klick im UI geschrieben
-- **Wird erzeugt** mit: `npm run generate:plugins-index` (nach Änderungen unter `plugins-pack/`)
-- Muss mit nach GitHub gepusht werden, damit neue Plugins im Store erscheinen
+- **Wird automatisch erzeugt:** Bei jedem Push nach `main`, der etwas unter `plugins-pack/` ändert, baut die GitHub-Action **Auto-generate plugin index** den Index neu und committet ihn (`chore: auto-generate plugins-index.json [skip ci]`). Ein neuer Plugin-Ordner mit `plugin.json` + `widget.js` reicht also, damit er im Store erscheint.
+- **Lokal** geht es weiterhin mit `npm run generate:plugins-index` (z. B. zum Prüfen vor dem Push). Den lokal erzeugten Index nicht zusätzlich pushen, wenn die Action läuft — sonst gibt es beim nächsten Pull einen Konflikt in `plugins-index.json` (dann einfach die Version vom Server nehmen).
 
 ZIP-Upload durch Nutzer braucht **keinen** Eintrag in dieser Datei.
 
@@ -97,13 +97,15 @@ Beispiel:
 -v /mnt/user/appdata/selfdashboard/plugins:/app/plugins/custom
 ```
 
-Env (im Image `:beta` bereits gesetzt):
+Env (im offiziellen Image bereits gesetzt — `:latest` liest den Store aus `main`, `:beta` aus `beta`):
 
 | Variable | Bedeutung |
 |----------|-----------|
 | `SELFDASHBOARD_PLUGINS_GITHUB_REPO` | z. B. `s3lfcod3r/selfdashboard` |
 | `SELFDASHBOARD_PLUGINS_GITHUB_REF` | Branch, Stable: `main` |
 | `SELFDASHBOARD_PLUGINS_GITHUB_PATH` | `plugins-pack` |
+
+Unraid: Template und alle Variablen in **[unraid/README.md](../unraid/README.md)**.
 
 ---
 
