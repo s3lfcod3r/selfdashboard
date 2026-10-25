@@ -100,6 +100,7 @@ Plugins marked **(Beta)** are new integrations that have not yet been tested aga
 | [Homematic](plugins-pack/homematic/README.md) | Utility | Heating, switches, sensors, rooms (RaspberryMatic) **(Beta)** |
 | [Iframe](plugins-pack/iframe/README.md) | Utility | Embed URLs |
 | [Jellyfin](plugins-pack/jellyfin/README.md) | Media | Active sessions |
+| [LLM-Cockpit](plugins-pack/llm-cockpit/README.md) | System | Token counter (today/month, daily history), LLM speed and project status in one tile — needs the small collector service (`/tokens`, `/status`) |
 | [LLM-Tempo](plugins-pack/llm-tempo/README.md) | System | Tokens per second of local llama.cpp servers (needs `llama-server --metrics`) |
 | [NetzWacht](plugins-pack/netzwacht/README.md) | Security | Live throughput, top devices and Suricata alerts from an ntopng stack **(Beta)** |
 | [Nginx Proxy Manager](plugins-pack/npm/README.md) | Network | Proxy hosts overview **(Beta)** |
@@ -675,6 +676,7 @@ Mit **(Beta)** markierte Plugins sind neue Integrationen, die noch nicht gegen j
 | [Homematic](plugins-pack/homematic/README.md) | Utility | Heizung, Schalter, Sensoren, Räume (RaspberryMatic) **(Beta)** |
 | [Iframe](plugins-pack/iframe/README.md) | Utility | Webseite einbetten |
 | [Jellyfin](plugins-pack/jellyfin/README.md) | Media | Aktive Sessions |
+| [LLM-Cockpit](plugins-pack/llm-cockpit/README.md) | System | Token-Zähler (heute/Monat, Tagesverlauf), LLM-Tempo und Projektstatus in einer Kachel — braucht den kleinen Sammel-Dienst (`/tokens`, `/status`) |
 | [LLM-Tempo](plugins-pack/llm-tempo/README.md) | System | Token pro Sekunde lokaler llama.cpp-Server (braucht `llama-server --metrics`) |
 | [NetzWacht](plugins-pack/netzwacht/README.md) | Sicherheit | Live-Durchsatz, Top-Geräte und Suricata-Alarme aus einem ntopng-Stack **(Beta)** |
 | [Nginx Proxy Manager](plugins-pack/npm/README.md) | Netzwerk | Übersicht der Proxy-Hosts **(Beta)** |

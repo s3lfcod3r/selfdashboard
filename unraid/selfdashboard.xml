@@ -49,7 +49,7 @@
     Target="/app/data"
     Default="/mnt/user/appdata/selfdashboard"
     Mode="rw"
-    Description="App-Daten (/app/data): pro User dashboard.json unter users/, Auth unter auth/auth.db, Kalender, Logs. Backup dieses Host-Ordners empfohlen. Optional: SELFDASHBOARD_DATA_DIR überschreibt den Pfad im Container."
+    Description="App-Daten (/app/data): pro User dashboard.json unter users/, ausgelagerte Bilder aus Widget-Einstellungen unter blobs/, Auth unter auth/auth.db, Kalender, Logs, Schlüsseldateien (.calendar-key, .secret-salt). Backup dieses Host-Ordners empfohlen (inkl. blobs/). Optional: SELFDASHBOARD_DATA_DIR überschreibt den Pfad im Container."
     Type="Path"
     Display="always"
     Required="true"
@@ -159,7 +159,7 @@
     Target="SELFDASHBOARD_AUTH_RESET_PASSWORD"
     Default=""
     Mode=""
-    Description="OPTIONAL — Admin-Passwort per Env zurücksetzen (wenn vergessen). Neues Passwort setzen (min. 8 Zeichen), Container neu starten, einloggen, dann Variable LEEREN und erneut starten. Optional SELFDASHBOARD_AUTH_RESET_USER=admin (sonst erster Admin). Alternative: SELFDASHBOARD_AUTH_RESET=admin:NeuesPasswort"
+    Description="OPTIONAL — Admin-Passwort per Env zurücksetzen (wenn vergessen). Neues Passwort setzen (min. 8 Zeichen) UND „Env-Reset erlauben“ auf 1 setzen (sonst wird der Reset bei NODE_ENV=production ignoriert), Container neu starten, einloggen, dann BEIDE Variablen LEEREN und erneut starten. Optional SELFDASHBOARD_AUTH_RESET_USER=admin (sonst erster Admin). Alternative: SELFDASHBOARD_AUTH_RESET=admin:NeuesPasswort"
     Type="Variable"
     Display="advanced"
     Required="false"
@@ -171,6 +171,17 @@
     Default=""
     Mode=""
     Description="OPTIONAL — Benutzername für Passwort-Reset (mit SELFDASHBOARD_AUTH_RESET_PASSWORD). Leer = erster Admin."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Env-Reset erlauben (optional)"
+    Target="SELFDASHBOARD_ENABLE_ENV_RESET"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — nur zusammen mit dem Passwort-Reset oben auf 1 setzen. Im Produktivbetrieb (NODE_ENV=production) wird der Env-Reset sonst bewusst ignoriert. Nach dem Reset wieder leeren."
     Type="Variable"
     Display="advanced"
     Required="false"
@@ -208,5 +219,104 @@
     Display="always"
     Required="false"
     Mask="false">1</Config>
+
+  <Config
+    Name="Secure-Cookies (bei HTTPS)"
+    Target="SELFDASHBOARD_SECURE_COOKIES"
+    Default=""
+    Mode=""
+    Description="Auf 1 setzen, sobald das Dashboard über HTTPS erreichbar ist (z. B. hinter einem Reverse-Proxy). Dann werden Sitzungs-Cookies nur noch über HTTPS gesendet. Leer = auch HTTP im LAN funktioniert."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Reverse-Proxy vertrauen"
+    Target="SELFDASHBOARD_TRUST_PROXY"
+    Default=""
+    Mode=""
+    Description="Nur auf 1 setzen, wenn ein Reverse-Proxy davor X-Forwarded-For / X-Real-IP setzt (für die IP-Ratenbegrenzung). Ohne Proxy leer lassen — diese Header kann sonst jeder Client fälschen. Der Schutz gegen Passwort-Raten pro Konto wirkt unabhängig davon."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Plugin-Lese-Cache"
+    Target="SELFDASHBOARD_PLUGIN_READ_CACHE"
+    Default="1"
+    Mode=""
+    Description="Zentraler Lese-Cache für Plugin-APIs (seit 10/2026): Lese-Anfragen werden in höchstens ~300 ms beantwortet, notfalls mit der letzten Antwort, während im Hintergrund neu geladen wird. Gilt nur für Plugins, die das in ihrer plugin.json freigeben; Aktionen werden nie gecacht. 0 = aus (zur Fehlersuche)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">1</Config>
+
+  <Config
+    Name="Offline-Merker für Hosts"
+    Target="SELFDASHBOARD_HOST_DOWN_MS"
+    Default="1"
+    Mode=""
+    Description="Seit 10/2026: Ist ein LAN-Gerät nicht erreichbar, antworten Widgets sofort statt jedes Mal ~3 s zu warten; alle 15 s wird im Hintergrund geprüft, ob es wieder da ist. 0 = aus."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">1</Config>
+
+  <Config
+    Name="Max. Alter alter Daten (ms)"
+    Target="SELFDASHBOARD_STALE_MAX_MS"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — wie alt zwischengespeicherte Plugin-Daten höchstens sein dürfen, die sofort gezeigt werden, während neu geladen wird. Leer = Standard je Plugin (z. B. 10 Minuten). 0 = nur frische Daten (langsamer)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Zeitmessung loggen"
+    Target="SELFDASHBOARD_TIMING_LOG"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — 1 schreibt jede Plugin-Anfrage mit ihrer Dauer ins Container-Log (zur Fehlersuche). Leer = nur langsame Anfragen."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="Langsam ab (ms)"
+    Target="SELFDASHBOARD_TIMING_SLOW_MS"
+    Default="500"
+    Mode=""
+    Description="Plugin-Anfragen, die länger dauern, landen immer im Container-Log."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">500</Config>
+
+  <Config
+    Name="Rechte nicht anpassen"
+    Target="SELFDASHBOARD_SKIP_CHOWN"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — 1 = beim Start die Besitzer von /app/data und /app/plugins/custom nicht auf PUID/PGID setzen."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="CrowdSec-Leserechte setzen"
+    Target="SELFDASHBOARD_FIX_CROWDSEC_PERMS"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — 0 = beim Start keine Leserechte auf /crowdsec-data ergänzen. Leer = Standard (Leserechte ergänzen)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
 
 </Container>
