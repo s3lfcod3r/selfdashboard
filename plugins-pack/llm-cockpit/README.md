@@ -19,4 +19,4 @@ Leere Felder übernimmt die Kachel aus vorhandenen `llm-token`-, `llm-tempo`- un
 
 Private LAN-Adressen brauchen `SELFDASHBOARD_ALLOW_PRIVATE_URLS=1`.
 
-Ist ein Dienst nicht erreichbar, bleiben die letzten Daten stehen und die Kachel nennt den Host, der fehlt. Der letzte Stand wird im Browser gemerkt und ist auch nach dem Neuladen der Seite noch da; ein ausgeschalteter llama.cpp-Server (z. B. die RTX2000) bekommt ein graues **offline**-Schild und zeigt seine letzten Werte mit „zuletzt vor …“.
+Ist ein Dienst nicht erreichbar, bleiben die letzten Daten stehen und die Kachel nennt den Host, der fehlt. Der letzte Stand wird auf dem Dashboard-Server gemerkt (`data/plugins/llm-cockpit/letzter-stand.json`) und ist damit in jedem Browser und auch nach Neuladen oder Neustart noch da; ein ausgeschalteter llama.cpp-Server (z. B. die RTX2000) bekommt ein graues **offline**-Schild und zeigt seine letzten Werte mit „zuletzt vor …“.
