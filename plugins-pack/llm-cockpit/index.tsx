@@ -117,6 +117,43 @@ function Hinweis({ text, stand, de }: { text: string; stand: number | null; de: 
   )
 }
 
+// Letzte gute Antwort je Dienst im Browser merken: faehrt der Server runter oder wird
+// die Seite neu geladen, zeigt die Kachel weiter den letzten Stand statt nichts.
+const SPEICHER = 'llm-cockpit:'
+type Gemerkt<T> = { t: number; d: T }
+
+function erinnern<T>(key: string): Gemerkt<T> | null {
+  try {
+    const raw = localStorage.getItem(SPEICHER + key)
+    const v = raw ? (JSON.parse(raw) as Gemerkt<T>) : null
+    return v && typeof v.t === 'number' ? v : null
+  } catch {
+    return null
+  }
+}
+
+function merken<T>(key: string, d: T): void {
+  try {
+    localStorage.setItem(SPEICHER + key, JSON.stringify({ t: Date.now(), d }))
+  } catch {
+    // Speicher voll oder gesperrt: dann eben nur bis zum Neuladen.
+  }
+}
+
+/** Kleines graues "offline"-Schild, z.B. fuer die RTX, wenn der Rechner aus ist. */
+function OfflineSchild() {
+  return (
+    <span
+      style={{
+        fontSize: 9, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', padding: '1px 6px', borderRadius: 8,
+        background: 'rgba(107,114,128,.25)', color: '#9ca3af', border: '1px solid rgba(156,163,175,.35)', whiteSpace: 'nowrap',
+      }}
+    >
+      offline
+    </span>
+  )
+}
+
 const trenner: CSSProperties = { borderTop: '1px solid rgba(128,128,128,.18)', margin: '2px 0' }
 
 // ---------------------------------------------------------------------------
@@ -214,9 +251,9 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
   active: boolean
   de: boolean
 }) {
-  const [daten, setDaten] = useState<TokenDaten | null>(null)
+  const [daten, setDaten] = useState<TokenDaten | null>(() => erinnern<TokenDaten>(`tokens:${url}`)?.d ?? null)
   const [fehler, setFehler] = useState('')
-  const [stand, setStand] = useState<number | null>(null)
+  const [stand, setStand] = useState<number | null>(() => erinnern<TokenDaten>(`tokens:${url}`)?.t ?? null)
   // 'heute' | 'gestern' | 'woche' | 'YYYY-MM'
   const [wahl, setWahl] = useState(zeitraum)
 
@@ -226,6 +263,7 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
       setDaten(r.data)
       setFehler('')
       setStand(Date.now())
+      merken(`tokens:${url}`, r.data)
     } else {
       setFehler(fehlerText(r.fehler, de ? 'Token-Sammler' : 'Token collector', de))
     }
@@ -436,7 +474,11 @@ type TempoZeile = {
   schnitt: number | null
   liest: number | null
   mtp: number | null
+  /** Zeitpunkt der gezeigten Werte, wenn sie nicht live sind (Server aus / vor der ersten Messung). */
+  seit: number | null
 }
+
+type TempoGemerkt = { letzte: Record<string, { z: TempoZeile; t: number }>; verlauf: Record<string, number[]> }
 
 /** "Name=URL" je Zeile; ohne Namen wird die Adresse als Name benutzt. */
 function parseServers(text: string): { name: string; url: string }[] {
@@ -502,11 +544,18 @@ function TempoTeil({ serversText, nur, refreshMs, active, de }: {
   }, [serversText, nur])
   const serversKey = JSON.stringify(servers)
 
-  const [zeilen, setZeilen] = useState<TempoZeile[]>([])
+  const [anfang] = useState(() => erinnern<TempoGemerkt>('tempo')?.d ?? { letzte: {}, verlauf: {} })
+  // Bis zur ersten Messung den letzten bekannten Stand zeigen statt einer leeren Zeile.
+  const [zeilen, setZeilen] = useState<TempoZeile[]>(() =>
+    Object.values(anfang.letzte)
+      .filter(({ z }) => servers.some((s) => s.name === z.name))
+      .map(({ z, t }) => ({ ...z, busy: false, seit: t })),
+  )
   const [fehler, setFehler] = useState('')
   const vorher = useRef<Record<string, Metrics>>({})
   const zuletzt = useRef<Record<string, number>>({})
-  const verlauf = useRef<Record<string, number[]>>({})
+  const verlauf = useRef<Record<string, number[]>>(anfang.verlauf)
+  const letzte = useRef<TempoGemerkt['letzte']>(anfang.letzte)
 
   const load = useCallback(async () => {
     const liste = JSON.parse(serversKey) as { name: string; url: string }[]
@@ -524,7 +573,7 @@ function TempoTeil({ serversText, nur, refreshMs, active, de }: {
       if (s.state !== 'ok' || !m) {
         delete vorher.current[key]
         delete zuletzt.current[key]
-        return { name: s.name, state: s.state, busy: false, schreibt: null, schnitt: null, liest: null, mtp: null }
+        return { name: s.name, state: s.state, busy: false, schreibt: null, schnitt: null, liest: null, mtp: null, seit: null }
       }
       const alt = vorher.current[key]
       if (alt && m.tokens_predicted_total >= alt.tokens_predicted_total) {
@@ -547,9 +596,21 @@ function TempoTeil({ serversText, nur, refreshMs, active, de }: {
         schnitt: rate(m.tokens_predicted_total, m.tokens_predicted_seconds_total),
         liest: rate(m.prompt_tokens_total, m.prompt_seconds_total),
         mtp: draft ? (m.spec_decode_num_accepted_tokens_total ?? 0) / draft : null,
+        seit: null,
       }
     })
-    setZeilen(zusammenfassen(alle))
+    const jetzt = Date.now()
+    const fertig = zusammenfassen(alle).map((z): TempoZeile => {
+      if (z.state === 'ok' && (z.schreibt ?? z.schnitt) !== null) {
+        letzte.current[z.name] = { z, t: jetzt }
+        return z
+      }
+      // Server aus: die letzten Messwerte bleiben stehen, nur als offline markiert.
+      const alt = letzte.current[z.name]
+      return z.state !== 'ok' && alt ? { ...alt.z, state: z.state, busy: false, seit: alt.t } : z
+    })
+    merken<TempoGemerkt>('tempo', { letzte: letzte.current, verlauf: verlauf.current })
+    setZeilen(fertig)
   }, [serversKey, de])
   usePoll(load, refreshMs, active, servers.length > 0)
 
@@ -573,12 +634,14 @@ function TempoTeil({ serversText, nur, refreshMs, active, de }: {
     <Abschnitt titel={titel}>
       {fehler && <Hinweis text={fehler} stand={null} de={de} />}
       {zeilen.map((z) => {
-        const an = z.state === 'ok'
+        const an = z.state === 'ok' && z.seit === null
         const farbe = !an ? '#6b7280' : z.busy ? FARBE_AUS : FARBE_EIN
         const zustand =
           z.state === 'off'
-            ? de ? 'aus' : 'off'
-            : z.state === 'no_metrics'
+            ? <OfflineSchild />
+            : z.seit !== null
+              ? '…'
+              : z.state === 'no_metrics'
               ? de ? 'ohne --metrics' : 'no --metrics'
               : z.state === 'error'
                 ? de ? 'Fehler' : 'error'
@@ -592,30 +655,31 @@ function TempoTeil({ serversText, nur, refreshMs, active, de }: {
           z.mtp !== null ? `MTP ${fmt(z.mtp * 100, 0)} %` : '',
         ].filter(Boolean)
         return (
-          <div key={z.name} style={{ opacity: an ? 1 : 0.55, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div key={z.name} style={{ opacity: an ? 1 : 0.6, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
               <span
                 style={{
                   width: 7, height: 7, borderRadius: 4, background: farbe, flexShrink: 0, alignSelf: 'center',
-                  boxShadow: z.busy ? `0 0 0 3px ${farbe}33` : 'none',
+                  boxShadow: an && z.busy ? `0 0 0 3px ${farbe}33` : 'none',
                 }}
               />
               <strong style={{ flex: 1, minWidth: 0, ...eineZeile }}>{z.name}</strong>
-              <span style={{ fontSize: 11, opacity: 0.55 }}>{zustand}</span>
-              {an && haupt !== null && (
+              <span style={{ fontSize: 11, opacity: z.state === 'off' ? 1 : 0.55, alignSelf: 'center' }}>{zustand}</span>
+              {haupt !== null && (
                 <span style={{ whiteSpace: 'nowrap', ...zahlen }}>
-                  <span style={{ fontSize: 17, fontWeight: 700, color: z.busy ? farbe : undefined }}>{fmt(haupt)}</span>
+                  <span style={{ fontSize: 17, fontWeight: 700, color: an && z.busy ? farbe : undefined }}>{fmt(haupt)}</span>
                   <span style={{ fontSize: 11, opacity: 0.6 }}> t/s</span>
                 </span>
               )}
             </div>
-            {an && haupt !== null && neben.length > 0 && (
+            {haupt !== null && (neben.length > 0 || z.seit !== null) && (
               <div style={{ paddingLeft: 14, fontSize: 11, opacity: 0.6, ...zahlen }}>
                 {neben.join(' · ')}
                 {z.schreibt === null && (de ? ' · Schnitt' : ' · avg')}
+                {z.seit !== null && `${neben.length ? ' · ' : ''}${de ? 'zuletzt' : 'last'} ${vor(z.seit, de)}`}
               </div>
             )}
-            {an && <Verlauf werte={verlauf.current[z.name] ?? []} farbe={farbe} />}
+            {(an || haupt !== null) && <Verlauf werte={verlauf.current[z.name] ?? []} farbe={farbe} />}
           </div>
         )
       })}
@@ -785,9 +849,9 @@ function ProjektTeil({ url, showDone, maxProjekte, refreshMs, active, de }: {
   active: boolean
   de: boolean
 }) {
-  const [data, setData] = useState<Status | null>(null)
+  const [data, setData] = useState<Status | null>(() => erinnern<Status>(`status:${url}`)?.d ?? null)
   const [fehler, setFehler] = useState('')
-  const [stand, setStand] = useState<number | null>(null)
+  const [stand, setStand] = useState<number | null>(() => erinnern<Status>(`status:${url}`)?.t ?? null)
   const [alleZeigen, setAlleZeigen] = useState(false)
   const [filter, setFilter] = useState<'alle' | Art>('alle')
   const [zeit, setZeit] = useState('alle')
@@ -798,6 +862,7 @@ function ProjektTeil({ url, showDone, maxProjekte, refreshMs, active, de }: {
       setData(r.data)
       setFehler('')
       setStand(Date.now())
+      merken(`status:${url}`, r.data)
     } else {
       setFehler(fehlerText(r.fehler, de ? 'Projektstatus-Dienst' : 'Status service', de))
     }
@@ -1073,7 +1138,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🧠',
-  version: '1.1.0',
+  version: '1.2.0',
   defaultLayout: { w: 4, h: 9, minW: 2, minH: 4 },
   configSchema: [
     { key: 'tokenUrl', label: 'Sammler-URL', type: 'text', defaultValue: '' },
