@@ -44,6 +44,8 @@ function vor(iso: string | number, de: boolean): string {
 }
 
 type ApiFehler = { error?: string; host?: string; status?: number }
+/** Der Serverteil liefert bei ausgefallenem Dienst den letzten Stand mit diesem Vermerk. */
+type Offline = { _offline?: ApiFehler & { stand: number } }
 
 /** Fehler des Serverteils in einen Satz: was fehlt und welcher Host. */
 function fehlerText(b: ApiFehler, dienst: string, de: boolean): string {
@@ -258,8 +260,12 @@ function TokenTeil({ url, zeitraum, namenNachUrl, refreshMs, active, de }: {
   const [wahl, setWahl] = useState(zeitraum)
 
   const load = useCallback(async () => {
-    const r = await post<TokenDaten>({ kind: 'tokens', url })
-    if (r.ok) {
+    const r = await post<TokenDaten & Offline>({ kind: 'tokens', url })
+    if (r.ok && r.data._offline) {
+      setDaten(r.data)
+      setFehler(fehlerText(r.data._offline, de ? 'Token-Sammler' : 'Token collector', de))
+      setStand(r.data._offline.stand)
+    } else if (r.ok) {
       setDaten(r.data)
       setFehler('')
       setStand(Date.now())
@@ -465,7 +471,13 @@ function TageVerlauf({ tage, monat, onMonat, de }: {
 // ---------------------------------------------------------------------------
 
 type Metrics = Record<string, number>
-type ServerState = { name: string; state: 'ok' | 'off' | 'no_metrics' | 'error'; metrics?: Metrics }
+type ServerState = {
+  name: string
+  state: 'ok' | 'off' | 'no_metrics' | 'error'
+  metrics?: Metrics
+  /** Vom Serverteil gemerkte letzte Messung, wenn der Server gerade aus ist. */
+  letzte?: { t: number; schreibt: number | null; schnitt: number | null; liest: number | null; mtp: number | null; verlauf: number[] }
+}
 type TempoZeile = {
   name: string
   state: ServerState['state']
@@ -573,7 +585,11 @@ function TempoTeil({ serversText, nur, refreshMs, active, de }: {
       if (s.state !== 'ok' || !m) {
         delete vorher.current[key]
         delete zuletzt.current[key]
-        return { name: s.name, state: s.state, busy: false, schreibt: null, schnitt: null, liest: null, mtp: null, seit: null }
+        const l = s.letzte
+        if (l && !(verlauf.current[s.name]?.length)) verlauf.current[s.name] = l.verlauf
+        return l
+          ? { name: s.name, state: s.state, busy: false, schreibt: l.schreibt, schnitt: l.schnitt, liest: l.liest, mtp: l.mtp, seit: l.t }
+          : { name: s.name, state: s.state, busy: false, schreibt: null, schnitt: null, liest: null, mtp: null, seit: null }
       }
       const alt = vorher.current[key]
       if (alt && m.tokens_predicted_total >= alt.tokens_predicted_total) {
@@ -606,8 +622,9 @@ function TempoTeil({ serversText, nur, refreshMs, active, de }: {
         return z
       }
       // Server aus: die letzten Messwerte bleiben stehen, nur als offline markiert.
+      // Was neuer ist gewinnt: der Stand aus diesem Browser oder der vom Serverteil.
       const alt = letzte.current[z.name]
-      return z.state !== 'ok' && alt ? { ...alt.z, state: z.state, busy: false, seit: alt.t } : z
+      return z.state !== 'ok' && alt && (z.seit === null || alt.t > z.seit) ? { ...alt.z, state: z.state, busy: false, seit: alt.t } : z
     })
     merken<TempoGemerkt>('tempo', { letzte: letzte.current, verlauf: verlauf.current })
     setZeilen(fertig)
@@ -857,8 +874,12 @@ function ProjektTeil({ url, showDone, maxProjekte, refreshMs, active, de }: {
   const [zeit, setZeit] = useState('alle')
 
   const load = useCallback(async () => {
-    const r = await post<Status>({ kind: 'status', url })
-    if (r.ok) {
+    const r = await post<Status & Offline>({ kind: 'status', url })
+    if (r.ok && r.data._offline) {
+      setData(r.data)
+      setFehler(fehlerText(r.data._offline, de ? 'Projektstatus-Dienst' : 'Status service', de))
+      setStand(r.data._offline.stand)
+    } else if (r.ok) {
       setData(r.data)
       setFehler('')
       setStand(Date.now())
@@ -1138,7 +1159,7 @@ export const meta: PluginMeta = {
   author: 'SelfDashboard',
   category: 'system',
   icon: '🧠',
-  version: '1.2.0',
+  version: '1.3.0',
   defaultLayout: { w: 4, h: 9, minW: 2, minH: 4 },
   configSchema: [
     { key: 'tokenUrl', label: 'Sammler-URL', type: 'text', defaultValue: '' },

@@ -1,3 +1,15 @@
+// plugins-pack/llm-cockpit/server.ts
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { dirname, join as join2 } from "node:path";
+
+// plugins-pack/_shared/data-dir.ts
+import { join } from "path";
+function dataDir() {
+  const raw = process.env.SELFDASHBOARD_DATA_DIR?.trim();
+  if (raw) return raw;
+  return join(process.cwd(), "data");
+}
+
 // plugins-pack/_shared/log.ts
 async function logPluginApiFailure(pluginId, operation, message, detail) {
   const extra = detail ? ` ${JSON.stringify(detail).slice(0, 500)}` : "";
@@ -422,6 +434,86 @@ async function readServer(s) {
     clearTimeout(timer);
   }
 }
+var standDatei = () => join2(dataDir(), "plugins", PLUGIN_ID, "letzter-stand.json");
+var SCHREIB_PAUSE_MS = 1e4;
+var stand = null;
+var schreibTimer = null;
+function ladeStand() {
+  if (stand) return stand;
+  try {
+    const data = JSON.parse(readFileSync(standDatei(), "utf8"));
+    stand = data && typeof data === "object" ? data : {};
+  } catch {
+    stand = {};
+  }
+  return stand;
+}
+function speichern() {
+  schreibTimer = null;
+  try {
+    const file = standDatei();
+    mkdirSync(dirname(file), { recursive: true });
+    const tmp = `${file}.tmp`;
+    writeFileSync(tmp, JSON.stringify(ladeStand()), "utf8");
+    renameSync(tmp, file);
+  } catch (err) {
+    void logPluginApiFailure(PLUGIN_ID, "save-last-state", err instanceof Error ? err.message : String(err));
+  }
+}
+function merke(key, d) {
+  ladeStand()[key] = { t: Date.now(), d };
+  if (!schreibTimer) schreibTimer = setTimeout(speichern, SCHREIB_PAUSE_MS);
+}
+async function mitLetztemStand(key, res) {
+  const text = await res.text();
+  let body = null;
+  try {
+    body = JSON.parse(text);
+  } catch {
+  }
+  if (res.ok && body && typeof body === "object") {
+    merke(key, body);
+    return json(body);
+  }
+  const alt = ladeStand()[key];
+  if (res.ok || !alt || !alt.d || typeof alt.d !== "object") return new Response(text, { status: res.status, headers: res.headers });
+  const fehler = body && typeof body === "object" ? body : { error: `HTTP ${res.status}` };
+  return json({ ...alt.d, _offline: { ...fehler, stand: alt.t } });
+}
+var rate = (tokens, seconds) => tokens !== void 0 && seconds !== void 0 && seconds > 0 && tokens > 0 ? tokens / seconds : null;
+var VERLAUF = 30;
+var vorherMetrics = /* @__PURE__ */ new Map();
+function tempoMerken(s, out) {
+  const key = `tempo:${s.name}|${s.url}`;
+  const m = out.metrics;
+  if (out.state !== "ok" || !m) {
+    vorherMetrics.delete(key);
+    const alt2 = ladeStand()[key];
+    return alt2 ? { ...out, letzte: { ...alt2.d, t: alt2.t } } : out;
+  }
+  const alt = ladeStand()[key]?.d;
+  const vorher = vorherMetrics.get(key);
+  vorherMetrics.set(key, m);
+  let schreibt = alt?.schreibt ?? null;
+  let verlauf = alt?.verlauf ?? [];
+  if (vorher && m.tokens_predicted_total > vorher.tokens_predicted_total) {
+    const neu = rate(m.tokens_predicted_total - vorher.tokens_predicted_total, m.tokens_predicted_seconds_total - vorher.tokens_predicted_seconds_total);
+    if (neu !== null) {
+      schreibt = neu;
+      verlauf = [...verlauf, neu].slice(-VERLAUF);
+    }
+  }
+  const draft = m.spec_decode_num_draft_tokens_total;
+  const tempo = {
+    schreibt,
+    schnitt: rate(m.tokens_predicted_total, m.tokens_predicted_seconds_total),
+    liest: rate(m.prompt_tokens_total, m.prompt_seconds_total),
+    mtp: draft ? (m.spec_decode_num_accepted_tokens_total ?? 0) / draft : null,
+    verlauf
+  };
+  if (tempo.schreibt !== null || tempo.schnitt !== null) merke(key, tempo);
+  return out;
+}
 async function handle(request) {
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   let body;
@@ -433,16 +525,19 @@ async function handle(request) {
   const url = typeof body.url === "string" ? body.url.trim() : "";
   if (body.kind === "tokens") {
     if (!url) return json({ error: "missing_url" }, 400);
-    return fetchJson(url, "fetch-tokens");
+    return mitLetztemStand(`tokens:${url}`, await fetchJson(url, "fetch-tokens"));
   }
   if (body.kind === "status") {
     if (!url) return json({ error: "missing_url" }, 400);
-    return statusCache.respond(url, () => fetchJson(url, "fetch-status"));
+    return statusCache.respond(url, async () => mitLetztemStand(`status:${url}`, await fetchJson(url, "fetch-status")), {
+      // Offline-Antworten nicht zwischenspeichern, sonst bleibt "offline" nach dem Hochfahren haengen.
+      cacheable: (b) => !b.includes('"_offline"')
+    });
   }
   if (body.kind === "tempo") {
     const servers = Array.isArray(body.servers) ? body.servers.filter((s) => !!s && typeof s.name === "string" && typeof s.url === "string" && s.url.trim() !== "").slice(0, MAX_SERVERS) : [];
     if (servers.length === 0) return json({ error: "missing_servers" }, 400);
-    return json({ servers: await Promise.all(servers.map(readServer)) });
+    return json({ servers: await Promise.all(servers.map(async (s) => tempoMerken(s, await readServer(s)))) });
   }
   return json({ error: "unknown_kind" }, 400);
 }
