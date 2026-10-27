@@ -35,26 +35,24 @@ async function buildSection(id: string, asset: WidgetBundleAsset): Promise<strin
   } catch (e) {
     return cacheSection(cacheKey, `__sdBundle[${key}]=${JSON.stringify(`syntax_error: ${e instanceof Error ? e.message : String(e)}`)};`)
   }
-  // Ausführungszeit pro Widget messen (Perf-Bericht: Spalte „laden“).
   return cacheSection(
     cacheKey,
-    `/* ${id} */\nvar __sdT0=performance.now();try{${wrapped}__sdBundle[${key}]=true}catch(e){__sdBundle[${key}]=String(e&&e.message||e);console.error("[SelfDashboard] widget.js im Bundle fehlgeschlagen: "+${key},e)}__sdEval[${key}]=performance.now()-__sdT0;`,
+    `/* ${id} */\ntry{${wrapped}__sdBundle[${key}]=true}catch(e){__sdBundle[${key}]=String(e&&e.message||e);console.error("[SelfDashboard] widget.js im Bundle fehlgeschlagen: "+${key},e)}`,
   )
 }
 
 /**
  * JS-Bundle: jedes Widget gekapselt in eigener Funktion + try/catch (ein kaputtes
  * Widget reißt die anderen nicht mit). Ergebnis pro Id in
- * window.__sdWidgetBundleResults[id] (true | Fehlertext), Ausführungszeit in
- * window.__sdWidgetEvalMs[id]. Syntaxfehler werden vorab per vm.Script erkannt und
- * nicht eingebunden. `.call(window)` und der Funktions-Prolog erhalten `this` und
+ * window.__sdWidgetBundleResults[id] (true | Fehlertext). Syntaxfehler werden vorab
+ * per vm.Script erkannt und nicht eingebunden. Abschnittsmarker `/* id *\/` nutzt der
+ * Perf-Bericht für die Größe pro Widget. `.call(window)` und der Funktions-Prolog erhalten `this` und
  * ein eventuelles "use strict" des Originals.
  */
 export async function buildWidgetJsBundle(ids: string[], assets: Map<string, WidgetBundleAsset>): Promise<string> {
   const parts = [
     '/* SelfDashboard widget bundle */',
     'var __sdBundle=(window.__sdWidgetBundleResults=window.__sdWidgetBundleResults||{});',
-    'var __sdEval=(window.__sdWidgetEvalMs=window.__sdWidgetEvalMs||{});',
   ]
   for (const id of ids) {
     const asset = assets.get(id)
