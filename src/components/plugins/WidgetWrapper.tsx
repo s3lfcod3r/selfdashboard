@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { X, GripVertical, Settings, ZoomIn, ZoomOut, Box, Loader2, Copy, Check } from 'lucide-react'
 import { pluginRegistry } from '@/lib/pluginRegistry'
 import {
@@ -36,6 +36,64 @@ function coercePadding(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v)
   if (!Number.isFinite(n)) return 8
   return Math.max(0, Math.min(48, Math.round(n)))
+}
+
+function lazyWidgetsDisabled(): boolean {
+  try {
+    return window.localStorage.getItem('sd:noLazyWidgets') === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Hängt das Widget erst ein, wenn seine Kachel bis auf 400 px an den sichtbaren
+ * Bereich herankommt — Kacheln weiter unten (große Dashboards) kosten beim Laden
+ * weder Render-Zeit noch Datenabrufe. Einmal sichtbar, bleibt das Widget eingehängt.
+ * Im Bearbeitungsmodus sofort (Kacheln werden verschoben). Abschalten:
+ * localStorage.setItem('sd:noLazyWidgets', '1').
+ */
+function LazyMount({ eager, children }: { eager: boolean; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(
+    () =>
+      eager ||
+      (typeof window !== 'undefined' && (typeof IntersectionObserver === 'undefined' || lazyWidgetsDisabled())),
+  )
+  useEffect(() => {
+    if (eager) setVisible(true)
+  }, [eager])
+  useEffect(() => {
+    if (visible) return
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true)
+          io.disconnect()
+        }
+      },
+      { rootMargin: '400px 0px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [visible])
+  return (
+    <div
+      ref={ref}
+      style={{
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      {visible ? children : null}
+    </div>
+  )
 }
 
 export function WidgetWrapper({ instance, editMode, layoutMode = 'desktop' }: Props) {
@@ -396,16 +454,7 @@ export function WidgetWrapper({ instance, editMode, layoutMode = 'desktop' }: Pr
               flexDirection: 'column',
             }}
           >
-            <div
-              style={{
-                flex: 1,
-                minHeight: 0,
-                minWidth: 0,
-                width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
+            <LazyMount eager={!!editMode}>
               <Widget
                 instanceId={instance.instanceId}
                 config={instance.config}
@@ -413,7 +462,7 @@ export function WidgetWrapper({ instance, editMode, layoutMode = 'desktop' }: Pr
                 editMode={editMode}
                 layoutMode={layoutMode}
               />
-            </div>
+            </LazyMount>
           </div>
         </div>
       </div>

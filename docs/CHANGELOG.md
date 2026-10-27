@@ -41,6 +41,19 @@ Token counter, LLM speed and project status in **one** tile. The single tiles `l
 | **Collector service** | `/tokens` and `/status` come from a small collector container (e.g. `llm-sammler`: token totals per day and month from the llama.cpp `/metrics`, project status from the `STATUS.md` files). |
 | **Layout** | Minimum width 2 columns. |
 
+### Core app (2026-10-27) — many plugins on one dashboard
+
+Measured on a test dashboard with 52 plugins. **New image; Plugin Store → update Bambu Lab Camera.**
+
+| Topic | Change |
+|--------|--------|
+| **Bundle in parts** | The widget bundle is split into ~300 KB parts, each its own script — the browser can paint in between instead of running 1.6 MB at once. |
+| **Auto-minify + transpile** | `esbuild` is now part of the image: every `widget.js` is transpiled for old WebViews (ES2017), unminified builds are minified automatically (cached per content). Previously the transpile step silently did nothing because `esbuild` was missing at runtime. |
+| **Per-widget build cache** | New plugin combinations are assembled from cached parts (first build of a 52-plugin bundle: 503 ms before). |
+| **Off-screen tiles** | Tiles far below the visible area are only mounted when scrolled near (no render time, no data requests before). Immediately in edit mode. Off: `localStorage.setItem('sd:noLazyWidgets','1')`. |
+| **Perf report** | New column `laden`: execution time of each widget's code when the bundle loads. |
+| **Bambu Lab Camera 0.9.4** | Uses the offline-host memory: a switched-off camera costs ~3 s only once instead of on every refresh. |
+
 ### Core app + plugins (2026-10) — loading performance
 
 Measured on a dashboard with 24 widgets: browser blocking while loading **1.7 s → 0.07 s**, dashboard state **2.2 MB → 13 KB**, Docker widget **6–8 s → < 0.1 s**, unreachable hosts **3 s per request → instant**. **New image + Plugin Store → Update all → Ctrl+F5.**
@@ -160,6 +173,19 @@ Token-Zähler, LLM-Tempo und Projektstatus in **einer** Kachel. Die Einzel-Kache
 | **Einrichtung** | Leere Adressen werden aus vorhandenen `llm-token`- / `llm-tempo`- / `openclaw-status`-Kacheln übernommen. Fehler nennen den nicht erreichbaren Host, die letzten Daten bleiben sichtbar. |
 | **Sammel-Dienst** | `/tokens` und `/status` liefert ein kleiner Sammel-Container (z. B. `llm-sammler`: Token-Summen je Tag und Monat aus den llama.cpp-`/metrics`, Projektstatus aus den `STATUS.md`-Dateien). |
 | **Layout** | Mindestbreite 2 Spalten. |
+
+### Kern-App (2026-10-27) — viele Plugins auf einem Dashboard
+
+Gemessen an einem Test-Dashboard mit 52 Plugins. **Neues Image; Plugin-Store → Bambu Lab Kamera aktualisieren.**
+
+| Thema | Änderung |
+|--------|--------|
+| **Bundle in Teilen** | Das Widget-Bundle wird in Teile von ~300 KB aufgeteilt, jeder als eigenes Skript — der Browser kann dazwischen zeichnen, statt 1,6 MB am Stück auszuführen. |
+| **Automatisch minifizieren + übersetzen** | `esbuild` ist jetzt im Image: jedes `widget.js` wird für ältere WebViews übersetzt (ES2017), unminifizierte Builds werden automatisch minifiziert (pro Inhalt gecacht). Vorher lief das Übersetzen still ins Leere, weil `esbuild` zur Laufzeit fehlte. |
+| **Bundle-Cache pro Widget** | Neue Plugin-Kombinationen werden aus gecachten Teilen zusammengesetzt (erster Bau eines 52-Plugin-Bundles vorher: 503 ms). |
+| **Kacheln außerhalb des Sichtfelds** | Kacheln weit unterhalb des sichtbaren Bereichs werden erst beim Hinscrollen eingehängt (vorher keine Renderzeit, keine Datenabrufe). Im Bearbeitungsmodus sofort. Aus: `localStorage.setItem('sd:noLazyWidgets','1')`. |
+| **Perf-Bericht** | Neue Spalte `laden`: Ausführungszeit des Codes jedes Widgets beim Laden des Bundles. |
+| **Bambu Lab Kamera 0.9.4** | Nutzt den Offline-Merker: eine ausgeschaltete Kamera kostet nur einmal ~3 s statt bei jeder Aktualisierung. |
 
 ### Kern-App + Plugins (2026-10) — Ladezeit
 

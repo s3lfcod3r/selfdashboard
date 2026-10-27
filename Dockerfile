@@ -43,6 +43,11 @@ COPY --from=builder /app/node_modules/better-sqlite3 ./node_modules/better-sqlit
 COPY --from=builder /app/scripts/auth-reset-password.mjs ./scripts/auth-reset-password.mjs
 COPY --from=builder /app/node_modules/imapflow ./node_modules/imapflow
 COPY --from=builder /app/node_modules/socks ./node_modules/socks
+# esbuild zur Laufzeit: widget.js für alte WebViews übersetzen + unminifizierte Plugins
+# automatisch minifizieren (src/lib/pluginWidgetJs.ts). Ohne diese Zeilen fehlt die
+# native Binary im Standalone-Build und beides fällt still aus.
+COPY --from=builder /app/node_modules/esbuild ./node_modules/esbuild
+COPY --from=builder /app/node_modules/@esbuild ./node_modules/@esbuild
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"

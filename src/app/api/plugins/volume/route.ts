@@ -1,9 +1,12 @@
+import fs from 'fs'
+import path from 'path'
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/guard'
 import { isPluginAllowed } from '@/lib/auth/pluginPolicy'
 import { resolveKioskAccess } from '@/lib/kiosk/kioskViewRequest'
 import { getCustomPluginsRoot } from '@/lib/pluginPaths'
 import {
+  customPluginDir,
   getCustomServerPluginIds,
   getCustomWidgetOverrideIds,
   hasVolumeFile,
@@ -20,6 +23,19 @@ function filterIdsForUser(ids: string[], userId: string, role: 'admin' | 'user')
 function filterIdsForKiosk(ids: string[], kioskPluginIds: string[]) {
   const allowed = new Set(kioskPluginIds)
   return ids.filter((id) => allowed.has(id))
+}
+
+/** Dateigröße von widget.js — der Client teilt das Widget-Bundle danach in Teile auf. */
+function buildWidgetSizes(ids: string[]): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const id of ids) {
+    try {
+      out[id] = fs.statSync(path.join(customPluginDir(id), 'widget.js')).size
+    } catch {
+      /* fehlt → Client schätzt */
+    }
+  }
+  return out
 }
 
 function buildPluginVersions(ids: string[]): Record<string, string> {
@@ -49,6 +65,7 @@ function buildVolumePayload(
     widgetCssIds: widgetsFiltered.filter((id) => hasVolumeFile(id, 'widget.css')),
     customServerIds: serversFiltered,
     pluginVersions: buildPluginVersions(widgetsFiltered),
+    widgetSizes: buildWidgetSizes(widgetsFiltered),
     hint:
       missingWidgetJs.length > 0
         ? 'plugin.json without widget.js — install from Store or upload a ZIP with widget.js.'
