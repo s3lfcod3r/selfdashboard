@@ -1,7 +1,7 @@
 import { logPluginApiFailure } from '@/lib/pluginLogServer'
 import { createPluginStaleCache } from '@/lib/pluginStaleCache'
 import type { PluginServerContext } from '@/lib/pluginServerRegistry'
-import { crowdsecUnbanIp } from './lib/crowdsecDocker'
+import { crowdsecUnbanIp } from './lib/crowdsecLapi'
 import { resolveCrowdsecDbPath } from './lib/crowdsecDb'
 import { loadCrowdsecDashboardOffThread } from './lib/crowdsecDashboardRunner'
 
@@ -63,25 +63,22 @@ async function handleDecisionPost(req: Request): Promise<Response> {
   }
   const o = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
   const ip = typeof o.ip === 'string' ? o.ip.trim() : ''
-  const container =
-    typeof o.container === 'string' && o.container.trim()
-      ? o.container.trim()
-      : process.env.CROWDSEC_CONTAINER || 'crowdsec'
 
   if (!ip) return Response.json({ error: 'missing_ip' }, { status: 400 })
 
   try {
-    await crowdsecUnbanIp(container, ip)
+    const { deleted } = await crowdsecUnbanIp(ip)
     dashboardCache.clear()
-    return Response.json({ ok: true })
+    return Response.json({ ok: true, deleted })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'delete_failed'
     const status =
-      msg === 'docker_unavailable' || msg === 'crowdsec_container_not_found'
+      msg === 'lapi_credentials_missing' || msg === 'lapi_unreachable'
         ? 503
         : msg === 'invalid_ip'
           ? 400
           : 502
+    void logPluginApiFailure('crowdsec', 'unban', msg, { status })
     return Response.json({ error: msg }, { status })
   }
 }

@@ -6,7 +6,7 @@
 
 ### Kurzbeschreibung
 
-Optional: **Alerts/Bans** aus lokaler **`crowdsec.db`**, Zeitraumfilter, GeoIP-Flags, optionales Entsperren via `cscli`.
+Optional: **Alerts/Bans** aus lokaler **`crowdsec.db`**, Zeitraumfilter, GeoIP-Flags, optionales Entsperren über die **CrowdSec Local API (LAPI)**.
 
 **CrowdSec ist nicht Pflicht** für SelfDashboard.
 
@@ -26,11 +26,17 @@ Plugin installieren → optional Mount **`/crowdsec-data`** → Widget **⚙️*
 
 ### Entsperren (optional)
 
-Docker-Socket + Container-Name (`CROWDSEC_CONTAINER`, Standard `crowdsec`).
+Über die **CrowdSec Local API** — **kein Docker-Socket** nötig. Im CrowdSec-Container eine eigene Maschine anlegen:
+
+```bash
+docker exec crowdsec cscli machines add selfdashboard --password 'LANGES-PASSWORT' -f /dev/null
+```
+
+(`-f /dev/null` ist wichtig — sonst überschreibt `cscli` CrowdSecs eigene `local_api_credentials.yaml`.) Dann am SelfDashboard-Container `CROWDSEC_LAPI_URL` (z. B. `http://192.168.1.7:8080`, Standard `http://crowdsec:8080`), `CROWDSEC_LAPI_MACHINE_ID` und `CROWDSEC_LAPI_PASSWORD` setzen und im Widget **Entsperren per CrowdSec-LAPI** aktivieren. Fehlen die Zugangsdaten, meldet das Widget das beim Entsperren.
 
 ### Env
 
-`CROWDSEC_DATA_DIR`, `CROWDSEC_GEOIP_PATH`, `CROWDSEC_DB_PATH`, `CROWDSEC_CONTAINER`
+`CROWDSEC_DATA_DIR`, `CROWDSEC_GEOIP_PATH`, `CROWDSEC_DB_PATH`, `CROWDSEC_LAPI_URL`, `CROWDSEC_LAPI_MACHINE_ID`, `CROWDSEC_LAPI_PASSWORD`
 
 ```bash
 -v /mnt/user/appdata/crowdsec/data:/crowdsec-data:ro
@@ -46,7 +52,7 @@ Docker-Socket + Container-Name (`CROWDSEC_CONTAINER`, Standard `crowdsec`).
 
 ### Summary
 
-Optional: **alerts/bans** from local **`crowdsec.db`**, time range filter, GeoIP flags, optional unban via `cscli`.
+Optional: **alerts/bans** from local **`crowdsec.db`**, time range filter, GeoIP flags, optional unban via the **CrowdSec Local API (LAPI)**.
 
 **CrowdSec is not required** to run SelfDashboard.
 
@@ -66,11 +72,17 @@ Install plugin → optional mount **`/crowdsec-data`** → widget **⚙️**.
 
 ### Unban (optional)
 
-Docker socket + container name (`CROWDSEC_CONTAINER`, default `crowdsec`).
+Via the **CrowdSec Local API** — **no Docker socket** needed. Create a dedicated machine inside the CrowdSec container:
+
+```bash
+docker exec crowdsec cscli machines add selfdashboard --password 'LONG-PASSWORD' -f /dev/null
+```
+
+(`-f /dev/null` matters — otherwise `cscli` overwrites CrowdSec's own `local_api_credentials.yaml`.) Then set `CROWDSEC_LAPI_URL` (e.g. `http://192.168.1.7:8080`, default `http://crowdsec:8080`), `CROWDSEC_LAPI_MACHINE_ID` and `CROWDSEC_LAPI_PASSWORD` on the SelfDashboard container and enable **Unban via CrowdSec LAPI** in the widget. If the credentials are missing, the widget says so when you unban.
 
 ### Env
 
-`CROWDSEC_DATA_DIR`, `CROWDSEC_GEOIP_PATH`, `CROWDSEC_DB_PATH`, `CROWDSEC_CONTAINER`
+`CROWDSEC_DATA_DIR`, `CROWDSEC_GEOIP_PATH`, `CROWDSEC_DB_PATH`, `CROWDSEC_LAPI_URL`, `CROWDSEC_LAPI_MACHINE_ID`, `CROWDSEC_LAPI_PASSWORD`
 
 ```bash
 -v /mnt/user/appdata/crowdsec/data:/crowdsec-data:ro

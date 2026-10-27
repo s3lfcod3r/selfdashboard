@@ -6,8 +6,8 @@ export interface CrowdsecConfig {
   daysBack: number
   refreshSeconds: number
   maxAlerts: number
+  /** Entsperren-Knopf anzeigen (Unban über die CrowdSec-LAPI; Key-Name aus Kompatibilität). */
   dockerUnban: boolean
-  crowdsecContainer: string
   confirmUnban: boolean
   showCountriesList: boolean
   /** Karte (Liste/Karte-Umschalter) anzeigen — bei schmalen Hochkant-Widgets oft unerwünscht. */
@@ -50,7 +50,6 @@ export function parseCrowdsecConfig(raw: Record<string, unknown>): CrowdsecConfi
     refreshSeconds: Math.min(600, Math.max(5, cfgNum(raw.refreshSeconds, 30))),
     maxAlerts: nearestMaxAlerts(cfgNum(raw.maxAlerts, 500)),
     dockerUnban: cfgBool(raw.dockerUnban, false),
-    crowdsecContainer: cfgStr(raw.crowdsecContainer, 'crowdsec'),
     confirmUnban: cfgBool(raw.confirmUnban, true),
     showCountriesList: cfgBool(raw.showCountriesList, true),
     showMap: cfgBool(raw.showMap, true),

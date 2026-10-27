@@ -126,19 +126,15 @@ export function CrowdsecSettings({ config, onChange }: PluginSettingsProps) {
           checked={cfg.dockerUnban}
           onChange={(e) => onChange('dockerUnban', e.target.checked)}
         />
-        <span>{de ? 'Entsperren per Docker/cscli' : 'Unban via Docker/cscli'}</span>
+        <span>{de ? 'Entsperren per CrowdSec-LAPI' : 'Unban via CrowdSec LAPI'}</span>
       </label>
 
       {cfg.dockerUnban ? (
-        <label className="cs-settings-row">
-          <span>{de ? 'CrowdSec-Container' : 'CrowdSec container'}</span>
-          <input
-            type="text"
-            value={cfg.crowdsecContainer}
-            onChange={(e) => onChange('crowdsecContainer', e.target.value)}
-            placeholder="crowdsec"
-          />
-        </label>
+        <p style={{ margin: '0 0 4px', fontSize: 11, color: 'var(--text-muted)' }}>
+          {de
+            ? 'Braucht am SelfDashboard-Container CROWDSEC_LAPI_URL, CROWDSEC_LAPI_MACHINE_ID und CROWDSEC_LAPI_PASSWORD (Maschine anlegen: cscli machines add selfdashboard --password … -f /dev/null). Kein Docker-Socket nötig.'
+            : 'Needs CROWDSEC_LAPI_URL, CROWDSEC_LAPI_MACHINE_ID and CROWDSEC_LAPI_PASSWORD on the SelfDashboard container (create the machine: cscli machines add selfdashboard --password … -f /dev/null). No Docker socket needed.'}
+        </p>
       ) : null}
 
       <p style={{ margin: '12px 0 4px', fontSize: 12, color: 'var(--text-muted)' }}>
