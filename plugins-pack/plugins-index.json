@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-10-27T22:05:18.021Z",
+  "generatedAt": "2026-10-27T22:20:45.035Z",
   "plugins": [
     {
       "id": "adguard",
@@ -1048,7 +1048,7 @@
       "id": "weather",
       "name": "Weather",
       "description": "Stadt oder PLZ — aktuelles Wetter mit 3-Stunden-Verlauf (0, 3, 6 … 21, 24) und optional 7-Tage-Vorschau. Open-Meteo, kein API-Key. API: /api/plugins/weather/resolve.",
-      "version": "1.12.0",
+      "version": "1.12.1",
       "author": "SelfDashboard",
       "category": "utility",
       "icon": "🌤️",
