@@ -660,8 +660,12 @@ function Widget({ config, instanceId, editMode }: PluginWidgetProps) {
       const next = el.getBoundingClientRect().width >= SIDE_BY_SIDE
       setWide((p) => (p === next ? p : next))
     }
-    measure()
-    if (typeof ResizeObserver === 'undefined') return
+    // Nur im ResizeObserver messen: der Callback läuft nach dem Layout (kein erzwungener
+    // Reflow beim Einhängen) und feuert direkt nach observe() noch vor dem ersten Paint.
+    if (typeof ResizeObserver === 'undefined') {
+      measure()
+      return
+    }
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
@@ -1320,7 +1324,7 @@ export const meta: PluginMeta = {
   name: 'Weather',
   description:
     'Stadt oder PLZ — aktuelles Wetter mit 3-Stunden-Verlauf (0, 3, 6 … 21, 24) und optional 7-Tage-Vorschau. Open-Meteo, kein API-Key. API: /api/plugins/weather/resolve.',
-  version: '1.10.7',
+  version: '1.12.1',
   author: 'SelfDashboard',
   category: 'utility',
   icon: '🌤️',

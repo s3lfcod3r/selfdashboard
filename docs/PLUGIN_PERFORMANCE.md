@@ -129,7 +129,9 @@ Im Bundle läuft **jedes Widget gekapselt** (eigene Funktion + `try/catch`): wir
 | Cache pro Widget | Neue Plugin-Kombinationen werden aus fertigen Abschnitten zusammengesetzt |
 | Kacheln außerhalb des Sichtfelds | Werden erst eingehängt, wenn man in ihre Nähe scrollt (keine Renderzeit, keine Datenabrufe vorher). Im Bearbeitungsmodus sofort. Abschalten: `localStorage.setItem('sd:noLazyWidgets', '1')` |
 
-Trotzdem lohnt ein sauberer, minifizierter Build: der Server-Durchlauf kostet beim ersten Abruf Zeit, und Bundle-Größe zählt beim Ausführen im Browser (Spalte `laden` im [Perf-Bericht](#11-messen-perf-bericht--timing)).
+Trotzdem lohnt ein sauberer, minifizierter Build: der Server-Durchlauf kostet beim ersten Abruf Zeit, und Bundle-Größe zählt beim Einlesen im Browser (Spalte `KB` im [Perf-Bericht](#11-messen-perf-bericht--timing)).
+
+Widgets sind **memoisiert**: Sie rendern nur neu, wenn sich ihre eigenen Props (`config`, `theme`, `layoutMode`, `editMode`) ändern oder ihr eigener Zustand bzw. ein Store-Abo es auslöst — nicht, weil das Dashboard drumherum neu rendert. Daten deshalb im Widget-Zustand halten, nicht darauf verlassen, dass der Host regelmäßig neu rendert.
 
 Zum Debuggen ohne Bundle: `localStorage.setItem('sd:noBundle', '1')` in der Browser-Konsole, dann neu laden.
 

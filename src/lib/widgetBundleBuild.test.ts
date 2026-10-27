@@ -64,10 +64,8 @@ describe('buildWidgetJsBundle', () => {
     // ok-b läuft trotz Fehler davor; "use strict" bleibt erhalten (this in IIFE = undefined).
     expect(window.registered).toEqual(['ok-a', 'undefined', 'throws-start', 'ok-b'])
     expect(errors).toHaveLength(1)
-    // Ausführungszeit pro Widget für den Perf-Bericht.
-    const evalMs = window.__sdWidgetEvalMs as Record<string, number>
-    expect(Object.keys(evalMs).sort()).toEqual(['ok-a', 'ok-b', 'strict', 'throws'])
-    expect(evalMs['ok-a']).toBeGreaterThanOrEqual(0)
+    // Abschnittsmarker, aus denen der Perf-Bericht die Größe pro Widget liest.
+    expect(code).toMatch(/\n\/\* ok-a \*\/\ntry\{/)
   })
 
   it('verwendet fertige Abschnitte für neue Kombinationen wieder', async () => {

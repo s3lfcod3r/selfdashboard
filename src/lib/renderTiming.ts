@@ -89,6 +89,9 @@ export function startRenderTiming(): void {
   }, SUMMARY_DELAY_MS)
 }
 
+/** Größe jedes Widgets im ausgelieferten (übersetzten/minifizierten) Bundle — bestimmt die Ladekosten. */
+const bundleBytes = new Map<string, number>()
+
 /** Widget-Startpositionen im Bundle („/* id *\/\ntry{“), um Skript-Positionen zuzuordnen. */
 async function bundleMarkers(): Promise<Map<string, Array<{ pos: number; id: string }>>> {
   const out = new Map<string, Array<{ pos: number; id: string }>>()
@@ -99,6 +102,10 @@ async function bundleMarkers(): Promise<Map<string, Array<{ pos: number; id: str
       const re = /\n\/\* ([a-z0-9][a-z0-9-]*) \*\/\n(?:var __sdT0=[^;]*;)?try\{/g
       let m: RegExpExecArray | null
       while ((m = re.exec(text))) markers.push({ pos: m.index, id: m[1] })
+      markers.forEach((mk, i) => {
+        const bytes = (markers[i + 1]?.pos ?? text.length) - mk.pos
+        bundleBytes.set(mk.id, Math.max(bundleBytes.get(mk.id) ?? 0, bytes))
+      })
       out.set(url, markers)
     } catch {
       /* ignore */
@@ -160,15 +167,17 @@ async function report(): Promise<void> {
     }
   }
 
-  // Ausführungszeit beim Laden aus dem Widget-Bundle (window.__sdWidgetEvalMs, siehe widgetBundleBuild).
-  const evalMs = (window as unknown as { __sdWidgetEvalMs?: Record<string, number> }).__sdWidgetEvalMs ?? {}
-  for (const id of Object.keys(evalMs)) stat(id)
+  // Auch nicht eingehängte Plugins (außerhalb des Sichtfelds) mit ihrer Bundle-Größe zeigen.
+  for (const id of bundleBytes.keys()) stat(id)
   const widgets = [...stats.entries()]
-    .map(([id, s]) => {
-      const loadMs = evalMs[id] ?? 0
-      return { id, ...s, loadMs, total: loadMs + s.renderMs + s.updateMs + s.layoutMs + s.effectMs }
-    })
-    .sort((a, b) => b.total - a.total)
+    .map(([id, s]) => ({
+      id,
+      ...s,
+      kb: (bundleBytes.get(id) ?? 0) / 1024,
+      total: s.renderMs + s.updateMs + s.layoutMs + s.effectMs,
+    }))
+    .sort((a, b) => b.total - a.total || b.kb - a.kb)
+  const bundleKb = [...bundleBytes.values()].reduce((sum, b) => sum + b, 0) / 1024
   const profilerActive = widgets.some((w) => w.mounts > 0)
 
   const lines: string[] = []
@@ -179,11 +188,13 @@ async function report(): Promise<void> {
       (rawFrames.length === 0 ? ' (Long-Animation-Frames vom Browser nicht unterstützt)' : ''),
   )
   lines.push('')
-  lines.push(`WIDGETS (ms)${profilerActive ? '' : ' — Render-Zeit fehlt: Build ohne --profile'}`)
-  lines.push(`${pad('plugin', 22)}${padL('gesamt', 7)}${padL('laden', 7)}${padL('render', 8)}${padL('layout', 8)}${padL('effekte', 9)}${padL('updates', 9)}${padL('upd-ms', 8)}${padL('max', 6)}`)
+  lines.push(
+    `WIDGETS (ms; KB = Größe im Bundle, gesamt ${r(bundleKb)} KB)${profilerActive ? '' : ' — Render-Zeit fehlt: Build ohne --profile'}`,
+  )
+  lines.push(`${pad('plugin', 22)}${padL('gesamt', 7)}${padL('KB', 6)}${padL('render', 8)}${padL('layout', 8)}${padL('effekte', 9)}${padL('updates', 9)}${padL('upd-ms', 8)}${padL('max', 6)}`)
   for (const w of widgets.slice(0, 30)) {
     lines.push(
-      `${pad(w.id, 22)}${padL(r(w.total), 7)}${padL(r(w.loadMs), 7)}${padL(r(w.renderMs), 8)}${padL(r(w.layoutMs), 8)}${padL(r(w.effectMs), 9)}${padL(w.updates, 9)}${padL(r(w.updateMs), 8)}${padL(r(w.maxMs), 6)}`,
+      `${pad(w.id, 22)}${padL(r(w.total), 7)}${padL(w.kb ? r(w.kb) : '-', 6)}${padL(r(w.renderMs), 8)}${padL(r(w.layoutMs), 8)}${padL(r(w.effectMs), 9)}${padL(w.updates, 9)}${padL(r(w.updateMs), 8)}${padL(r(w.maxMs), 6)}`,
     )
   }
   lines.push('')

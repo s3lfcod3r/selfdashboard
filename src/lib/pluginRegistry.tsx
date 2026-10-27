@@ -1,6 +1,6 @@
 'use client'
 
-import { Profiler, useEffect, useLayoutEffect, useRef, type ComponentType, type ProfilerOnRenderCallback } from 'react'
+import { memo, Profiler, useEffect, useLayoutEffect, useRef, type ComponentType, type ProfilerOnRenderCallback } from 'react'
 import type { PluginMeta, PluginComponent, PluginWidgetProps } from '@/types'
 import { WidgetErrorBoundary } from '@/components/plugins/WidgetErrorBoundary'
 import { noteWidgetEffects, noteWidgetRender } from '@/lib/renderTiming'
@@ -55,7 +55,12 @@ function wrapWidgetWithLogging(meta: PluginMeta, Widget: ComponentType<PluginWid
     )
   }
   SafeWidget.displayName = `Widget(${meta.id})`
-  return SafeWidget
+  // memo: Das Raster rendert bei jeder Registry-Änderung (z. B. pro Bundle-Teil) neu —
+  // ohne memo liefen dabei ALLE Widgets mit, obwohl sich ihre Props nicht ändern.
+  // Eigene Zustände/Store-Abos der Widgets lösen weiterhin normal Renders aus.
+  const MemoWidget = memo(SafeWidget)
+  MemoWidget.displayName = `Widget(${meta.id})`
+  return MemoWidget
 }
 
 let registryVersion = 0
