@@ -18,9 +18,13 @@ function resolvePluginsRootForBuild() {
 
 const pluginsRoot = resolvePluginsRootForBuild()
 
+/** Version aus package.json — angezeigt in den Einstellungen (nicht mehr von Hand pflegen). */
+const appVersion = require('./package.json').version
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  env: { NEXT_PUBLIC_APP_VERSION: appVersion },
   // Aeltere WebViews (z.B. Chromium 74 auf Billig-Tablets) verstehen kein
   // Optional Chaining (?.). Next transpiliert node_modules NICHT automatisch —
   // daher Client-Pakete hier explizit gegen die browserslist (package.json)

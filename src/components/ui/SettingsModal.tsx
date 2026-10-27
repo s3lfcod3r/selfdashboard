@@ -600,7 +600,7 @@ export function SettingsModal({ open, onClose }: Props) {
               </div>
 
 
-              <p style={{ fontSize: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>SelfDashboard v2.2.0</p>
+              <p style={{ fontSize: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>SelfDashboard v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
             </>)}
 
             {/* ── Dashboards ── */}
