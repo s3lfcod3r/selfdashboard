@@ -269,8 +269,10 @@ export function PluginStoreModal({ open, onClose }: Props) {
   const [userAllowedPlugins, setUserAllowedPlugins] = useState<PluginMeta[]>([])
 
   const refreshStoreData = useCallback(async (force = false) => {
+    let volumeWidgetIds: string[] = []
     try {
       const vol = await fetchPluginVolumeInfo()
+      volumeWidgetIds = vol.customWidgetIds ?? []
       setVolumeOnly(vol.volumeOnly)
       setVolumeInstalledIds(vol.installedIds ?? [])
     } catch {
@@ -304,6 +306,17 @@ export function PluginStoreModal({ open, onClose }: Props) {
       return
     }
     setUserAllowedPlugins([])
+    // Beim Start werden nur Widgets geladen, die auf einem Dashboard liegen — installierte,
+    // noch nicht platzierte Plugins hier nachladen, sonst fehlt „Hinzufügen“.
+    const notLoaded = volumeWidgetIds.filter((id) => !pluginRegistry.get(id))
+    if (notLoaded.length > 0) {
+      try {
+        await loadVolumeWidgetScriptsResolved(notLoaded)
+        window.dispatchEvent(new CustomEvent('sd-plugin-catalog-changed'))
+      } catch (e) {
+        console.warn('[SelfDashboard] installed plugin widgets preload', e)
+      }
+    }
     try {
       const j = await fetchRemoteCatalog(force ? { force: true } : undefined)
       setGithubConfigured(j.configured)
