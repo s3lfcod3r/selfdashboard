@@ -51,8 +51,10 @@ Measured on a test dashboard with 52 plugins. **New image; Plugin Store → upda
 | **Auto-minify + transpile** | `esbuild` is now part of the image: every `widget.js` is transpiled for old WebViews (ES2017), unminified builds are minified automatically (cached per content). Previously the transpile step silently did nothing because `esbuild` was missing at runtime. |
 | **Per-widget build cache** | New plugin combinations are assembled from cached parts (first build of a 52-plugin bundle: 503 ms before). |
 | **Off-screen tiles** | Tiles far below the visible area are only mounted when scrolled near (no render time, no data requests before). Immediately in edit mode. Off: `localStorage.setItem('sd:noLazyWidgets','1')`. |
-| **Perf report** | New column `laden`: execution time of each widget's code when the bundle loads. |
+| **No needless widget renders** | Widgets are memoized: a re-render of the grid (e.g. once per bundle part) no longer re-renders every widget whose props did not change. On the 52-plugin page each widget rendered 25–67× in 10 s before. |
+| **Perf report** | New column `KB`: size of each widget in the delivered bundle (determines parse/compile cost); also lists plugins not mounted yet. |
 | **Bambu Lab Camera 0.9.4** | Uses the offline-host memory: a switched-off camera costs ~3 s only once instead of on every refresh. |
+| **Weather 1.12.1** | Measures its width via `ResizeObserver` only — no forced layout of the whole page when the tile mounts. |
 
 ### Core app + plugins (2026-10) — loading performance
 
@@ -184,8 +186,10 @@ Gemessen an einem Test-Dashboard mit 52 Plugins. **Neues Image; Plugin-Store →
 | **Automatisch minifizieren + übersetzen** | `esbuild` ist jetzt im Image: jedes `widget.js` wird für ältere WebViews übersetzt (ES2017), unminifizierte Builds werden automatisch minifiziert (pro Inhalt gecacht). Vorher lief das Übersetzen still ins Leere, weil `esbuild` zur Laufzeit fehlte. |
 | **Bundle-Cache pro Widget** | Neue Plugin-Kombinationen werden aus gecachten Teilen zusammengesetzt (erster Bau eines 52-Plugin-Bundles vorher: 503 ms). |
 | **Kacheln außerhalb des Sichtfelds** | Kacheln weit unterhalb des sichtbaren Bereichs werden erst beim Hinscrollen eingehängt (vorher keine Renderzeit, keine Datenabrufe). Im Bearbeitungsmodus sofort. Aus: `localStorage.setItem('sd:noLazyWidgets','1')`. |
-| **Perf-Bericht** | Neue Spalte `laden`: Ausführungszeit des Codes jedes Widgets beim Laden des Bundles. |
+| **Kein unnötiges Mit-Rendern** | Widgets sind memoisiert: Rendert das Raster neu (z. B. einmal pro Bundle-Teil), rendern Widgets mit unveränderten Props nicht mehr mit. Auf der 52-Plugin-Seite renderte vorher jedes Widget 25–67× in 10 s. |
+| **Perf-Bericht** | Neue Spalte `KB`: Größe jedes Widgets im ausgelieferten Bundle (bestimmt die Kosten fürs Einlesen); zeigt auch noch nicht eingehängte Plugins. |
 | **Bambu Lab Kamera 0.9.4** | Nutzt den Offline-Merker: eine ausgeschaltete Kamera kostet nur einmal ~3 s statt bei jeder Aktualisierung. |
+| **Wetter 1.12.1** | Misst seine Breite nur noch per `ResizeObserver` — kein erzwungenes Neu-Layout der ganzen Seite beim Einhängen. |
 
 ### Kern-App + Plugins (2026-10) — Ladezeit
 
