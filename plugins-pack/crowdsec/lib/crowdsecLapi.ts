@@ -13,6 +13,8 @@ const DEFAULT_LAPI_URL = 'http://crowdsec:8080'
 /** JWT gilt bei CrowdSec 1 h — nach 30 min neu anmelden. */
 const TOKEN_TTL_MS = 30 * 60_000
 const REQUEST_TIMEOUT_MS = 10_000
+/** CrowdSec 1.8 lehnt Maschinen-Logins ohne User-Agent der Form "name/version" ab. */
+const USER_AGENT = 'selfdashboard-crowdsec/1.6.0'
 
 interface LapiConfig {
   url: string
@@ -36,7 +38,7 @@ async function lapiFetch(
   path: string,
   init: { body?: unknown; token?: string } = {},
 ): Promise<{ status: number; body: Record<string, unknown> }> {
-  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': 'selfdashboard' }
+  const headers: Record<string, string> = { Accept: 'application/json', 'User-Agent': USER_AGENT }
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
   if (init.token) headers.Authorization = `Bearer ${init.token}`
   let res: Response

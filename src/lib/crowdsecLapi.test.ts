@@ -4,7 +4,7 @@ vi.mock('server-only', () => ({}))
 
 import { crowdsecUnbanIp, resetCrowdsecLapiTokenCache } from '../../plugins-pack/crowdsec/lib/crowdsecLapi'
 
-type Call = { method: string; url: string; auth?: string; body?: unknown }
+type Call = { method: string; url: string; auth?: string; ua?: string; body?: unknown }
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -31,6 +31,7 @@ describe('crowdsecLapi', () => {
           method: init.method ?? 'GET',
           url,
           auth: headers.Authorization,
+          ua: headers['User-Agent'],
           body: init.body ? JSON.parse(String(init.body)) : undefined,
         }
         calls.push(call)
@@ -63,6 +64,8 @@ describe('crowdsecLapi', () => {
     ])
     expect(calls[0].body).toEqual({ machine_id: 'selfdashboard', password: 'secret', scenarios: [] })
     expect(calls[1].auth).toBe('Bearer tok1')
+    // CrowdSec 1.8 lehnt Logins ohne "name/version" im User-Agent ab
+    expect(calls[0].ua).toMatch(/^[\w.-]+\/\d+\.\d+/)
   })
 
   it('reuses the token and logs in again after a 401', async () => {
