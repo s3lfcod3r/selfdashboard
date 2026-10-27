@@ -6,6 +6,18 @@ This file summarizes **notable plugin and API behaviour** that may not fit in th
 
 ## 🇬🇧 English
 
+### Core app 2.2.1 (2026-10) — Plugin Store
+
+| Topic | Change |
+|--------|--------|
+| **Installed, not yet placed plugins** | Since the 2.2.0 loading tuning only widgets on a dashboard are loaded at start. For admins, installed plugins that were not placed yet never reached the widget registry, so the store showed “Ctrl+F5 after download” instead of **Add** — even after Ctrl+F5. The store now loads their `widget.js` when it opens. **New image.** |
+
+### Unraid Docker plugin **0.4.16** (2026-10)
+
+| Topic | Change |
+|--------|--------|
+| **Minimum width** | 2 columns instead of 4 (like the Docker widget), so Unraid Docker can replace the socket-based Docker widget as a narrow tile. **Plugin Store → Update → Ctrl+F5.** |
+
 ### CrowdSec plugin **1.6.0** (2026-10) — unban without Docker socket
 
 | Topic | Change |
@@ -13,6 +25,7 @@ This file summarizes **notable plugin and API behaviour** that may not fit in th
 | **Unban via LAPI** | Unban now talks to the **CrowdSec Local API** (machine login `POST /v1/watchers/login`, then `DELETE /v1/decisions?ip=…`) instead of `docker exec crowdsec cscli …` over `/var/run/docker.sock`. The CrowdSec widget no longer needs the Docker socket. |
 | **Setup** | `docker exec crowdsec cscli machines add selfdashboard --password '…' -f /dev/null`, then set `CROWDSEC_LAPI_URL` (default `http://crowdsec:8080`), `CROWDSEC_LAPI_MACHINE_ID`, `CROWDSEC_LAPI_PASSWORD` on the SelfDashboard container. |
 | **Errors** | Missing credentials, rejected login and unreachable LAPI are shown as clear messages in the unban dialog (previously errors were silently ignored). |
+| **User-Agent** | LAPI requests send `selfdashboard-crowdsec/<version>` — CrowdSec 1.8 rejects machine logins without a version in the User-Agent (`401`, log: `bad user agent`). |
 | **Removed** | `CROWDSEC_CONTAINER` and the "CrowdSec container" field in the widget settings. The Docker socket is still used by the **Docker** widget only. |
 
 ### LLM-Cockpit plugin **1.1.x** (new, 2026-10)
@@ -113,6 +126,18 @@ After **Update all**: **Ctrl+F5**. Existing plaintext passwords are migrated aut
 
 ## 🇩🇪 Deutsch
 
+### Kern-App 2.2.1 (2026-10) — Plugin-Store
+
+| Thema | Änderung |
+|--------|--------|
+| **Installierte, noch nicht platzierte Plugins** | Seit dem Lade-Tuning in 2.2.0 werden beim Start nur Widgets geladen, die auf einem Dashboard liegen. Installierte, noch nicht platzierte Plugins kamen für Admins dadurch nie in die Widget-Registry — der Store zeigte „Strg+F5 nach Download“ statt **Hinzufügen**, auch nach Strg+F5. Der Store lädt deren `widget.js` jetzt beim Öffnen nach. **Neues Image.** |
+
+### Unraid-Docker-Plugin **0.4.16** (2026-10)
+
+| Thema | Änderung |
+|--------|--------|
+| **Mindestbreite** | 2 statt 4 Spalten (wie beim Docker-Widget), damit Unraid Docker das Docker-Widget mit Socket als schmale Kachel ersetzen kann. **Plugin-Store → Aktualisieren → Strg+F5.** |
+
 ### CrowdSec-Plugin **1.6.0** (2026-10) — Entsperren ohne Docker-Socket
 
 | Thema | Änderung |
@@ -120,6 +145,7 @@ After **Update all**: **Ctrl+F5**. Existing plaintext passwords are migrated aut
 | **Entsperren per LAPI** | Entsperren spricht jetzt die **CrowdSec Local API** an (Maschinen-Login `POST /v1/watchers/login`, dann `DELETE /v1/decisions?ip=…`) statt `docker exec crowdsec cscli …` über `/var/run/docker.sock`. Das CrowdSec-Widget braucht den Docker-Socket nicht mehr. |
 | **Einrichtung** | `docker exec crowdsec cscli machines add selfdashboard --password '…' -f /dev/null`, dann am SelfDashboard-Container `CROWDSEC_LAPI_URL` (Standard `http://crowdsec:8080`), `CROWDSEC_LAPI_MACHINE_ID`, `CROWDSEC_LAPI_PASSWORD` setzen. |
 | **Fehler** | Fehlende Zugangsdaten, abgelehnter Login und nicht erreichbare LAPI erscheinen als klare Meldung im Entsperren-Dialog (bisher wurden Fehler still verschluckt). |
+| **User-Agent** | LAPI-Anfragen senden `selfdashboard-crowdsec/<version>` — CrowdSec 1.8 lehnt Maschinen-Logins ohne Version im User-Agent ab (`401`, Log: `bad user agent`). |
 | **Entfernt** | `CROWDSEC_CONTAINER` und das Feld „CrowdSec-Container“ in den Widget-Einstellungen. Den Docker-Socket nutzt nur noch das **Docker**-Widget. |
 
 ### LLM-Cockpit-Plugin **1.1.x** (neu, 2026-10)
