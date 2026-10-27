@@ -125,6 +125,7 @@ import { isIP } from "node:net";
 var DEFAULT_LAPI_URL = "http://crowdsec:8080";
 var TOKEN_TTL_MS = 30 * 6e4;
 var REQUEST_TIMEOUT_MS = 1e4;
+var USER_AGENT = "selfdashboard-crowdsec/1.6.0";
 var cachedToken = null;
 function lapiConfig() {
   const url = (process.env.CROWDSEC_LAPI_URL?.trim() || DEFAULT_LAPI_URL).replace(/\/+$/, "");
@@ -134,7 +135,7 @@ function lapiConfig() {
   return { url, machineId, password };
 }
 async function lapiFetch(cfg, method, path4, init = {}) {
-  const headers = { Accept: "application/json", "User-Agent": "selfdashboard" };
+  const headers = { Accept: "application/json", "User-Agent": USER_AGENT };
   if (init.body !== void 0) headers["Content-Type"] = "application/json";
   if (init.token) headers.Authorization = `Bearer ${init.token}`;
   let res;
