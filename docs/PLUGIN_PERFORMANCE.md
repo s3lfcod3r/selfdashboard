@@ -120,6 +120,17 @@ Im Bundle läuft **jedes Widget gekapselt** (eigene Funktion + `try/catch`): wir
 
 `registerPlugin` meldet Änderungen gebündelt (einmal pro Skript), nicht pro Aufruf — egal wie viele Plugins im Bundle stecken, das Dashboard rendert danach **einmal**.
 
+**Automatisch, ohne Zutun des Plugins:**
+
+| Was | Wirkung |
+|-----|---------|
+| Bundle in Teile von ~300 KB | Jeder Teil läuft als eigene Aufgabe — der Browser kann dazwischen zeichnen (wichtig bei vielen Plugins) |
+| Übersetzen + Minifizieren | Der Server übersetzt jedes `widget.js` für ältere WebViews (ES2017) und **minifiziert unminifizierte Builds automatisch** (einmal pro Inhalt, Ergebnis gecacht) |
+| Cache pro Widget | Neue Plugin-Kombinationen werden aus fertigen Abschnitten zusammengesetzt |
+| Kacheln außerhalb des Sichtfelds | Werden erst eingehängt, wenn man in ihre Nähe scrollt (keine Renderzeit, keine Datenabrufe vorher). Im Bearbeitungsmodus sofort. Abschalten: `localStorage.setItem('sd:noLazyWidgets', '1')` |
+
+Trotzdem lohnt ein sauberer, minifizierter Build: der Server-Durchlauf kostet beim ersten Abruf Zeit, und Bundle-Größe zählt beim Ausführen im Browser (Spalte `laden` im [Perf-Bericht](#11-messen-perf-bericht--timing)).
+
 Zum Debuggen ohne Bundle: `localStorage.setItem('sd:noBundle', '1')` in der Browser-Konsole, dann neu laden.
 
 ### Was du daraus ableiten solltest

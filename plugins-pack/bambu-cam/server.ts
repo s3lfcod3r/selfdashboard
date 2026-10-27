@@ -1,6 +1,7 @@
 import tls from 'tls'
 import { logPluginApiFailure } from '../_shared/log'
 import { openSealedSecret } from '../_shared/secret-crypto'
+import { assertUpstreamHostUp, noteUpstreamError, noteUpstreamOk } from '../_shared/upstream-health'
 import type { PluginServerContext } from '../_shared/plugin-server-types'
 
 export const dynamic = 'force-dynamic'
@@ -107,8 +108,15 @@ async function handleGet(req: Request): Promise<Response> {
     if (!isPrivateHost(host)) return Response.json({ error: 'invalid_host' }, { status: 400 })
     const code = openSealedSecret(sp.get('code') || '')
     if (!code) return Response.json({ error: 'missing_code' }, { status: 400 })
+    // Offline-Merker: ausgeschaltete Kamera kostet nur beim ersten Mal ~3 s (ARP-Timeout).
+    const target = `tls://${host}:6000`
     try {
-      const jpeg = await grabSnapshot(host, code)
+      assertUpstreamHostUp(target)
+      const jpeg = await grabSnapshot(host, code).catch((e: unknown) => {
+        noteUpstreamError(target, e)
+        throw e
+      })
+      noteUpstreamOk(target)
       return new Response(new Uint8Array(jpeg), {
         headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store, max-age=0' },
       })
@@ -129,9 +137,14 @@ async function handleGet(req: Request): Promise<Response> {
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return Response.json({ error: 'invalid_url' }, { status: 400 })
     if (!isPrivateHost(u.hostname)) return Response.json({ error: 'invalid_host' }, { status: 400 })
     try {
+      assertUpstreamHostUp(raw)
       const ac = new AbortController()
       const t = setTimeout(() => ac.abort(), 15_000)
-      const r = await fetch(raw, { cache: 'no-store', signal: ac.signal })
+      const r = await fetch(raw, { cache: 'no-store', signal: ac.signal }).catch((e: unknown) => {
+        noteUpstreamError(raw, e)
+        throw e
+      })
+      noteUpstreamOk(raw)
       clearTimeout(t)
       if (!r.ok || !r.body) {
         void logPluginApiFailure('bambu-cam', 'proxy', `http_${r.status}`)

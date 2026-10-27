@@ -104,6 +104,108 @@ function openSealedSecret(value) {
   }
 }
 
+// plugins-pack/_shared/upstream-health.ts
+import net from "node:net";
+var DOWN_CODES = /* @__PURE__ */ new Set(["EHOSTUNREACH", "ENETUNREACH", "EHOSTDOWN", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"]);
+var PROBE_MS = 15e3;
+var PROBE_TIMEOUT_MS = 4e3;
+var STORE_KEY = "__sdUpstreamHealth";
+function store() {
+  const g = globalThis;
+  let s = g[STORE_KEY];
+  if (!s) {
+    s = /* @__PURE__ */ new Map();
+    g[STORE_KEY] = s;
+  }
+  return s;
+}
+function enabled() {
+  return process.env.SELFDASHBOARD_HOST_DOWN_MS !== "0";
+}
+function target(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+    if (!host) return null;
+    const port = u.port ? Number(u.port) : u.protocol === "https:" ? 443 : 80;
+    return { host, port };
+  } catch {
+    return null;
+  }
+}
+function errorCode(e) {
+  let cur = e;
+  for (let i = 0; i < 4 && cur && typeof cur === "object"; i++) {
+    const code = cur.code;
+    if (typeof code === "string" && code) return code;
+    cur = cur.cause;
+  }
+  return null;
+}
+function markUp(host) {
+  if (store().delete(host)) {
+    console.info(`[SelfDashboard][upstream] ${host} wieder erreichbar`);
+  }
+}
+function startProbe(host, port, state) {
+  state.probing = true;
+  state.lastProbe = Date.now();
+  let settled = false;
+  const finish = (up) => {
+    if (settled) return;
+    settled = true;
+    state.probing = false;
+    socket.destroy();
+    if (up) markUp(host);
+  };
+  const socket = net.connect({ host, port });
+  socket.setTimeout(PROBE_TIMEOUT_MS);
+  socket.once("connect", () => finish(true));
+  socket.once("timeout", () => finish(false));
+  socket.once("error", (err) => {
+    const code = errorCode(err);
+    finish(!code || !DOWN_CODES.has(code));
+  });
+}
+var UpstreamHostDownError = class extends Error {
+  constructor(host, code) {
+    super(`host_down:${host} (${code}, cached)`);
+    this.name = "UpstreamHostDownError";
+    this.code = code;
+  }
+};
+function assertUpstreamHostUp(url) {
+  const t = target(url);
+  if (!t) return;
+  const state = store().get(t.host);
+  if (!state) return;
+  if (!state.probing && Date.now() - state.lastProbe >= PROBE_MS) {
+    startProbe(t.host, t.port, state);
+  }
+  throw new UpstreamHostDownError(t.host, state.code);
+}
+function noteUpstreamError(url, err) {
+  if (!enabled()) return;
+  const code = errorCode(err);
+  if (!code || !DOWN_CODES.has(code)) return;
+  const t = target(url);
+  if (!t) return;
+  const hosts = store();
+  const existing = hosts.get(t.host);
+  if (existing) {
+    existing.code = code;
+    return;
+  }
+  console.warn(
+    `[SelfDashboard][upstream] ${t.host} nicht erreichbar (${code}) \u2014 Anfragen werden sofort abgelehnt, Hintergrund-Probe alle ${PROBE_MS / 1e3}s`
+  );
+  hosts.set(t.host, { code, lastProbe: Date.now(), probing: false });
+}
+function noteUpstreamOk(url) {
+  const t = target(url);
+  if (t) markUp(t.host);
+}
+
 // plugins-pack/bambu-cam/server.ts
 var dynamic = "force-dynamic";
 var CONNECT_TIMEOUT_MS = 8e3;
@@ -199,8 +301,14 @@ async function handleGet(req) {
     if (!isPrivateHost(host)) return Response.json({ error: "invalid_host" }, { status: 400 });
     const code = openSealedSecret(sp.get("code") || "");
     if (!code) return Response.json({ error: "missing_code" }, { status: 400 });
+    const target2 = `tls://${host}:6000`;
     try {
-      const jpeg = await grabSnapshot(host, code);
+      assertUpstreamHostUp(target2);
+      const jpeg = await grabSnapshot(host, code).catch((e) => {
+        noteUpstreamError(target2, e);
+        throw e;
+      });
+      noteUpstreamOk(target2);
       return new Response(new Uint8Array(jpeg), {
         headers: { "Content-Type": "image/jpeg", "Cache-Control": "no-store, max-age=0" }
       });
@@ -220,9 +328,14 @@ async function handleGet(req) {
     if (u.protocol !== "http:" && u.protocol !== "https:") return Response.json({ error: "invalid_url" }, { status: 400 });
     if (!isPrivateHost(u.hostname)) return Response.json({ error: "invalid_host" }, { status: 400 });
     try {
+      assertUpstreamHostUp(raw);
       const ac = new AbortController();
       const t = setTimeout(() => ac.abort(), 15e3);
-      const r = await fetch(raw, { cache: "no-store", signal: ac.signal });
+      const r = await fetch(raw, { cache: "no-store", signal: ac.signal }).catch((e) => {
+        noteUpstreamError(raw, e);
+        throw e;
+      });
+      noteUpstreamOk(raw);
       clearTimeout(t);
       if (!r.ok || !r.body) {
         void logPluginApiFailure("bambu-cam", "proxy", `http_${r.status}`);

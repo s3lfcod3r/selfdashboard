@@ -5,7 +5,7 @@ import { kioskAwareFetch } from '@/lib/kiosk/kioskClientFetch'
 import { logPluginBootstrapTiming, noteWidgetTiming, scheduleLoadTimingSummary } from '@/lib/loadTiming'
 import { setPluginVolumeLoadPhase } from '@/lib/pluginVolumeLoad'
 import { noteWidgetBundleUrl, startRenderTiming } from '@/lib/renderTiming'
-import { widgetBundleVersionKey } from '@/lib/widgetBundleKey'
+import { chunkWidgetIds, widgetBundleVersionKey } from '@/lib/widgetBundleKey'
 
 export type PluginVolumeClientInfo = {
   customRoot: string
@@ -18,6 +18,8 @@ export type PluginVolumeClientInfo = {
   customServerIds: string[]
   /** plugin.json version per id — used as cache key for widget.js / widget.css */
   pluginVersions?: Record<string, string>
+  /** Bytes je widget.js — zum Aufteilen des Bundles (fehlt bei älteren Servern). */
+  widgetSizes?: Record<string, number>
   missingWidgetJs?: string[]
   hint?: string
 }
@@ -109,6 +111,7 @@ function widgetBundleDisabled(): boolean {
  * Lädt widget.js (und widget.css) mehrerer Plugins in je EINEM Request über
  * /api/plugins/widgets-bundle. Was im Bundle fehlt oder scheitert, wird einzeln
  * nachgeladen (gleiches Verhalten/Fehler-Logging wie vorher).
+ * Große Mengen werden in mehrere Bundles (~300 KB) aufgeteilt (chunkWidgetIds).
  * Abschalten zum Debuggen: localStorage.setItem('sd:noBundle', '1').
  */
 async function loadVolumeWidgetBundle(
@@ -116,6 +119,7 @@ async function loadVolumeWidgetBundle(
   versions: Record<string, string>,
   cssIds: Set<string> | null,
   label: string,
+  sizes: Record<string, number> = {},
 ): Promise<void> {
   installPluginExternalBridge()
   if (pluginIds.length === 0) return
@@ -124,8 +128,6 @@ async function loadVolumeWidgetBundle(
   }
 
   const ids = [...pluginIds].sort()
-  const query = `ids=${ids.map(encodeURIComponent).join(',')}&v=${widgetBundleVersionKey(ids, versions)}`
-  const jsUrl = `/api/plugins/widgets-bundle?type=js&${query}`
   const cssList = cssIds ? ids.filter((id) => cssIds.has(id)) : ids
   const cssUrl = cssList.length > 0
     ? `/api/plugins/widgets-bundle?type=css&ids=${cssList.map(encodeURIComponent).join(',')}&v=${widgetBundleVersionKey(cssList, versions)}`
@@ -134,26 +136,35 @@ async function loadVolumeWidgetBundle(
   const results = (window.__sdWidgetBundleResults ??= {})
   for (const id of ids) delete results[id]
 
+  // In mehrere Bundles aufteilen: jedes Skript läuft als eigene Aufgabe, der Browser
+  // kann dazwischen zeichnen und reagieren (statt z. B. 1,6 MB am Stück auszuführen).
+  const chunks = chunkWidgetIds(ids, sizes)
   const t0 = performance.now()
-  try {
-    await Promise.all([
-      cssUrl
-        ? loadStylesheet(cssUrl).catch(() => {
-            /* CSS optional */
-          })
-        : null,
-      loadScript(jsUrl),
-    ])
-  } catch (e) {
-    console.warn('[SelfDashboard] Widget-Bundle fehlgeschlagen — lade einzeln', e)
-    return loadVolumeWidgetScripts(pluginIds, versions, cssIds)
+  const outcomes = await Promise.allSettled([
+    cssUrl
+      ? loadStylesheet(cssUrl).catch(() => {
+          /* CSS optional */
+        })
+      : Promise.resolve(),
+    ...chunks.map(async (chunk, i) => {
+      const jsUrl = `/api/plugins/widgets-bundle?type=js&ids=${chunk.map(encodeURIComponent).join(',')}&v=${widgetBundleVersionKey(chunk, versions)}`
+      const c0 = performance.now()
+      await loadScript(jsUrl)
+      noteWidgetTiming(`bundle:${label}${chunks.length > 1 ? `#${i + 1}` : ''}`, performance.now() - c0, jsUrl)
+      noteWidgetBundleUrl(jsUrl)
+    }),
+  ])
+  const chunkErrors = outcomes.slice(1).filter((o) => o.status === 'rejected')
+  if (chunkErrors.length > 0) {
+    console.warn(`[SelfDashboard] ${chunkErrors.length}/${chunks.length} Widget-Bundle(s) fehlgeschlagen — lade einzeln`)
   }
-  noteWidgetTiming(`bundle:${label}`, performance.now() - t0, jsUrl)
-  noteWidgetBundleUrl(jsUrl)
+  if (chunks.length > 1) noteWidgetTiming(`bundle:${label}`, performance.now() - t0, '')
 
   const loaded = ids.filter((id) => results[id] === true)
   const failed = ids.filter((id) => results[id] !== true)
-  console.info(`[SelfDashboard] Widget-Bundle (${label}): ${loaded.length}/${ids.length} geladen`)
+  console.info(
+    `[SelfDashboard] Widget-Bundle (${label}): ${loaded.length}/${ids.length} geladen${chunks.length > 1 ? ` in ${chunks.length} Teilen` : ''}`,
+  )
   if (failed.length > 0) {
     console.warn(
       '[SelfDashboard] Im Bundle nicht geladen — einzeln nachladen:',
@@ -243,14 +254,14 @@ export async function bootstrapVolumePlugins(options?: BootstrapVolumePluginsOpt
     const cssIds = info.widgetCssIds ? new Set(info.widgetCssIds) : null
 
     if (priority.length > 0) {
-      await loadVolumeWidgetBundle(priority, versions, cssIds, 'priority')
+      await loadVolumeWidgetBundle(priority, versions, cssIds, 'priority', info.widgetSizes)
     }
     const priorityReadyAt = performance.now()
     setPluginVolumeLoadPhase('ready')
 
     const timing = { run, startedAt, volumeMs, priorityIds: priority, priorityReadyAt, deferredIds: deferred }
     if (deferred.length > 0) {
-      void loadVolumeWidgetBundle(deferred, versions, cssIds, 'deferred')
+      void loadVolumeWidgetBundle(deferred, versions, cssIds, 'deferred', info.widgetSizes)
         .then(() => logPluginBootstrapTiming({ ...timing, allDoneAt: performance.now() }))
         .catch((e) => {
           console.warn('[SelfDashboard] Deferred plugin volume load failed', e)

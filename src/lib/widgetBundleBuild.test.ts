@@ -4,7 +4,8 @@ import path from 'path'
 import vm from 'node:vm'
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { buildWidgetCssBundle, buildWidgetJsBundle, type WidgetBundleAsset } from './widgetBundleBuild'
-import { widgetBundleVersionKey } from './widgetBundleKey'
+import { chunkWidgetIds, widgetBundleVersionKey } from './widgetBundleKey'
+import { looksUnminified, prepareWidgetJs } from './pluginWidgetJs'
 
 let dir = ''
 const assets = new Map<string, WidgetBundleAsset>()
@@ -27,7 +28,7 @@ function pick(file: string, ids: string[]): Map<string, WidgetBundleAsset> {
 function runBundle(code: string): { window: Record<string, unknown>; errors: unknown[] } {
   const errors: unknown[] = []
   const window: Record<string, unknown> = { registered: [] as string[] }
-  const context = vm.createContext({ window, console: { error: (...a: unknown[]) => errors.push(a) } })
+  const context = vm.createContext({ window, performance, console: { error: (...a: unknown[]) => errors.push(a) } })
   window.window = window
   vm.runInContext(code, context)
   return { window, errors }
@@ -63,6 +64,51 @@ describe('buildWidgetJsBundle', () => {
     // ok-b läuft trotz Fehler davor; "use strict" bleibt erhalten (this in IIFE = undefined).
     expect(window.registered).toEqual(['ok-a', 'undefined', 'throws-start', 'ok-b'])
     expect(errors).toHaveLength(1)
+    // Ausführungszeit pro Widget für den Perf-Bericht.
+    const evalMs = window.__sdWidgetEvalMs as Record<string, number>
+    expect(Object.keys(evalMs).sort()).toEqual(['ok-a', 'ok-b', 'strict', 'throws'])
+    expect(evalMs['ok-a']).toBeGreaterThanOrEqual(0)
+  })
+
+  it('verwendet fertige Abschnitte für neue Kombinationen wieder', async () => {
+    const first = await buildWidgetJsBundle(['ok-a', 'ok-b'], pick('widget.js', ['ok-a', 'ok-b']))
+    const second = await buildWidgetJsBundle(['ok-b'], pick('widget.js', ['ok-b']))
+    const sectionB = (code: string) => code.slice(code.indexOf('/* ok-b */'))
+    expect(sectionB(second)).toBe(sectionB(first))
+  })
+})
+
+describe('prepareWidgetJs', () => {
+  it('minifiziert unminifizierten Code automatisch, lässt Verhalten gleich', async () => {
+    const lines = Array.from({ length: 60 }, (_, i) => `  window.registered.push("zeile-${i}")   // Kommentar ${i}`)
+    const code = `(function () {\n${lines.join('\n')}\n})()`
+    expect(looksUnminified(code)).toBe(true)
+    const out = await prepareWidgetJs(code)
+    expect(out.length).toBeLessThan(code.length * 0.75)
+    expect(out).not.toContain('Kommentar')
+    const window: Record<string, unknown> = { registered: [] as string[] }
+    window.window = window
+    vm.runInContext(out, vm.createContext({ window }))
+    expect((window.registered as string[]).length).toBe(60)
+  })
+
+  it('lässt bereits minifizierten Code unminifiziert (nur Übersetzen)', () => {
+    expect(looksUnminified('"use strict";(()=>{var a=1;window.x=a})();')).toBe(false)
+  })
+})
+
+describe('chunkWidgetIds', () => {
+  it('teilt nach Größe, mindestens ein Plugin pro Teil', () => {
+    const KB = 1024
+    const sizes = { a: 250 * KB, b: 100 * KB, c: 20 * KB, d: 400 * KB, e: 10 * KB }
+    expect(chunkWidgetIds(['a', 'b', 'c', 'd', 'e'], sizes, 300 * KB)).toEqual([['a'], ['b', 'c'], ['d'], ['e']])
+    expect(chunkWidgetIds(['a'], sizes, 300 * KB)).toEqual([['a']])
+    expect(chunkWidgetIds([], sizes)).toEqual([])
+  })
+
+  it('schätzt fehlende Größen mit 30 KB', () => {
+    const ids = Array.from({ length: 25 }, (_, i) => `p${i}`)
+    expect(chunkWidgetIds(ids).map((c) => c.length)).toEqual([10, 10, 5])
   })
 })
 
