@@ -2,7 +2,7 @@
   "id": "crowdsec",
   "name": "CrowdSec",
   "description": "Kompaktes CrowdSec-Dashboard aus crowdsec.db: Übersicht, Banns, Länder, durchsuchbarer IP-Feed (mit Stadt + AS), Weltkarte der Angriffe (echte GeoIP-Standorte, Punkte/Bögen) mit Lookup-Links und optionalem Entsperren über die CrowdSec-LAPI. API: /api/plugins/crowdsec.",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "author": "SelfDashboard",
   "category": "security",
   "icon": "🛡️",

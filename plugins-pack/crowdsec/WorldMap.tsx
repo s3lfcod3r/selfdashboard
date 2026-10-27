@@ -1,5 +1,43 @@
-import { useId } from 'react'
-import { MAP_W, MAP_H, WORLD_PATH, GRATICULE, COUNTRY_XY, projectNE1 } from './lib/worldMap'
+import { useEffect, useId, useState } from 'react'
+import { CROWDSEC_VERSION } from './constants'
+import { MAP_W, MAP_H, COUNTRY_XY, projectNE1 } from './lib/worldMap'
+
+type MapPaths = { world: string; graticule: string }
+
+/** Länder- und Gradnetz-Pfade (~200 KB) — erst beim ersten Öffnen der Kartenansicht geladen, dann im Browser-Cache. */
+let mapPathsPromise: Promise<MapPaths> | null = null
+
+function loadMapPaths(): Promise<MapPaths> {
+  mapPathsPromise ??= fetch(`/api/plugins/custom-assets/crowdsec/world-map.svg?v=${CROWDSEC_VERSION}`)
+    .then((res) => {
+      if (!res.ok) throw new Error(`world-map.svg: HTTP ${res.status}`)
+      return res.text()
+    })
+    .then((svg) => {
+      const d = (id: string) => new RegExp(`id="${id}"[^>]*\\sd="([^"]*)"`).exec(svg)?.[1] ?? ''
+      return { world: d('world'), graticule: d('graticule') }
+    })
+    .catch((e: unknown) => {
+      mapPathsPromise = null
+      throw e
+    })
+  return mapPathsPromise
+}
+
+function useMapPaths(): MapPaths | null {
+  const [paths, setPaths] = useState<MapPaths | null>(null)
+  useEffect(() => {
+    let alive = true
+    loadMapPaths().then(
+      (p) => alive && setPaths(p),
+      (e: unknown) => console.warn('[crowdsec] Weltkarte nicht geladen', e),
+    )
+    return () => {
+      alive = false
+    }
+  }, [])
+  return paths
+}
 
 export type AttackSeverity = 'crit' | 'warn' | 'info'
 
@@ -44,8 +82,9 @@ function radiusFor(count: number, maxCount: number): number {
 
 /**
  * Renders an attack-origin world map from CrowdSec country counts.
- * Pure data + SVG — the projected path and per-country coordinates ship with
- * the plugin (see lib/worldMap.ts), so there are no runtime network calls.
+ * Country coordinates ship in widget.js (lib/worldMap.ts); the land/graticule
+ * paths come from the plugin's own world-map.svg, fetched on first mount —
+ * markers render immediately, the map outline follows.
  */
 export function WorldMap({
   points,
@@ -57,6 +96,7 @@ export function WorldMap({
   style,
 }: WorldMapProps) {
   const uid = useId().replace(/[:]/g, '')
+  const paths = useMapPaths()
   const resolvePos = (p: WorldMapPoint): [number, number] | null => {
     if (p.lon != null && p.lat != null && Number.isFinite(p.lon) && Number.isFinite(p.lat)) {
       return projectNE1(p.lon, p.lat)
@@ -96,16 +136,18 @@ export function WorldMap({
         `}</style>
       </defs>
 
-      {graticule && (
-        <path d={GRATICULE} fill="none" stroke="var(--cs-grat, rgba(123,108,246,.08))" strokeWidth={0.5} />
+      {graticule && paths?.graticule && (
+        <path d={paths.graticule} fill="none" stroke="var(--cs-grat, rgba(123,108,246,.08))" strokeWidth={0.5} />
       )}
-      <path
-        d={WORLD_PATH}
-        fill="var(--cs-land-fill, rgba(123,108,246,.08))"
-        stroke="var(--cs-land-stroke, rgba(157,141,255,.32))"
-        strokeWidth={0.5}
-        strokeLinejoin="round"
-      />
+      {paths?.world && (
+        <path
+          d={paths.world}
+          fill="var(--cs-land-fill, rgba(123,108,246,.08))"
+          stroke="var(--cs-land-stroke, rgba(157,141,255,.32))"
+          strokeWidth={0.5}
+          strokeLinejoin="round"
+        />
+      )}
 
       {arcs &&
         known.map(({ p, xy: a }, i) => {

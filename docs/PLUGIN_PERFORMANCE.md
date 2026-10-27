@@ -102,6 +102,10 @@ SelfDashboard lädt Assets im Normalfall gebündelt, einzeln nur als Rückfall:
 
 Ohne Versions-Bump laden Nutzer nach Update oft noch altes JS, bis Hard-Reload.
 
+### Große Daten nachladen statt ins widget.js packen
+
+Alles in `widget.js` wird beim Dashboard-Start geparst — auch Daten, die nur eine selten geöffnete Ansicht braucht. Solche Daten als eigene Plugin-Datei mitliefern (der Store installiert `svg`/`png`/`webp`/`jpg` neben `widget.js`) und erst bei Bedarf per `fetch('/api/plugins/custom-assets/<id>/<datei>?v=<version>')` holen; mit passender Version cacht der Browser sie ein Jahr. Vorbild: `crowdsec` (`world-map.svg`, geladen in `WorldMap.tsx`, ~200 KB weniger im Bundle).
+
 ### Nach Store-Update
 
 Nutzer: **Aktualisieren** im Plugin-Store, dann **Strg+F5**.

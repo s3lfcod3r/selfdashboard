@@ -18,6 +18,13 @@ This file summarizes **notable plugin and API behaviour** that may not fit in th
 |--------|--------|
 | **Minimum width** | 2 columns instead of 4 (like the Docker widget), so Unraid Docker can replace the socket-based Docker widget as a narrow tile. **Plugin Store → Update → Ctrl+F5.** |
 
+### CrowdSec plugin **1.6.1** (2026-10) — world map loaded on demand
+
+| Topic | Change |
+|--------|--------|
+| **Smaller widget.js** | The world map's land and graticule paths (~200 KB) now live in `world-map.svg` and are fetched only when the map view opens. `widget.js` shrinks from ~240 KB to ~37 KB — less parse time on dashboard start. **Plugin Store → Update → Ctrl+F5.** |
+| **Caching plugin files** | `/api/plugins/custom-assets/<id>/<file>?v=<installed version>` may now be cached for a year for any plugin file (not only `widget.js`/`.css`). **New image.** |
+
 ### CrowdSec plugin **1.6.0** (2026-10) — unban without Docker socket
 
 | Topic | Change |
@@ -152,6 +159,13 @@ After **Update all**: **Ctrl+F5**. Existing plaintext passwords are migrated aut
 | Thema | Änderung |
 |--------|--------|
 | **Mindestbreite** | 2 statt 4 Spalten (wie beim Docker-Widget), damit Unraid Docker das Docker-Widget mit Socket als schmale Kachel ersetzen kann. **Plugin-Store → Aktualisieren → Strg+F5.** |
+
+### CrowdSec-Plugin **1.6.1** (2026-10) — Weltkarte nachgeladen
+
+| Thema | Änderung |
+|--------|--------|
+| **Kleineres widget.js** | Länder- und Gradnetz-Pfade der Weltkarte (~200 KB) liegen jetzt in `world-map.svg` und werden erst beim Öffnen der Kartenansicht geladen. `widget.js` schrumpft von ~240 KB auf ~37 KB — weniger Parse-Zeit beim Dashboard-Start. **Plugin-Store → Aktualisieren → Strg+F5.** |
+| **Cache für Plugin-Dateien** | `/api/plugins/custom-assets/<id>/<datei>?v=<installierte Version>` darf jetzt für jede Plugin-Datei (nicht nur `widget.js`/`.css`) ein Jahr gecacht werden. **Neues Image.** |
 
 ### CrowdSec-Plugin **1.6.0** (2026-10) — Entsperren ohne Docker-Socket
 

@@ -2,13 +2,14 @@ import { useDashboardStore } from '@/lib/store'
 import type { PluginComponent, PluginMeta, PluginWidgetProps } from '@/types'
 import { CrowdsecSettings } from './CrowdsecSettings'
 import { CrowdsecWidget } from './CrowdsecWidget'
+import { CROWDSEC_VERSION } from './constants'
 
 export const meta: PluginMeta = {
   id: 'crowdsec',
   name: 'CrowdSec',
   description:
     'Kompaktes CrowdSec-Dashboard aus crowdsec.db: Übersicht, Banns, Länder und durchsuchbarer IP-Feed mit Lookup-Links und optionalem Entsperren über die CrowdSec-LAPI. API: /api/plugins/crowdsec.',
-  version: '1.6.0',
+  version: CROWDSEC_VERSION,
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',

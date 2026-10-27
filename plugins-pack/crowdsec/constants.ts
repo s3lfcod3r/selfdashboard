@@ -1,3 +1,6 @@
+/** Muss zu plugin.json passen — auch Cache-Schlüssel für world-map.svg. */
+export const CROWDSEC_VERSION = '1.6.1'
+
 export const COUNTRY_NAME: Record<string, string> = {
   DE: 'Deutschland',
   US: 'USA',

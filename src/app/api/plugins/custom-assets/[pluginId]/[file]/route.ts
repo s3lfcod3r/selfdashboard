@@ -52,14 +52,12 @@ export async function GET(
   if (ext === '.js' || ext === '.mjs') {
     body = Buffer.from(await prepareWidgetJs(body.toString('utf8'), timing), 'utf8')
   }
-  const isWidgetAsset = file === 'widget.js' || file === 'widget.css'
+  // Mit ?v=<installierte Version> unveränderlich (widget.js/css, aber auch nachgeladene
+  // Daten wie die CrowdSec-Weltkarte); ein Plugin-Update ändert die Version und damit die URL.
   const versionParam = new URL(req.url).searchParams.get('v')?.trim() ?? ''
-  const installedVersion = timing.measure('version', () => readInstalledPluginVersion(pluginId) ?? '')
+  const installedVersion = versionParam ? timing.measure('version', () => readInstalledPluginVersion(pluginId) ?? '') : ''
   const versionMatches = Boolean(versionParam && installedVersion && versionParam === installedVersion)
-  const cacheControl =
-    isWidgetAsset && versionMatches
-      ? 'private, max-age=31536000, immutable'
-      : 'no-store'
+  const cacheControl = versionMatches ? 'private, max-age=31536000, immutable' : 'no-store'
 
   const headers: Record<string, string> = {
     'Content-Type': MIME[ext] ?? 'application/octet-stream',
