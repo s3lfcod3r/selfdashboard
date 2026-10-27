@@ -319,4 +319,37 @@
     Required="false"
     Mask="false"></Config>
 
+  <Config
+    Name="CrowdSec LAPI-URL"
+    Target="CROWDSEC_LAPI_URL"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — CrowdSec Local API für das Entsperren im CrowdSec-Widget, z. B. http://192.168.1.7:8080. Leer = http://crowdsec:8080. Kein Docker-Socket nötig."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="CrowdSec LAPI Machine-ID"
+    Target="CROWDSEC_LAPI_MACHINE_ID"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — eigene CrowdSec-Maschine fürs Entsperren. Anlegen im CrowdSec-Container: cscli machines add selfdashboard --password 'LANGES-PASSWORT' -f /dev/null (-f /dev/null ist wichtig)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"></Config>
+
+  <Config
+    Name="CrowdSec LAPI Passwort"
+    Target="CROWDSEC_LAPI_PASSWORD"
+    Default=""
+    Mode=""
+    Description="OPTIONAL — Passwort der CrowdSec-Maschine (aus cscli machines add … --password)."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="true"></Config>
+
 </Container>

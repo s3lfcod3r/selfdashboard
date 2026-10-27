@@ -66,6 +66,7 @@ Everything works with the template defaults. Fields marked *advanced* only appea
 | `SELFDASHBOARD_TIMING_SLOW_MS` | `500` | Requests slower than this always appear in the container log. |
 | `SELFDASHBOARD_SKIP_CHOWN` | empty | `1` = don't set volume ownership to PUID/PGID on start. |
 | `SELFDASHBOARD_FIX_CROWDSEC_PERMS` | empty | `0` = don't add read permissions on `/crowdsec-data`. |
+| `CROWDSEC_LAPI_URL` / `CROWDSEC_LAPI_MACHINE_ID` / `CROWDSEC_LAPI_PASSWORD` | empty | CrowdSec unban via the Local API (machine: `cscli machines add selfdashboard --password … -f /dev/null`). No Docker socket needed. |
 
 Full list of all variables: [README → Configuration](../README.md#en-configuration).
 
@@ -157,6 +158,7 @@ Mit den Standardwerten des Templates läuft alles. Felder mit *erweitert* ersche
 | `SELFDASHBOARD_TIMING_SLOW_MS` | `500` | Langsamere Anfragen stehen immer im Container-Log. |
 | `SELFDASHBOARD_SKIP_CHOWN` | leer | `1` = beim Start keine Besitzer auf PUID/PGID setzen. |
 | `SELFDASHBOARD_FIX_CROWDSEC_PERMS` | leer | `0` = keine Leserechte auf `/crowdsec-data` ergänzen. |
+| `CROWDSEC_LAPI_URL` / `CROWDSEC_LAPI_MACHINE_ID` / `CROWDSEC_LAPI_PASSWORD` | leer | CrowdSec-Entsperren über die Local API (Maschine: `cscli machines add selfdashboard --password … -f /dev/null`). Kein Docker-Socket nötig. |
 
 Vollständige Liste aller Variablen: [README → Konfiguration](../README.md#de-konfiguration).
 

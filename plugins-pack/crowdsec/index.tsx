@@ -7,8 +7,8 @@ export const meta: PluginMeta = {
   id: 'crowdsec',
   name: 'CrowdSec',
   description:
-    'Kompaktes CrowdSec-Dashboard aus crowdsec.db: Übersicht, Banns, Länder und durchsuchbarer IP-Feed mit Lookup-Links und optionalem Entsperren per Docker/cscli. API: /api/plugins/crowdsec.',
-  version: '1.5.10',
+    'Kompaktes CrowdSec-Dashboard aus crowdsec.db: Übersicht, Banns, Länder und durchsuchbarer IP-Feed mit Lookup-Links und optionalem Entsperren über die CrowdSec-LAPI. API: /api/plugins/crowdsec.',
+  version: '1.6.0',
   author: 'SelfDashboard',
   category: 'security',
   icon: '🛡️',

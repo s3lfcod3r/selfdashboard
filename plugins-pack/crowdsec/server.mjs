@@ -120,110 +120,76 @@ function createPluginStaleCache(options) {
   };
 }
 
-// plugins-pack/docker/lib/dockerEngine.ts
-import * as http from "node:http";
-function socketPath() {
-  return process.env.DOCKER_SOCKET_PATH || "/var/run/docker.sock";
+// plugins-pack/crowdsec/lib/crowdsecLapi.ts
+import { isIP } from "node:net";
+var DEFAULT_LAPI_URL = "http://crowdsec:8080";
+var TOKEN_TTL_MS = 30 * 6e4;
+var REQUEST_TIMEOUT_MS = 1e4;
+var cachedToken = null;
+function lapiConfig() {
+  const url = (process.env.CROWDSEC_LAPI_URL?.trim() || DEFAULT_LAPI_URL).replace(/\/+$/, "");
+  const machineId = process.env.CROWDSEC_LAPI_MACHINE_ID?.trim() ?? "";
+  const password = process.env.CROWDSEC_LAPI_PASSWORD ?? "";
+  if (!machineId || !password) throw new Error("lapi_credentials_missing");
+  return { url, machineId, password };
 }
-function dockerRequest(method, pathAndQuery, body, timeoutMs = 12e3) {
-  return new Promise((resolve, reject) => {
-    const payload = body ?? "";
-    const headers = {
-      Host: "localhost",
-      Accept: "application/json"
-    };
-    if (method === "POST") {
-      headers["Content-Type"] = "application/json";
-      headers["Content-Length"] = Buffer.byteLength(payload, "utf8");
-    }
-    const req = http.request(
-      {
-        socketPath: socketPath(),
-        path: pathAndQuery,
-        method,
-        headers
-      },
-      (res) => {
-        const chunks = [];
-        res.on("data", (c) => {
-          chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c));
-        });
-        res.on("end", () => {
-          const resBody = Buffer.concat(chunks).toString("utf8");
-          const code = res.statusCode ?? 500;
-          resolve({ ok: code >= 200 && code < 300, status: code, body: resBody });
-        });
-      }
-    );
-    req.on("error", reject);
-    req.setTimeout(timeoutMs, () => {
-      req.destroy();
-      reject(new Error("Timeout beim Docker-Socket"));
+async function lapiFetch(cfg, method, path4, init = {}) {
+  const headers = { Accept: "application/json", "User-Agent": "selfdashboard" };
+  if (init.body !== void 0) headers["Content-Type"] = "application/json";
+  if (init.token) headers.Authorization = `Bearer ${init.token}`;
+  let res;
+  try {
+    res = await fetch(cfg.url + path4, {
+      method,
+      headers,
+      body: init.body !== void 0 ? JSON.stringify(init.body) : void 0,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      cache: "no-store"
     });
-    if (payload) req.write(payload, "utf8");
-    req.end();
-  });
-}
-function dockerGet(pathAndQuery) {
-  return dockerRequest("GET", pathAndQuery, void 0, 12e3);
-}
-var MIN_SYSTEM_CPU_DELTA_NS = BigInt(1e7);
-var CPU_SAMPLE_MAX_AGE_MS = 10 * 6e4;
-
-// plugins-pack/crowdsec/lib/crowdsecDocker.ts
-function findContainerId(containerName) {
-  return dockerGet("/containers/json?all=1").then((r) => {
-    if (!r.ok) throw new Error("docker_unavailable");
-    const list = JSON.parse(r.body);
-    const needle = containerName.replace(/^\//, "");
-    const hit = list.find(
-      (c) => (c.Names ?? []).some((n) => {
-        const base = n.replace(/^\//, "");
-        return base === needle || base.endsWith(`/${needle}`);
-      })
-    );
-    if (!hit?.Id) throw new Error("crowdsec_container_not_found");
-    return hit.Id;
-  });
-}
-async function dockerExec(containerName, cmd, timeoutMs = 3e4) {
-  const id = await findContainerId(containerName);
-  const create = await dockerRequest(
-    "POST",
-    `/containers/${id}/exec`,
-    JSON.stringify({ AttachStdout: true, AttachStderr: true, Cmd: cmd })
-  );
-  if (!create.ok) throw new Error(`docker_exec_create_${create.status}`);
-  const execId = JSON.parse(create.body).Id;
-  if (!execId) throw new Error("docker_exec_no_id");
-  const start = await dockerRequest(
-    "POST",
-    `/exec/${execId}/start`,
-    JSON.stringify({ Detach: false, Tty: false }),
-    timeoutMs
-  );
-  if (!start.ok) throw new Error(`docker_exec_start_${start.status}`);
-  const inspect = await dockerGet(`/exec/${execId}/json`);
-  if (inspect.ok) {
-    try {
-      const code = Number(JSON.parse(inspect.body).ExitCode ?? 1);
-      if (code !== 0) throw new Error(`cscli_exit_${code}`);
-    } catch (e) {
-      if (e instanceof Error && e.message.startsWith("cscli_exit_")) throw e;
-    }
+  } catch {
+    throw new Error("lapi_unreachable");
   }
+  let body = {};
+  try {
+    const j = await res.json();
+    if (j && typeof j === "object" && !Array.isArray(j)) body = j;
+  } catch {
+  }
+  return { status: res.status, body };
 }
-async function crowdsecUnbanIp(containerName, ip) {
+async function lapiLogin(cfg, force = false) {
+  const key = `${cfg.url}|${cfg.machineId}|${cfg.password}`;
+  if (!force && cachedToken && cachedToken.key === key && Date.now() - cachedToken.at < TOKEN_TTL_MS) {
+    return cachedToken.token;
+  }
+  cachedToken = null;
+  const { status, body } = await lapiFetch(cfg, "POST", "/v1/watchers/login", {
+    body: { machine_id: cfg.machineId, password: cfg.password, scenarios: [] }
+  });
+  const token = typeof body.token === "string" ? body.token : "";
+  if (status === 401 || status === 403) throw new Error("lapi_login_failed");
+  if (status !== 200 || !token) throw new Error(`lapi_error_${status}`);
+  cachedToken = { key, token, at: Date.now() };
+  return token;
+}
+async function lapiCall(cfg, method, path4) {
+  let res = await lapiFetch(cfg, method, path4, { token: await lapiLogin(cfg) });
+  if (res.status === 401) res = await lapiFetch(cfg, method, path4, { token: await lapiLogin(cfg, true) });
+  return res;
+}
+async function crowdsecUnbanIp(ip) {
   const trimmed = ip.trim();
-  if (!trimmed || !/^[\d.a-fA-F:]+$/.test(trimmed)) throw new Error("invalid_ip");
+  if (!trimmed || !isIP(trimmed)) throw new Error("invalid_ip");
+  const cfg = lapiConfig();
+  const query = `?ip=${encodeURIComponent(trimmed)}`;
+  const res = await lapiCall(cfg, "DELETE", `/v1/decisions${query}`);
+  if (res.status !== 200) throw new Error(`lapi_error_${res.status}`);
   try {
-    await dockerExec(containerName, ["cscli", "decisions", "delete", "--ip", trimmed]);
+    await lapiCall(cfg, "DELETE", `/v1/alerts${query}`);
   } catch {
   }
-  try {
-    await dockerExec(containerName, ["cscli", "alerts", "delete", "--ip", trimmed]);
-  } catch {
-  }
+  const deleted = Number(res.body.nbDeleted ?? 0);
+  return { deleted: Number.isFinite(deleted) ? deleted : 0 };
 }
 
 // plugins-pack/crowdsec/lib/crowdsecDb.ts
@@ -957,15 +923,15 @@ async function handleDecisionPost(req) {
   }
   const o = body && typeof body === "object" ? body : {};
   const ip = typeof o.ip === "string" ? o.ip.trim() : "";
-  const container = typeof o.container === "string" && o.container.trim() ? o.container.trim() : process.env.CROWDSEC_CONTAINER || "crowdsec";
   if (!ip) return Response.json({ error: "missing_ip" }, { status: 400 });
   try {
-    await crowdsecUnbanIp(container, ip);
+    const { deleted } = await crowdsecUnbanIp(ip);
     dashboardCache.clear();
-    return Response.json({ ok: true });
+    return Response.json({ ok: true, deleted });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "delete_failed";
-    const status = msg === "docker_unavailable" || msg === "crowdsec_container_not_found" ? 503 : msg === "invalid_ip" ? 400 : 502;
+    const status = msg === "lapi_credentials_missing" || msg === "lapi_unreachable" ? 503 : msg === "invalid_ip" ? 400 : 502;
+    void logPluginApiFailure("crowdsec", "unban", msg, { status });
     return Response.json({ error: msg }, { status });
   }
 }

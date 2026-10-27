@@ -343,7 +343,7 @@ There is **no email reset** (would need SMTP — not typical for homelab). Simpl
 | Theme not applying | Hard refresh: Ctrl+Shift+R |
 | CrowdSec widget: `crowdsec.db not found` | Set **CrowdSec Data (optional)** in the Unraid template (host folder with `crowdsec.db` → `/crowdsec-data:ro`), or remove the widget if you do not use CrowdSec |
 | CrowdSec: no country flags / all `??` | Ensure **GeoLite2-City.mmdb** (or Country) is in the mounted CrowdSec data folder, or set `CROWDSEC_GEOIP_PATH` |
-| CrowdSec: unban fails | Mount **Docker Socket**, check container name in plugin settings, enable unban there |
+| CrowdSec: unban fails | Set `CROWDSEC_LAPI_URL`, `CROWDSEC_LAPI_MACHINE_ID`, `CROWDSEC_LAPI_PASSWORD` (machine from `cscli machines add … -f /dev/null`), enable unban in the plugin settings — no Docker socket needed |
 | Mail badge red/yellow, count 0 | **Settings → Email** → re-enter password → **Save**. Set fixed `SELFDASHBOARD_SECRET_KEY` in Docker. Check **Logs** filter `mail` |
 | Mail: `ENOTFOUND host:5000` | IMAP host must be IP/hostname only (e.g. `192.168.1.15`), port **993** separate; webmail URL goes in **Webmail URL** field |
 | Mail test OK, navbar empty | Enable **Navbar email** (General or Email tab); save account; badge needs unread > 0 |
@@ -479,7 +479,8 @@ Environment variables, mostly with the prefix `SELFDASHBOARD_`, plus a few runti
 | `CROWDSEC_DATA_DIR` | – | `/crowdsec-data` | Allowed root for DB paths (CrowdSec widget only) |
 | `CROWDSEC_GEOIP_PATH` | – | – | Full path to `GeoLite2-*.mmdb` if not in the data folder |
 | `CROWDSEC_DB_PATH` | – | – | Default DB file if widget path is empty |
-| `CROWDSEC_CONTAINER` | – | `crowdsec` | Docker container name for optional unban via `cscli` |
+| `CROWDSEC_LAPI_URL` | – | `http://crowdsec:8080` | CrowdSec Local API for optional unban (e.g. `http://192.168.1.7:8080`) |
+| `CROWDSEC_LAPI_MACHINE_ID` / `CROWDSEC_LAPI_PASSWORD` | – | – | Credentials of a dedicated CrowdSec machine (`cscli machines add selfdashboard --password … -f /dev/null`) — needed for unban |
 | `NODE_TLS_REJECT_UNAUTHORIZED` | – | empty | `0` disables TLS certificate checks for all outgoing HTTPS — only for self-signed homelab certs; see [unraid/README.md](unraid/README.md) |
 | `SELFDASHBOARD_PLUGIN_READ_CACHE` | – | on | `0` turns off the central read cache for plugin APIs (plugins opt in via `readCache` in their `plugin.json`) |
 | `SELFDASHBOARD_HOST_DOWN_MS` | – | on | `0` turns off the offline-host memory (unreachable LAN hosts are answered instantly instead of waiting ~3 s each time) |
@@ -919,7 +920,7 @@ Es gibt **keinen E-Mail-Reset** (bräuchte SMTP — im Homelab unüblich). Am ei
 | Theme wird nicht übernommen | Hart neu laden: Strg+Shift+R |
 | CrowdSec-Widget: `crowdsec.db not found` | **CrowdSec Data (optional)** in der Unraid-Vorlage setzen (Host-Ordner mit `crowdsec.db` → `/crowdsec-data:ro`) oder das Widget entfernen, wenn du CrowdSec nicht nutzt |
 | CrowdSec: keine Länderflaggen / nur `??` | **GeoLite2-City.mmdb** (oder Country) in den eingebundenen CrowdSec-Ordner legen oder `CROWDSEC_GEOIP_PATH` setzen |
-| CrowdSec: Entsperren schlägt fehl | **Docker Socket** einbinden, Container-Namen in den Plugin-Einstellungen prüfen, Entsperren dort aktivieren |
+| CrowdSec: Entsperren schlägt fehl | `CROWDSEC_LAPI_URL`, `CROWDSEC_LAPI_MACHINE_ID`, `CROWDSEC_LAPI_PASSWORD` setzen (Maschine per `cscli machines add … -f /dev/null`), Entsperren in den Plugin-Einstellungen aktivieren — kein Docker-Socket nötig |
 | E-Mail-Badge rot/gelb, 0 Mails | **Einstellungen → E-Mail** → Passwort neu eingeben → **Speichern**. Festen `SELFDASHBOARD_SECRET_KEY` in Docker setzen. Im **Protokoll** nach `mail` filtern |
 | E-Mail: `ENOTFOUND host:5000` | IMAP-Host nur als IP/Name (z. B. `192.168.1.15`), Port **993** extra; die Webmail-Adresse gehört ins Feld **Webmail-URL** |
 | Test OK, Navbar leer | **Navbar E-Mail** einschalten (Reiter Allgemein oder E-Mail); Konto speichern; das Badge erscheint nur bei Ungelesen > 0 |
@@ -1055,7 +1056,8 @@ Umgebungsvariablen, meist mit dem Präfix `SELFDASHBOARD_`, dazu einige Laufzeit
 | `CROWDSEC_DATA_DIR` | – | `/crowdsec-data` | Erlaubtes Wurzelverzeichnis für DB-Pfade (nur CrowdSec-Widget) |
 | `CROWDSEC_GEOIP_PATH` | – | – | Voller Pfad zu `GeoLite2-*.mmdb`, falls nicht im Data-Ordner |
 | `CROWDSEC_DB_PATH` | – | – | Standard-DB-Datei, wenn im Widget kein Pfad gesetzt ist |
-| `CROWDSEC_CONTAINER` | – | `crowdsec` | Docker-Container-Name für optionales Entsperren per `cscli` |
+| `CROWDSEC_LAPI_URL` | – | `http://crowdsec:8080` | CrowdSec Local API für optionales Entsperren (z. B. `http://192.168.1.7:8080`) |
+| `CROWDSEC_LAPI_MACHINE_ID` / `CROWDSEC_LAPI_PASSWORD` | – | – | Zugang einer eigenen CrowdSec-Maschine (`cscli machines add selfdashboard --password … -f /dev/null`) — für Entsperren nötig |
 | `NODE_TLS_REJECT_UNAUTHORIZED` | – | leer | `0` schaltet die Zertifikatsprüfung für alle ausgehenden HTTPS-Verbindungen ab — nur für selbstsignierte Homelab-Zertifikate; siehe [unraid/README.md](unraid/README.md) |
 | `SELFDASHBOARD_PLUGIN_READ_CACHE` | – | an | `0` schaltet den zentralen Lese-Cache für Plugin-APIs ab (Plugins melden sich per `readCache` in ihrer `plugin.json` an) |
 | `SELFDASHBOARD_HOST_DOWN_MS` | – | an | `0` schaltet den Offline-Merker ab (nicht erreichbare LAN-Hosts werden sofort beantwortet statt jedes Mal ~3 s zu warten) |

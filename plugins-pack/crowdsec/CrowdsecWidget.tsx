@@ -242,18 +242,43 @@ export function CrowdsecWidget({
     return map[code as keyof typeof map] || code
   }
 
+  const unbanErrLabel = (code: string) => {
+    const map: Record<string, string> = de
+      ? {
+          lapi_credentials_missing:
+            'CrowdSec-LAPI-Zugang fehlt — CROWDSEC_LAPI_MACHINE_ID und CROWDSEC_LAPI_PASSWORD am SelfDashboard-Container setzen.',
+          lapi_login_failed: 'CrowdSec-LAPI-Login abgelehnt — Machine-ID/Passwort prüfen (cscli machines list).',
+          lapi_unreachable: 'CrowdSec-LAPI nicht erreichbar — CROWDSEC_LAPI_URL prüfen.',
+          invalid_ip: 'Ungültige IP-Adresse.',
+          network_error: 'Netzwerkfehler.',
+        }
+      : {
+          lapi_credentials_missing:
+            'CrowdSec LAPI credentials missing — set CROWDSEC_LAPI_MACHINE_ID and CROWDSEC_LAPI_PASSWORD on the SelfDashboard container.',
+          lapi_login_failed: 'CrowdSec LAPI login rejected — check machine ID/password (cscli machines list).',
+          lapi_unreachable: 'CrowdSec LAPI unreachable — check CROWDSEC_LAPI_URL.',
+          invalid_ip: 'Invalid IP address.',
+          network_error: 'Network error.',
+        }
+    if (map[code]) return map[code]
+    if (code.startsWith('lapi_error_')) {
+      return de ? `CrowdSec-LAPI-Fehler (HTTP ${code.slice(11)})` : `CrowdSec LAPI error (HTTP ${code.slice(11)})`
+    }
+    return code
+  }
+
   const doUnban = async (item: CrowdsecFeedItem) => {
     setUnbanBusy(true)
     setUnbanMsg(null)
     try {
       await pluginApiJson('crowdsec', '/decision', {
         method: 'POST',
-        body: JSON.stringify({ ip: item.ip, container: cfg.crowdsecContainer }),
+        body: JSON.stringify({ ip: item.ip }),
       })
       setUnbanPending(null)
       void fetchData()
     } catch (e) {
-      setUnbanMsg(e instanceof Error ? e.message : 'network_error')
+      setUnbanMsg(unbanErrLabel(e instanceof Error ? e.message : 'network_error'))
     } finally {
       setUnbanBusy(false)
     }
@@ -587,8 +612,8 @@ export function CrowdsecWidget({
           <article className="cs-confirm-box">
             <p style={{ margin: 0 }}>
               {de
-                ? `Sperre für ${unbanPending.ip} per cscli im Container „${cfg.crowdsecContainer}" aufheben?`
-                : `Remove ban for ${unbanPending.ip} via cscli in container "${cfg.crowdsecContainer}"?`}
+                ? `Sperre für ${unbanPending.ip} über die CrowdSec-LAPI aufheben?`
+                : `Remove ban for ${unbanPending.ip} via the CrowdSec LAPI?`}
             </p>
             {unbanMsg ? (
               <p style={{ margin: '8px 0 0', color: '#ef4444', fontSize: 10 }}>{unbanMsg}</p>
