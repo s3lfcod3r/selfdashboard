@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { Settings, Plus, Sun, Moon, Pencil, Check, ZoomIn, ZoomOut } from 'lucide-react'
+import { Settings, Plus, Sun, Moon, Pencil, Check, ZoomIn, ZoomOut, Coffee } from 'lucide-react'
 import { useDashboardStore } from '@/lib/store'
 import { NavbarSearch } from '@/components/layout/NavbarSearch'
 import { getNavbarSlots, getNavbarSlotsVersion, subscribeNavbarSlots } from '@/lib/pluginNavbarRegistry'
@@ -251,6 +251,17 @@ export function Navbar() {
                 ) : null}
               </button>
             )}
+            <a
+              className="btn-ghost navbar-icon-btn"
+              style={{ padding: navbarPhone ? 10 : 7, display: 'inline-flex' }}
+              href="https://ko-fi.com/s3lfcod3r"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={locale === 'de' ? 'Ko-fi ☕ SelfDashboard unterstützen' : 'Ko-fi ☕ Support SelfDashboard'}
+              aria-label="Ko-fi"
+            >
+              <Coffee size={navbarPhone ? 16 : 15} />
+            </a>
             <button className="btn-ghost navbar-icon-btn" style={{ padding: navbarPhone ? 10 : 7 }} onClick={() => setSettingsOpen(true)}>
               <Settings size={navbarPhone ? 16 : 15} />
             </button>

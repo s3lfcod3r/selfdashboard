@@ -18,8 +18,8 @@
   <PostArgs/>
   <CPUset/>
   <DateInstalled/>
-  <DonateText/>
-  <DonateLink/>
+  <DonateText>EN: Like the project? Support it on Ko-fi ☕ — DE: Gefällt dir das Projekt? Unterstütze es auf Ko-fi ☕</DonateText>
+  <DonateLink>https://ko-fi.com/s3lfcod3r</DonateLink>
   <Requires/>
 
   <Config

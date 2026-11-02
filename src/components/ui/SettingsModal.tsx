@@ -601,6 +601,12 @@ export function SettingsModal({ open, onClose }: Props) {
 
 
               <p style={{ fontSize: '12px', textAlign: 'center', color: 'var(--text-muted)' }}>SelfDashboard v{process.env.NEXT_PUBLIC_APP_VERSION}</p>
+              <p style={{ fontSize: '12px', textAlign: 'center', color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                ☕{' '}
+                <a href="https://ko-fi.com/s3lfcod3r" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent)' }}>
+                  {locale === 'de' ? 'SelfDashboard auf Ko-fi unterstützen' : 'Support SelfDashboard on Ko-fi'}
+                </a>
+              </p>
             </>)}
 
             {/* ── Dashboards ── */}
