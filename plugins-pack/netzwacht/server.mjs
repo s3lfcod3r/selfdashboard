@@ -410,6 +410,7 @@ function createPluginStaleCache(options) {
   const staleMs = Math.max(freshMs, staleOverride() ?? options.staleMs);
   const maxEntries = Math.max(1, options.maxEntries ?? 32);
   const label = options.label ?? "plugin";
+  const maxWaitMs = Math.max(0, options.maxWaitMs ?? 0);
   const entries = /* @__PURE__ */ new Map();
   const inflight = /* @__PURE__ */ new Map();
   const scheduled = /* @__PURE__ */ new Map();
@@ -450,6 +451,25 @@ function createPluginStaleCache(options) {
       if (cached) {
         const age = Date.now() - cached.at;
         if (age < freshMs) return toResponse(cached.snap, "hit", age);
+        if (age < staleMs && maxWaitMs > 0) {
+          const pending = load(key, loader, opts?.cacheable).catch((e) => {
+            console.warn(
+              `[SelfDashboard][stale-cache] ${label}: Refresh fehlgeschlagen`,
+              e instanceof Error ? e.message : e
+            );
+            return null;
+          });
+          let timer;
+          const fresh = await Promise.race([
+            pending,
+            new Promise((resolve) => {
+              timer = setTimeout(() => resolve(null), maxWaitMs);
+            })
+          ]);
+          clearTimeout(timer);
+          if (fresh) return toResponse(fresh, "refresh", 0);
+          return toResponse(cached.snap, "stale", age);
+        }
         if (age < staleMs) {
           if (!scheduled.has(key)) {
             scheduled.set(

@@ -860,11 +860,11 @@ function readSync() {
   if (!existsSync2(path2)) return defaultStore();
   try {
     const parsed = JSON.parse(readFileSync2(path2, "utf8"));
-    const store = normalizeStore(parsed);
+    const store2 = normalizeStore(parsed);
     if (parsed.version !== MAIL_STORE_VERSION) {
-      writeSync(store);
+      writeSync(store2);
     }
-    return store;
+    return store2;
   } catch {
     try {
       renameSync(path2, `${path2}.corrupt-${Date.now()}`);
@@ -929,45 +929,45 @@ function applyAccountUpdate(current, body) {
   if (typeof body.verifyTls === "boolean") next.verifyTls = body.verifyTls;
   return next;
 }
-function upsertAccountFromBody(store, body) {
+function upsertAccountFromBody(store2, body) {
   const id = typeof body.id === "string" ? body.id : void 0;
-  const idx = id ? store.accounts.findIndex((a) => a.id === id) : -1;
+  const idx = id ? store2.accounts.findIndex((a) => a.id === id) : -1;
   if (idx >= 0) {
-    store.accounts[idx] = applyAccountUpdate(store.accounts[idx], body);
-    return store.accounts[idx];
+    store2.accounts[idx] = applyAccountUpdate(store2.accounts[idx], body);
+    return store2.accounts[idx];
   }
   const account = applyAccountUpdate(
     {
       id: newAccountId(),
-      label: typeof body.label === "string" ? body.label.trim() || "Neues Konto" : `Konto ${store.accounts.length + 1}`,
+      label: typeof body.label === "string" ? body.label.trim() || "Neues Konto" : `Konto ${store2.accounts.length + 1}`,
       ...DEFAULT_ACCOUNT_FIELDS
     },
     body
   );
-  store.accounts.push(account);
+  store2.accounts.push(account);
   return account;
 }
-function findAccount(store, id) {
-  return store.accounts.find((a) => a.id === id);
+function findAccount(store2, id) {
+  return store2.accounts.find((a) => a.id === id);
 }
-function resolveAccountFromRequest(store, body, fallbackLabel) {
-  const base = (typeof body.accountId === "string" ? findAccount(store, body.accountId) : void 0) ?? store.accounts[0] ?? {
+function resolveAccountFromRequest(store2, body, fallbackLabel) {
+  const base = (typeof body.accountId === "string" ? findAccount(store2, body.accountId) : void 0) ?? store2.accounts[0] ?? {
     id: newAccountId(),
     label: fallbackLabel,
     ...DEFAULT_ACCOUNT_FIELDS
   };
   return applyAccountUpdate({ ...base }, body);
 }
-function selfmailerOpenUrl(store) {
-  const base = (store.selfmailerBase ?? "").trim();
+function selfmailerOpenUrl(store2) {
+  const base = (store2.selfmailerBase ?? "").trim();
   if (!base) return null;
   const withScheme = /^https?:\/\//i.test(base) ? base : `http://${base}`;
   return withScheme.replace(/\/+$/, "");
 }
-function pickOpenUrl(store) {
+function pickOpenUrl(store2) {
   const direct = (a) => a.openUrl?.trim() || null;
-  const withDirect = store.accounts.filter((a) => direct(a));
-  for (const st of store.status.accounts) {
+  const withDirect = store2.accounts.filter((a) => direct(a));
+  for (const st of store2.status.accounts) {
     if (st.unread > 0) {
       const acc = withDirect.find((a) => a.id === st.id);
       if (acc) return direct(acc);
@@ -975,10 +975,10 @@ function pickOpenUrl(store) {
   }
   const preferredDirect = withDirect.find((a) => parseAccountEnabled(a.enabled)) ?? withDirect[0];
   if (preferredDirect) return direct(preferredDirect);
-  const sm = selfmailerOpenUrl(store);
+  const sm = selfmailerOpenUrl(store2);
   if (sm) return sm;
-  const withLink = store.accounts.filter((a) => resolveWebmailUrl(a));
-  for (const st of store.status.accounts) {
+  const withLink = store2.accounts.filter((a) => resolveWebmailUrl(a));
+  for (const st of store2.status.accounts) {
     if (st.unread > 0) {
       const acc = withLink.find((a) => a.id === st.id);
       const url = acc ? resolveWebmailUrl(acc) : null;
@@ -988,46 +988,46 @@ function pickOpenUrl(store) {
   const preferred = withLink.find((a) => parseAccountEnabled(a.enabled)) ?? withLink[0];
   return preferred ? resolveWebmailUrl(preferred) : null;
 }
-function persistAccountFromImapTest(store, merged, unread) {
-  const idx = store.accounts.findIndex((a) => a.id === merged.id);
+function persistAccountFromImapTest(store2, merged, unread) {
+  const idx = store2.accounts.findIndex((a) => a.id === merged.id);
   const saved = {
     ...merged,
-    id: idx >= 0 ? store.accounts[idx].id : merged.id,
+    id: idx >= 0 ? store2.accounts[idx].id : merged.id,
     enabled: true
   };
   if (idx >= 0) {
-    store.accounts[idx] = saved;
+    store2.accounts[idx] = saved;
   } else {
-    store.accounts.push(saved);
+    store2.accounts.push(saved);
   }
   const label = saved.label || saved.username || saved.id;
-  const others = store.status.accounts.filter((a) => a.id !== saved.id);
+  const others = store2.status.accounts.filter((a) => a.id !== saved.id);
   const nextAccounts = [...others, { id: saved.id, label, unread }];
-  store.status.accounts = nextAccounts;
-  store.status.unread = nextAccounts.reduce((sum, a) => sum + a.unread, 0);
-  store.status.lastSyncAt = (/* @__PURE__ */ new Date()).toISOString();
-  store.status.lastError = void 0;
+  store2.status.accounts = nextAccounts;
+  store2.status.unread = nextAccounts.reduce((sum, a) => sum + a.unread, 0);
+  store2.status.lastSyncAt = (/* @__PURE__ */ new Date()).toISOString();
+  store2.status.lastError = void 0;
 }
-function describeMailSyncBlocker(store) {
-  if (store.accounts.length === 0) {
+function describeMailSyncBlocker(store2) {
+  if (store2.accounts.length === 0) {
     return "Kein Konto konfiguriert \u2014 IMAP-Daten anlegen und speichern.";
   }
-  const enabled = store.accounts.filter((a) => parseAccountEnabled(a.enabled));
-  if (enabled.length === 0) {
-    const names = store.accounts.map((a) => a.label || a.username || a.id).join(", ");
+  const enabled2 = store2.accounts.filter((a) => parseAccountEnabled(a.enabled));
+  if (enabled2.length === 0) {
+    const names = store2.accounts.map((a) => a.label || a.username || a.id).join(", ");
     return names ? `Konto deaktiviert (${names}) \u2014 \u201EDieses Konto abfragen\u201C aktivieren und \u201ESpeichern\u201C.` : "Kein aktives Konto \u2014 \u201EDieses Konto abfragen\u201C aktivieren und speichern.";
   }
-  const missingPassword = enabled.filter((a) => !String(a.passwordEncrypted ?? "").trim());
-  if (missingPassword.length === enabled.length) {
+  const missingPassword = enabled2.filter((a) => !String(a.passwordEncrypted ?? "").trim());
+  if (missingPassword.length === enabled2.length) {
     return "Passwort fehlt im Speicher \u2014 Passwort eintragen und \u201ESpeichern\u201C oder \u201ETesten\u201C klicken.";
   }
-  const incomplete = enabled.filter(
+  const incomplete = enabled2.filter(
     (a) => !String(a.host ?? "").trim() || !String(a.username ?? "").trim()
   );
   if (incomplete.length > 0) {
     return "Host oder Benutzername fehlt beim aktiven Konto.";
   }
-  const fetchable = store.accounts.filter(isMailAccountFetchable);
+  const fetchable = store2.accounts.filter(isMailAccountFetchable);
   if (fetchable.length === 0) {
     return "Kein abrufbares Konto \u2014 Einstellungen pr\xFCfen und erneut speichern.";
   }
@@ -1038,11 +1038,11 @@ async function resetMailStatusCache() {
     s.status = structuredClone(EMPTY_MAIL_STATUS);
   });
 }
-function toPublicConfigLegacy(store) {
-  const first = store.accounts[0];
+function toPublicConfigLegacy(store2) {
+  const first = store2.accounts[0];
   if (!first) {
     return {
-      enabled: store.navbarEnabled,
+      enabled: store2.navbarEnabled,
       host: "",
       port: 993,
       secure: true,
@@ -1050,20 +1050,124 @@ function toPublicConfigLegacy(store) {
       hasPassword: false,
       mailbox: "*",
       openUrl: "",
-      pollIntervalSeconds: store.pollIntervalSeconds,
+      pollIntervalSeconds: store2.pollIntervalSeconds,
       verifyTls: true
     };
   }
   return {
     ...toPublicAccount(first),
-    enabled: store.navbarEnabled,
-    pollIntervalSeconds: store.pollIntervalSeconds
+    enabled: store2.navbarEnabled,
+    pollIntervalSeconds: store2.pollIntervalSeconds
   };
 }
 
 // plugins-pack/_shared/ssrf.ts
-import net from "node:net";
+import net2 from "node:net";
 import { lookup } from "node:dns/promises";
+
+// plugins-pack/_shared/upstream-health.ts
+import net from "node:net";
+var DOWN_CODES = /* @__PURE__ */ new Set(["EHOSTUNREACH", "ENETUNREACH", "EHOSTDOWN", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"]);
+var PROBE_MS = 15e3;
+var PROBE_TIMEOUT_MS = 4e3;
+var STORE_KEY = "__sdUpstreamHealth";
+function store() {
+  const g = globalThis;
+  let s = g[STORE_KEY];
+  if (!s) {
+    s = /* @__PURE__ */ new Map();
+    g[STORE_KEY] = s;
+  }
+  return s;
+}
+function enabled() {
+  return process.env.SELFDASHBOARD_HOST_DOWN_MS !== "0";
+}
+function target(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
+    if (!host) return null;
+    const port = u.port ? Number(u.port) : u.protocol === "https:" ? 443 : 80;
+    return { host, port };
+  } catch {
+    return null;
+  }
+}
+function errorCode(e) {
+  let cur = e;
+  for (let i = 0; i < 4 && cur && typeof cur === "object"; i++) {
+    const code = cur.code;
+    if (typeof code === "string" && code) return code;
+    cur = cur.cause;
+  }
+  return null;
+}
+function markUp(host) {
+  if (store().delete(host)) {
+    console.info(`[SelfDashboard][upstream] ${host} wieder erreichbar`);
+  }
+}
+function startProbe(host, port, state) {
+  state.probing = true;
+  state.lastProbe = Date.now();
+  let settled = false;
+  const finish = (up) => {
+    if (settled) return;
+    settled = true;
+    state.probing = false;
+    socket.destroy();
+    if (up) markUp(host);
+  };
+  const socket = net.connect({ host, port });
+  socket.setTimeout(PROBE_TIMEOUT_MS);
+  socket.once("connect", () => finish(true));
+  socket.once("timeout", () => finish(false));
+  socket.once("error", (err) => {
+    const code = errorCode(err);
+    finish(!code || !DOWN_CODES.has(code));
+  });
+}
+var UpstreamHostDownError = class extends Error {
+  constructor(host, code) {
+    super(`host_down:${host} (${code}, cached)`);
+    this.name = "UpstreamHostDownError";
+    this.code = code;
+  }
+};
+function assertUpstreamHostUp(url) {
+  const t = target(url);
+  if (!t) return;
+  const state = store().get(t.host);
+  if (!state) return;
+  if (!state.probing && Date.now() - state.lastProbe >= PROBE_MS) {
+    startProbe(t.host, t.port, state);
+  }
+  throw new UpstreamHostDownError(t.host, state.code);
+}
+function noteUpstreamError(url, err) {
+  if (!enabled()) return;
+  const code = errorCode(err);
+  if (!code || !DOWN_CODES.has(code)) return;
+  const t = target(url);
+  if (!t) return;
+  const hosts = store();
+  const existing = hosts.get(t.host);
+  if (existing) {
+    existing.code = code;
+    return;
+  }
+  console.warn(
+    `[SelfDashboard][upstream] ${t.host} nicht erreichbar (${code}) \u2014 Anfragen werden sofort abgelehnt, Hintergrund-Probe alle ${PROBE_MS / 1e3}s`
+  );
+  hosts.set(t.host, { code, lastProbe: Date.now(), probing: false });
+}
+function noteUpstreamOk(url) {
+  const t = target(url);
+  if (t) markUp(t.host);
+}
+
+// plugins-pack/_shared/ssrf.ts
 var BLOCKED_HOSTNAMES = /* @__PURE__ */ new Set([
   "localhost",
   "metadata.google.internal",
@@ -1071,14 +1175,14 @@ var BLOCKED_HOSTNAMES = /* @__PURE__ */ new Set([
   "instance-data"
 ]);
 function isAlwaysBlockedIp(ip) {
-  if (net.isIPv4(ip)) {
+  if (net2.isIPv4(ip)) {
     const [a, b] = ip.split(".").map(Number);
     if (a === 127) return true;
     if (a === 0) return true;
     if (a === 169 && b === 254) return true;
     return false;
   }
-  if (net.isIPv6(ip)) {
+  if (net2.isIPv6(ip)) {
     const normalized = ip.toLowerCase();
     if (normalized === "::1") return true;
     if (normalized.startsWith("fe80:")) return true;
@@ -1091,7 +1195,7 @@ function isAlwaysBlockedIp(ip) {
 function embeddedIpv4(normalizedV6) {
   if (!normalizedV6.startsWith("::ffff:")) return null;
   const rest = normalizedV6.slice("::ffff:".length);
-  if (net.isIPv4(rest)) return rest;
+  if (net2.isIPv4(rest)) return rest;
   const hex = rest.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
   if (!hex) return null;
   const hi = parseInt(hex[1], 16);
@@ -1099,7 +1203,7 @@ function embeddedIpv4(normalizedV6) {
   return `${hi >> 8 & 255}.${hi & 255}.${lo >> 8 & 255}.${lo & 255}`;
 }
 function isPrivateLanIp(ip) {
-  if (!net.isIPv4(ip)) return false;
+  if (!net2.isIPv4(ip)) return false;
   const [a, b] = ip.split(".").map(Number);
   if (a === 10) return true;
   if (a === 172 && b >= 16 && b <= 31) return true;
@@ -1136,7 +1240,7 @@ function assertSafeOutboundUrl(urlStr) {
   if (host.endsWith(".local") || host.endsWith(".internal")) {
     throw new UnsafeOutboundUrlError("blocked_host");
   }
-  const ipVersion = net.isIP(host);
+  const ipVersion = net2.isIP(host);
   if (ipVersion) {
     if (isAlwaysBlockedIp(host)) throw new UnsafeOutboundUrlError("blocked_ip");
     if (blockPrivateLanUrls() && isPrivateLanIp(host)) {
@@ -1150,7 +1254,7 @@ async function assertSafeOutboundUrlResolved(urlStr) {
   assertSafeOutboundUrl(urlStr);
   const u = new URL(urlStr);
   const host = u.hostname.toLowerCase().replace(/^\[/, "").replace(/\]$/, "");
-  if (net.isIP(host)) return;
+  if (net2.isIP(host)) return;
   let addrs;
   try {
     addrs = await lookup(host, { all: true, verbatim: true });
@@ -1166,10 +1270,18 @@ async function assertSafeOutboundUrlResolved(urlStr) {
   }
 }
 async function fetchWithSsrfGuard(urlStr, init, maxRedirects = 5) {
+  assertUpstreamHostUp(urlStr);
   await assertSafeOutboundUrlResolved(urlStr);
   let current = urlStr;
   for (let hop = 0; hop <= maxRedirects; hop++) {
-    const resp = await fetch(current, { ...init, redirect: "manual" });
+    let resp;
+    try {
+      resp = await fetch(current, { ...init, redirect: "manual" });
+    } catch (e) {
+      noteUpstreamError(current, e);
+      throw e;
+    }
+    noteUpstreamOk(current);
     if (resp.status < 300 || resp.status >= 400) return resp;
     const location = resp.headers.get("location");
     if (!location) return resp;
@@ -1214,8 +1326,8 @@ async function runMailSync(opts) {
   syncInFlight = true;
   try {
     if (opts?.resetStatus) await resetMailStatusCache();
-    const store = await readMailStore();
-    if (!store.navbarEnabled) {
+    const store2 = await readMailStore();
+    if (!store2.navbarEnabled) {
       await mutateMailStore((s) => {
         s.status.unread = 0;
         s.status.lastError = void 0;
@@ -1223,15 +1335,15 @@ async function runMailSync(opts) {
       });
       return;
     }
-    const imapOff = store.imapEnabled === false;
-    const active = imapOff ? [] : store.accounts.filter(isMailAccountFetchable);
-    const smBase = (store.selfmailerBase ?? "").trim();
-    const smToken = (store.selfmailerToken ?? "").trim();
+    const imapOff = store2.imapEnabled === false;
+    const active = imapOff ? [] : store2.accounts.filter(isMailAccountFetchable);
+    const smBase = (store2.selfmailerBase ?? "").trim();
+    const smToken = (store2.selfmailerToken ?? "").trim();
     const smEnabled = Boolean(smBase && smToken);
     if (active.length === 0 && !smEnabled) {
-      const blocker = imapOff || store.accounts.length === 0 ? void 0 : describeMailSyncBlocker(store);
+      const blocker = imapOff || store2.accounts.length === 0 ? void 0 : describeMailSyncBlocker(store2);
       await mutateMailStore((s) => {
-        if (imapOff || store.accounts.length === 0) {
+        if (imapOff || store2.accounts.length === 0) {
           s.status.unread = 0;
           s.status.accounts = [];
           s.status.lastError = void 0;
@@ -1246,7 +1358,7 @@ async function runMailSync(opts) {
     const errors = [];
     for (const account of active) {
       try {
-        const result = await fetchUnreadBreakdown(accountToImapConfig(account, store.unreadMaxAgeDays, store.inboxOnly));
+        const result = await fetchUnreadBreakdown(accountToImapConfig(account, store2.unreadMaxAgeDays, store2.inboxOnly));
         total += result.total;
         perAccount.push({
           id: account.id,
@@ -1264,7 +1376,7 @@ async function runMailSync(opts) {
     }
     if (smEnabled) {
       try {
-        const sm = await fetchSelfmailerUnread(smBase, smToken, store.selfmailerSubfolders === true);
+        const sm = await fetchSelfmailerUnread(smBase, smToken, store2.selfmailerSubfolders === true);
         total += sm.total;
         for (const a of sm.accounts) perAccount.push(a);
       } catch (e) {
@@ -1314,18 +1426,18 @@ async function handleMailStatus(req) {
   const force = url.searchParams.get("refresh") === "1";
   try {
     if (force) await runMailSync({ wait: true });
-    const store = await readMailStore();
+    const store2 = await readMailStore();
     return NextResponse.json({
       ok: true,
-      navbarEnabled: store.navbarEnabled,
-      pollIntervalSeconds: store.pollIntervalSeconds,
-      unread: store.status.unread,
-      hasNew: store.navbarEnabled && store.status.unread > 0,
-      lastSyncAt: store.status.lastSyncAt,
-      lastError: store.status.lastError,
-      openUrl: pickOpenUrl(store),
-      accounts: store.status.accounts,
-      config: toPublicConfigLegacy(store)
+      navbarEnabled: store2.navbarEnabled,
+      pollIntervalSeconds: store2.pollIntervalSeconds,
+      unread: store2.status.unread,
+      hasNew: store2.navbarEnabled && store2.status.unread > 0,
+      lastSyncAt: store2.status.lastSyncAt,
+      lastError: store2.status.lastError,
+      openUrl: pickOpenUrl(store2),
+      accounts: store2.status.accounts,
+      config: toPublicConfigLegacy(store2)
     });
   } catch {
     return NextResponse.json({ ok: false, error: "read_failed" }, { status: 500 });
@@ -1333,20 +1445,20 @@ async function handleMailStatus(req) {
 }
 async function handleMailSettingsGet() {
   try {
-    const store = await readMailStore();
+    const store2 = await readMailStore();
     return NextResponse.json({
       ok: true,
-      navbarEnabled: store.navbarEnabled,
-      pollIntervalSeconds: store.pollIntervalSeconds,
-      unreadMaxAgeDays: store.unreadMaxAgeDays,
-      imapEnabled: store.imapEnabled !== false,
-      inboxOnly: store.inboxOnly === true,
-      accounts: store.accounts.map(toPublicAccount),
-      selfmailerBase: store.selfmailerBase ?? "",
-      hasSelfmailerToken: Boolean(store.selfmailerToken),
-      selfmailerSubfolders: store.selfmailerSubfolders === true,
-      status: store.status,
-      config: toPublicConfigLegacy(store)
+      navbarEnabled: store2.navbarEnabled,
+      pollIntervalSeconds: store2.pollIntervalSeconds,
+      unreadMaxAgeDays: store2.unreadMaxAgeDays,
+      imapEnabled: store2.imapEnabled !== false,
+      inboxOnly: store2.inboxOnly === true,
+      accounts: store2.accounts.map(toPublicAccount),
+      selfmailerBase: store2.selfmailerBase ?? "",
+      hasSelfmailerToken: Boolean(store2.selfmailerToken),
+      selfmailerSubfolders: store2.selfmailerSubfolders === true,
+      status: store2.status,
+      config: toPublicConfigLegacy(store2)
     });
   } catch {
     return NextResponse.json({ ok: false, error: "read_failed" }, { status: 500 });
@@ -1360,7 +1472,7 @@ async function handleMailSettingsPut(req) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
   try {
-    const store = await mutateMailStore((s) => {
+    const store2 = await mutateMailStore((s) => {
       if (typeof body.navbarEnabled === "boolean") s.navbarEnabled = body.navbarEnabled;
       if (typeof body.enabled === "boolean") s.navbarEnabled = body.enabled;
       if (typeof body.pollIntervalSeconds === "number" && Number.isFinite(body.pollIntervalSeconds)) {
@@ -1394,9 +1506,9 @@ async function handleMailSettingsPut(req) {
         }
       }
     });
-    if (store.navbarEnabled && shouldSyncAfterSettingsPut(body)) {
+    if (store2.navbarEnabled && shouldSyncAfterSettingsPut(body)) {
       await runMailSync();
-    } else if (!store.navbarEnabled) {
+    } else if (!store2.navbarEnabled) {
       await mutateMailStore((s) => {
         s.status.unread = 0;
         s.status.lastError = void 0;
@@ -1431,9 +1543,9 @@ async function handleMailTest(req) {
   } catch {
   }
   try {
-    const store = await readMailStore();
-    const merged = resolveAccountFromRequest(store, body, "Test");
-    const result = await testImapConnection(accountToImapConfig(merged, store.unreadMaxAgeDays, store.inboxOnly));
+    const store2 = await readMailStore();
+    const merged = resolveAccountFromRequest(store2, body, "Test");
+    const result = await testImapConnection(accountToImapConfig(merged, store2.unreadMaxAgeDays, store2.inboxOnly));
     if (!result.ok) {
       void logMailEvent("test", result.error, {
         detail: { accountId: merged.id, label: merged.label, host: merged.host }
@@ -1443,7 +1555,7 @@ async function handleMailTest(req) {
     let status;
     let openUrl = null;
     const accountKey = typeof body.accountId === "string" && body.accountId || typeof body.id === "string" && body.id || void 0;
-    if (accountKey && findAccount(store, accountKey)) {
+    if (accountKey && findAccount(store2, accountKey)) {
       await mutateMailStore((s) => {
         persistAccountFromImapTest(s, { ...merged, id: accountKey }, result.unread);
       });
@@ -1473,10 +1585,10 @@ async function handleMailUnreadPreview(req) {
   } catch {
   }
   try {
-    const store = await readMailStore();
-    const merged = resolveAccountFromRequest(store, body, "Preview");
+    const store2 = await readMailStore();
+    const merged = resolveAccountFromRequest(store2, body, "Preview");
     const result = await fetchUnreadMessagePreviews(
-      accountToImapConfig(merged, store.unreadMaxAgeDays, store.inboxOnly)
+      accountToImapConfig(merged, store2.unreadMaxAgeDays, store2.inboxOnly)
     );
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
@@ -1492,15 +1604,15 @@ async function handleMailMarkAllRead(req) {
   } catch {
   }
   try {
-    const store = await readMailStore();
-    const merged = resolveAccountFromRequest(store, body, "Mark read");
+    const store2 = await readMailStore();
+    const merged = resolveAccountFromRequest(store2, body, "Mark read");
     if (!merged.passwordEncrypted?.trim()) {
       return NextResponse.json(
         { ok: false, error: "Passwort fehlt \u2014 bitte speichern oder Testen mit Passwort." },
         { status: 400 }
       );
     }
-    const result = await markAllUnreadAsRead(accountToImapConfig(merged, store.unreadMaxAgeDays, store.inboxOnly));
+    const result = await markAllUnreadAsRead(accountToImapConfig(merged, store2.unreadMaxAgeDays, store2.inboxOnly));
     await runMailSync({ wait: true });
     const fresh = await readMailStore();
     return NextResponse.json({ ok: true, ...result, status: fresh.status });
@@ -1513,18 +1625,18 @@ async function handleMailMarkAllRead(req) {
 async function handleMailResetCache() {
   try {
     await runMailSync({ wait: true, resetStatus: true });
-    const store = await readMailStore();
+    const store2 = await readMailStore();
     return NextResponse.json({
       ok: true,
-      navbarEnabled: store.navbarEnabled,
-      pollIntervalSeconds: store.pollIntervalSeconds,
-      unreadMaxAgeDays: store.unreadMaxAgeDays,
-      unread: store.status.unread,
-      lastSyncAt: store.status.lastSyncAt,
-      lastError: store.status.lastError,
-      accounts: store.status.accounts,
-      openUrl: pickOpenUrl(store),
-      config: toPublicConfigLegacy(store)
+      navbarEnabled: store2.navbarEnabled,
+      pollIntervalSeconds: store2.pollIntervalSeconds,
+      unreadMaxAgeDays: store2.unreadMaxAgeDays,
+      unread: store2.status.unread,
+      lastSyncAt: store2.status.lastSyncAt,
+      lastError: store2.status.lastError,
+      accounts: store2.status.accounts,
+      openUrl: pickOpenUrl(store2),
+      config: toPublicConfigLegacy(store2)
     });
   } catch (e) {
     const msg = formatMailError(e instanceof Error ? e.message : String(e));
