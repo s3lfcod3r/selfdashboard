@@ -1,5 +1,8 @@
 <?xml version="1.0"?>
 <Container version="2">
+  <!-- This copy is kept only for existing installs. The maintained template lives in
+       https://github.com/s3lfcod3r/unraid-templates (templates/selfdashboard.xml).
+       Please change it there, not here. -->
   <Name>SelfDashboard</Name>
   <Repository>ghcr.io/s3lfcod3r/selfdashboard:latest</Repository>
   <Registry>https://github.com/s3lfcod3r/selfdashboard/pkgs/container/selfdashboard</Registry>
@@ -12,7 +15,8 @@
   <Overview>SelfDashboard — modulares Homelab-Dashboard (Image :latest). Kern-App im Container; Widgets über Plugin-Store „Von GitHub“ (Branch main, Ordner plugins-pack) oder ZIP nach /app/plugins/custom (plugin.json + widget.js). Plugin-APIs sind im Image (Builtin); nach Plugin-Update: Strg+F5. Config Storage: dashboard.json unter /app/data. CrowdSec-Nutzer: PUID/PGID wie beim CrowdSec-Container setzen. Doku: docs/PLUGINS.md, docs/PLUGIN_DEV.md.</Overview>
   <Category>Tools: Status:Stable</Category>
   <WebUI>http://[IP]:[PORT:3000]</WebUI>
-  <TemplateURL>https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/unraid/selfdashboard.xml</TemplateURL>
+  <TemplateURL>https://raw.githubusercontent.com/s3lfcod3r/unraid-templates/main/templates/selfdashboard.xml</TemplateURL>
+  <License>Proprietary - free for private self-hosting, see project LICENSE</License>
   <Icon>https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/public/icon_unraid.png</Icon>
   <ExtraParams>--group-add=281</ExtraParams>
   <PostArgs/>
