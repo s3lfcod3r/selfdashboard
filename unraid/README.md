@@ -2,7 +2,7 @@
 
 **[🇬🇧 English](#english)** · **[🇩🇪 Deutsch](#deutsch)**
 
-Template: [`selfdashboard.xml`](selfdashboard.xml) — Template URL: `https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/unraid/selfdashboard.xml`
+Template: [`unraid-templates/templates/selfdashboard.xml`](https://github.com/s3lfcod3r/unraid-templates/blob/main/templates/selfdashboard.xml) — Template URL: `https://raw.githubusercontent.com/s3lfcod3r/unraid-templates/main/templates/selfdashboard.xml`
 
 ---
 

@@ -416,7 +416,7 @@ Open `http://<host>:3000` → **`/setup`** creates the admin account → **Plugi
 ### 📦 Unraid
 
 Add the template from
-`https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/unraid/selfdashboard.xml`
+`https://raw.githubusercontent.com/s3lfcod3r/unraid-templates/main/templates/selfdashboard.xml`
 or import it under *Docker → Add Container → Template*.
 
 <details>
@@ -993,7 +993,7 @@ docker compose up -d
 ### 📦 Unraid
 
 Vorlage von
-`https://raw.githubusercontent.com/s3lfcod3r/selfdashboard/main/unraid/selfdashboard.xml`
+`https://raw.githubusercontent.com/s3lfcod3r/unraid-templates/main/templates/selfdashboard.xml`
 hinzufügen oder unter *Docker → Add Container → Template* importieren.
 
 <details>
