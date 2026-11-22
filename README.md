@@ -27,7 +27,7 @@
 
 SelfDashboard is your personal control center for homelab and self-hosting: **one Docker container**, **one browser tab** — instead of a dozen open admin UIs. Widgets are **plugins with real backends** (Docker, FRITZ!Box, CrowdSec, calendar, mail …), installed from a **Plugin Store** and configured entirely in the UI. It is **not** a plain bookmark page and **not** a YAML-config dashboard.
 
-Part of the **Self** family (SelfMailer, SelfStream, SelfArchiver …) — same design system, same deploy style (GHCR → Unraid).
+Part of the **Self** family (SelfMailer, SelfArchiver …) — same design system, same deploy style (GHCR → Unraid).
 
 > **TL;DR** — live widgets via plugin store · multiple dashboards · login + 2FA + multi-user · kiosk mode for wall tablets · AES-256-GCM-encrypted credentials · single container · no external DB.
 
@@ -605,7 +605,7 @@ Docker image build: [docs/DOCKER_BUILD.md](docs/DOCKER_BUILD.md) · plugin devel
 
 SelfDashboard ist dein persönliches Kontrollzentrum für Homelab und Self-Hosting: **ein Docker-Container**, **ein Browser-Tab** — statt zwölf geöffneter Admin-Oberflächen. Widgets sind **Plugins mit echtem Backend** (Docker, FRITZ!Box, CrowdSec, Kalender, Mail …), werden aus einem **Plugin-Store** installiert und komplett in der Oberfläche eingerichtet. Es ist **keine** reine Lesezeichenseite und **kein** Dashboard mit YAML-Konfiguration.
 
-Teil der **Self**-Familie (SelfMailer, SelfStream, SelfArchiver …) — gleiches Design-System, gleicher Deploy-Stil (GHCR → Unraid).
+Teil der **Self**-Familie (SelfMailer, SelfArchiver …) — gleiches Design-System, gleicher Deploy-Stil (GHCR → Unraid).
 
 > **Kurz** — Live-Widgets aus dem Plugin-Store · mehrere Dashboards · Login + 2FA + Mehrbenutzer · Kiosk-Modus fürs Wand-Tablet · AES-256-GCM-verschlüsselte Zugangsdaten · ein Container · keine externe DB.
 
