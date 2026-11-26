@@ -2,16 +2,16 @@
   "id": "node64-map",
   "name": "Node64 Angriffskarte",
   "description": "Honeypot64 aus Node64 (ipv64.net): Weltkarte der Angriffe (Punkte oder Bögen), Top-Länder, letzte Zugriffe, gesperrte Adressen. Ersatz für CrowdSec-Widget und SelfThreatMap. API: /api/plugins/node64-map.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "SelfDashboard",
   "category": "security",
   "icon": "🗺️",
   "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/node64-map/icon.png",
   "defaultLayout": {
     "w": 6,
-    "h": 4,
+    "h": 3,
     "minW": 3,
-    "minH": 3
+    "minH": 2
   },
   "hasServer": true,
   "readCache": {

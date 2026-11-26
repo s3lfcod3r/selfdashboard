@@ -20,6 +20,7 @@ import {
   fmtInt,
   fmtTime,
   n64Conn,
+  n64Count,
   n64Str,
   postN64,
   useN64,
@@ -28,7 +29,7 @@ import {
 import type { DnsPayload } from './server'
 
 const ID = 'node64-dns'
-const VERSION = '1.0.0'
+const VERSION = '1.1.0'
 
 function Widget({ config }: PluginWidgetProps) {
   const { t, locale } = useN64()
@@ -40,6 +41,7 @@ function Widget({ config }: PluginWidgetProps) {
   const showChart = config.showChart !== false
   const showTop = config.showTop !== false
   const showDevices = config.showDevices === true
+  const listCount = n64Count(config.listCount, 3)
 
   async function toggle() {
     if (!data) return
@@ -84,18 +86,27 @@ function Widget({ config }: PluginWidgetProps) {
       hasData={Boolean(data)}
       right={
         data ? (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-            <N64Dot color={data.paused ? N64_COLOR.warn : N64_COLOR.ok} />
-            <span style={{ color: 'var(--text-muted)' }}>
-              {data.paused
+          <span
+            title={
+              data.paused
                 ? data.pausedUntil
                   ? t('paused_until', { t: fmtTime(data.pausedUntil, locale) })
                   : t('filter_paused')
-                : t('filter_active')}
-            </span>
-            <button type="button" style={btn} disabled={busy} onClick={() => void toggle()}>
-              {data.paused ? t('resume') : t('pause_10')}
-            </button>
+                : t('filter_active')
+            }
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, minWidth: 0 }}
+          >
+            <N64Dot color={data.paused ? N64_COLOR.warn : N64_COLOR.ok} />
+            {data.paused ? (
+              <span style={{ color: N64_COLOR.warn, whiteSpace: 'nowrap' }}>
+                {data.pausedUntil ? t('paused_until', { t: fmtTime(data.pausedUntil, locale) }) : t('filter_paused')}
+              </span>
+            ) : null}
+            {adminKey ? (
+              <button type="button" style={btn} disabled={busy} onClick={() => void toggle()}>
+                {data.paused ? t('resume') : t('pause_10')}
+              </button>
+            ) : null}
           </span>
         ) : null
       }
@@ -112,12 +123,12 @@ function Widget({ config }: PluginWidgetProps) {
           </N64StatRow>
           {showChart && data.timeline.length ? (
             <N64Section title={rangeLabel}>
-              <N64Bars values={data.timeline.map((b) => ({ total: b.total, part: b.blocked }))} />
+              <N64Bars values={data.timeline.map((b) => ({ total: b.total, part: b.blocked }))} height={30} />
             </N64Section>
           ) : null}
-          {showTop && data.topBlocked.length ? (
+          {showTop && listCount > 0 && data.topBlocked.length ? (
             <N64Section title={t('top_blocked')}>
-              {data.topBlocked.map((d) => (
+              {data.topBlocked.slice(0, listCount).map((d) => (
                 <div key={d.name} style={{ display: 'flex', gap: 8, minWidth: 0, fontSize: 11 }}>
                   <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.name}>
                     {d.name}
@@ -127,9 +138,9 @@ function Widget({ config }: PluginWidgetProps) {
               ))}
             </N64Section>
           ) : null}
-          {showDevices && data.topClients.length ? (
+          {showDevices && listCount > 0 && data.topClients.length ? (
             <N64Section title={t('top_devices')}>
-              {data.topClients.map((c) => (
+              {data.topClients.slice(0, listCount).map((c) => (
                 <div key={c.name} style={{ display: 'flex', gap: 8, minWidth: 0, fontSize: 11 }}>
                   <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.name}>
                     {c.host || c.name}
@@ -167,6 +178,12 @@ function Settings(props: PluginSettingsProps) {
       <N64Check label={t('s_show_top')} checked={config.showTop !== false} onChange={(v) => onChange('showTop', v)} />
       <N64Check label={t('s_show_devices')} checked={config.showDevices === true} onChange={(v) => onChange('showDevices', v)} />
       <N64Input
+        label={t('s_list_count')}
+        type="number"
+        value={n64Count(config.listCount, 3)}
+        onChange={(v) => onChange('listCount', n64Count(v, 3))}
+      />
+      <N64Input
         label={t('s_admin_key')}
         type="password"
         value={n64Str(config.adminKey)}
@@ -187,7 +204,7 @@ export const meta: PluginMeta = {
   category: 'network',
   icon: '🛡️',
   iconUrl: `https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/${ID}/icon.png`,
-  defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
+  defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
   configSchema: [
     ...N64_BASE_SCHEMA,
     { key: 'range', label: 'Zeitraum', type: 'select', defaultValue: '24h', options: [
@@ -198,6 +215,7 @@ export const meta: PluginMeta = {
     { key: 'showChart', label: 'Verlauf', type: 'boolean', defaultValue: true },
     { key: 'showTop', label: 'Meistgesperrt', type: 'boolean', defaultValue: true },
     { key: 'showDevices', label: 'Geräte', type: 'boolean', defaultValue: false },
+    { key: 'listCount', label: 'Einträge in Listen', type: 'number', defaultValue: 3 },
     { key: 'adminKey', label: 'Admin-Schlüssel', type: 'password', defaultValue: '' },
   ],
 }

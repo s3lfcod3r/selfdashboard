@@ -22,7 +22,7 @@ import {
 import type { ProxyHost, ProxyPayload } from './server'
 
 const ID = 'node64-proxy'
-const VERSION = '1.0.0'
+const VERSION = '1.1.0'
 
 function reachColor(h: ProxyHost): string {
   if (!h.enabled) return N64_COLOR.idle
@@ -71,39 +71,30 @@ function Widget({ config }: PluginWidgetProps) {
           ) : null}
           {showChart && data.timeline.length ? (
             <N64Section title={t('last_24h')}>
-              <N64Bars values={data.timeline} height={36} />
+              <N64Bars values={data.timeline} height={26} />
             </N64Section>
           ) : null}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {hosts.map((h) => {
               const cert = certText(h, t)
               const reachLabel = t(h.reach === 'up' ? 'reach_up' : h.reach === 'down' ? 'reach_down' : 'reach_unknown')
               return (
                 <div
                   key={h.id}
-                  title={`${h.name} – ${reachLabel}${h.ms !== null ? ` (${h.ms} ms)` : ''}`}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'auto minmax(0,1fr) auto',
-                    alignItems: 'center',
-                    gap: '2px 8px',
-                    padding: '4px 6px',
-                    borderRadius: 6,
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                  }}
+                  title={`${h.name} – ${reachLabel}${h.ms !== null ? ` (${h.ms} ms)` : ''} · ${cert.text} · ${fmtInt(h.requests, locale)} ${t('requests')} · ${fmtInt(h.blocked, locale)} ${t('blocked')}${h.errors ? ` · ${fmtInt(h.errors, locale)} ${t('errors')}` : ''}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, padding: '2px 0', fontSize: 12 }}
                 >
                   <N64Dot color={reachColor(h)} pulse={h.reach === 'down'} />
-                  <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                  <span style={{ flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {h.name}
                     {h.extra ? <span style={{ color: 'var(--text-muted)' }}> +{h.extra}</span> : null}
-                    {h.kind === 'redirect' ? <span style={{ color: 'var(--text-muted)' }}> · {t('redirect')}</span> : null}
                   </span>
-                  <span style={{ fontSize: 10, color: cert.color, whiteSpace: 'nowrap' }}>{cert.text}</span>
-                  <span />
-                  <span style={{ gridColumn: '2 / 4', fontSize: 10, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmtInt(h.requests, locale)} {t('requests')} · <span style={{ color: h.blocked ? N64_COLOR.crit : undefined }}>{fmtInt(h.blocked, locale)} {t('blocked')}</span>
-                    {h.errors ? ` · ${fmtInt(h.errors, locale)} ${t('errors')}` : ''}
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtInt(h.requests, locale)}
+                    {h.blocked ? <span style={{ color: N64_COLOR.crit }}> · {fmtInt(h.blocked, locale)}</span> : null}
+                  </span>
+                  <span style={{ fontSize: 10, color: cert.color, whiteSpace: 'nowrap', minWidth: 30, textAlign: 'right' }}>
+                    {h.certDays === null ? '–' : h.certDays < 0 ? '🔒 !' : `🔒 ${h.certDays}`}
                   </span>
                 </div>
               )
@@ -138,7 +129,7 @@ export const meta: PluginMeta = {
   category: 'network',
   icon: '🔀',
   iconUrl: `https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/${ID}/icon.png`,
-  defaultLayout: { w: 4, h: 4, minW: 2, minH: 2 },
+  defaultLayout: { w: 4, h: 3, minW: 2, minH: 2 },
   configSchema: [
     ...N64_BASE_SCHEMA,
     { key: 'showStats', label: 'Zahlen', type: 'boolean', defaultValue: true },

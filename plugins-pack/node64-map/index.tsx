@@ -12,8 +12,10 @@ import {
   N64Select,
   N64Stat,
   N64StatRow,
-  countryFlag,
+  N64Code,
+  N64Input,
   countryName,
+  n64Count,
   fmtAgo,
   fmtInt,
   n64Str,
@@ -24,7 +26,7 @@ import { WorldMap } from './WorldMap'
 import type { MapPayload } from './server'
 
 const ID = 'node64-map'
-const VERSION = '1.0.0'
+const VERSION = '1.1.0'
 
 const KIND_COLOR: Record<string, string> = {
   exploit: N64_COLOR.crit,
@@ -40,6 +42,7 @@ function Widget({ config }: PluginWidgetProps) {
   const mode = config.mapMode === 'arcs' ? 'arcs' : 'dots'
   const showList = config.showList !== false
   const showStats = config.showStats !== false
+  const listCount = n64Count(config.listCount, 3)
 
   return (
     <N64Frame
@@ -66,16 +69,16 @@ function Widget({ config }: PluginWidgetProps) {
           {!data.points.length ? (
             <N64Note>{t('no_attacks')}</N64Note>
           ) : (
-            <div style={{ display: 'flex', gap: 10, flex: 1, minHeight: 120, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 10, flex: 1, minHeight: 110, flexWrap: 'wrap' }}>
               <div style={{ flex: '3 1 260px', minWidth: 0, minHeight: 120 }}>
                 <WorldMap points={data.points} mode={mode} homeCc={data.home} label={t('t_map')} />
               </div>
               {showList ? (
-                <div style={{ flex: '1 1 150px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ flex: '1 1 150px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <N64Section title={t('top_countries')}>
-                    {data.points.slice(0, 6).map((p) => (
+                    {data.points.slice(0, 5).map((p) => (
                       <div key={p.cc} style={{ display: 'flex', gap: 6, fontSize: 11, minWidth: 0 }}>
-                        <span aria-hidden>{countryFlag(p.cc)}</span>
+                        <N64Code code={p.cc} />
                         <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {countryName(p.cc, locale)}
                         </span>
@@ -83,15 +86,15 @@ function Widget({ config }: PluginWidgetProps) {
                       </div>
                     ))}
                   </N64Section>
-                  {data.recent.length ? (
+                  {listCount > 0 && data.recent.length ? (
                     <N64Section title={t('recent')}>
-                      {data.recent.slice(0, 5).map((r, i) => (
+                      {data.recent.slice(0, listCount).map((r, i) => (
                         <div
                           key={`${r.t}-${i}`}
                           title={`${r.ip} · ${countryName(r.cc, locale)} · ${r.port}`}
                           style={{ display: 'flex', gap: 6, fontSize: 10, minWidth: 0, alignItems: 'center' }}
                         >
-                          <span aria-hidden>{countryFlag(r.cc)}</span>
+                          <N64Code code={r.cc} />
                           <span style={{ color: KIND_COLOR[r.kind] ?? N64_COLOR.idle, whiteSpace: 'nowrap' }}>{t(`kind_${r.kind}`)}</span>
                           <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)' }}>
                             {r.ip}
@@ -137,6 +140,12 @@ function Settings(props: PluginSettingsProps) {
       />
       <N64Check label={t('s_show_stats')} checked={config.showStats !== false} onChange={(v) => onChange('showStats', v)} />
       <N64Check label={t('s_show_list')} checked={config.showList !== false} onChange={(v) => onChange('showList', v)} />
+      <N64Input
+        label={t('s_list_count')}
+        type="number"
+        value={n64Count(config.listCount, 3)}
+        onChange={(v) => onChange('listCount', n64Count(v, 3))}
+      />
     </N64BaseSettings>
   )
 }
@@ -151,7 +160,7 @@ export const meta: PluginMeta = {
   category: 'security',
   icon: '🗺️',
   iconUrl: `https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/${ID}/icon.png`,
-  defaultLayout: { w: 6, h: 4, minW: 3, minH: 3 },
+  defaultLayout: { w: 6, h: 3, minW: 3, minH: 2 },
   configSchema: [
     ...N64_BASE_SCHEMA,
     { key: 'range', label: 'Zeitraum', type: 'select', defaultValue: '24h', options: [
@@ -165,6 +174,7 @@ export const meta: PluginMeta = {
     ] },
     { key: 'showStats', label: 'Zahlen', type: 'boolean', defaultValue: true },
     { key: 'showList', label: 'Liste', type: 'boolean', defaultValue: true },
+    { key: 'listCount', label: 'Einträge „Zuletzt“', type: 'number', defaultValue: 3 },
   ],
 }
 

@@ -20,7 +20,7 @@ import {
 import type { ChecksPayload, CheckRow } from './server'
 
 const ID = 'node64-checks'
-const VERSION = '1.0.0'
+const VERSION = '1.1.0'
 
 const STATE_COLOR: Record<string, string> = {
   up: N64_COLOR.ok,
@@ -48,7 +48,7 @@ function Row({ c, showLatency, t }: { c: CheckRow; showLatency: boolean; t: N64T
   return (
     <div
       title={`${c.name} – ${stateLabel(c.state, t)}${c.message ? ` · ${c.message}` : ''}`}
-      style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, padding: '2px 0' }}
+      style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, padding: '1px 0', fontSize: 12, lineHeight: 1.3 }}
     >
       <N64Dot color={STATE_COLOR[c.state] ?? N64_COLOR.idle} pulse={bad} />
       <span
@@ -81,6 +81,7 @@ function Widget({ config }: PluginWidgetProps) {
   const onlyProblems = config.onlyProblems === true
   const showLatency = config.showLatency !== false
   const showGroups = config.showGroups !== false
+  const groupSummary = config.groupSummary === true
 
   const all = data?.checks ?? []
   const filtered = all
@@ -126,13 +127,39 @@ function Widget({ config }: PluginWidgetProps) {
               ))}
             </N64Section>
           ) : null}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '6px 14px' }}>
-            {[...groups.entries()].map(([g, rows]) => (
-              <div key={g || '_'} style={{ minWidth: 0 }}>
-                {g ? <N64Section title={g}>{rows.map((c) => <Row key={c.id} c={c} showLatency={showLatency} t={t} />)}</N64Section> : rows.map((c) => <Row key={c.id} c={c} showLatency={showLatency} t={t} />)}
-              </div>
-            ))}
-          </div>
+          {groupSummary ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {[...groups.entries()].map(([g, rows]) => {
+                const ok = rows.filter((c) => c.state === 'up').length
+                const active = rows.filter((c) => c.state !== 'paused' && c.state !== 'maintenance')
+                const bad = rows.filter((c) => c.state === 'down' || c.state === 'degraded')
+                return (
+                  <div key={g || '_'} style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                      <N64Dot color={bad.length ? N64_COLOR.crit : N64_COLOR.ok} pulse={bad.length > 0} />
+                      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g || t('t_checks')}</span>
+                      <span style={{ fontSize: 11, color: bad.length ? N64_COLOR.crit : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                        {t('group_ok', { n: ok, v: active.length })}
+                      </span>
+                    </div>
+                    {bad.map((c) => (
+                      <div key={c.id} style={{ paddingLeft: 14 }}>
+                        <Row c={c} showLatency={false} t={t} />
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '4px 12px' }}>
+              {[...groups.entries()].map(([g, rows]) => (
+                <div key={g || '_'} style={{ minWidth: 0 }}>
+                  {g ? <N64Section title={g}>{rows.map((c) => <Row key={c.id} c={c} showLatency={showLatency} t={t} />)}</N64Section> : rows.map((c) => <Row key={c.id} c={c} showLatency={showLatency} t={t} />)}
+                </div>
+              ))}
+            </div>
+          )}
           {!filtered.length && onlyProblems ? <N64Note>{t('all_ok')}</N64Note> : null}
         </>
       ) : null}
@@ -147,6 +174,7 @@ function Settings(props: PluginSettingsProps) {
     <N64BaseSettings {...props} defaultTitle={`Node64 · ${t('t_checks')}`}>
       <N64Input label={t('s_group')} value={n64Str(config.group)} onChange={(v) => onChange('group', v)} />
       <N64Check label={t('s_show_groups')} checked={config.showGroups !== false} onChange={(v) => onChange('showGroups', v)} />
+      <N64Check label={t('s_group_summary')} checked={config.groupSummary === true} onChange={(v) => onChange('groupSummary', v)} />
       <N64Check label={t('s_only_problems')} checked={config.onlyProblems === true} onChange={(v) => onChange('onlyProblems', v)} />
       <N64Check label={t('s_show_latency')} checked={config.showLatency !== false} onChange={(v) => onChange('showLatency', v)} />
     </N64BaseSettings>
@@ -168,6 +196,7 @@ export const meta: PluginMeta = {
     ...N64_BASE_SCHEMA,
     { key: 'group', label: 'Gruppe', type: 'text', defaultValue: '' },
     { key: 'showGroups', label: 'Nach Gruppen', type: 'boolean', defaultValue: true },
+    { key: 'groupSummary', label: 'Zusammenfassung je Gruppe', type: 'boolean', defaultValue: false },
     { key: 'onlyProblems', label: 'Nur Probleme', type: 'boolean', defaultValue: false },
     { key: 'showLatency', label: 'Antwortzeit', type: 'boolean', defaultValue: true },
   ],

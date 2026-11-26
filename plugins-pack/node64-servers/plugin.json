@@ -2,7 +2,7 @@
   "id": "node64-servers",
   "name": "Node64 Server",
   "description": "Monitor64 aus Node64 (ipv64.net): überwachte Server mit Zustand, CPU, RAM, Diensten und offenen Problemen. API: /api/plugins/node64-servers.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "SelfDashboard",
   "category": "system",
   "icon": "🖥️",

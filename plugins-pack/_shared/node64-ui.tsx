@@ -183,7 +183,7 @@ const box: CSSProperties = {
   minWidth: 0,
   display: 'flex',
   flexDirection: 'column',
-  gap: 8,
+  gap: 6,
   color: 'var(--text)',
   fontSize: 12,
   overflow: 'hidden',
@@ -218,10 +218,10 @@ export function N64Frame(props: {
             height={18}
             style={{ borderRadius: 4, flex: 'none' }}
           />
-          <span style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ flex: '1 1 auto', minWidth: 40, fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {title}
           </span>
-          <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 1 auto', minWidth: 0 }}>
             {props.right}
             {href ? (
               <a href={href} target="_blank" rel="noreferrer" title={t('open_node64')} style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>
@@ -238,7 +238,7 @@ export function N64Frame(props: {
       ) : props.loading && !props.hasData ? (
         <N64Note>{t('loading')}</N64Note>
       ) : (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto' }}>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 6, overflow: 'auto' }}>
           {props.error ? <N64Note tone="warn">{errorText(props.error, t)}</N64Note> : null}
           {props.children}
         </div>
@@ -268,35 +268,58 @@ export function N64Dot({ color, pulse }: { color: string; pulse?: boolean }) {
   )
 }
 
-/** Kleine Kennzahl-Kachel (Wert groß, Beschriftung klein). */
+/** Kennzahl als schmaler Baustein (Wert + Beschriftung), viele passen in eine Zeile. */
 export function N64Stat({ label, value, color }: { label: string; value: ReactNode; color?: string }) {
   return (
     <div
+      title={label}
       style={{
-        flex: '1 1 70px',
-        minWidth: 0,
-        padding: '6px 8px',
-        borderRadius: 8,
+        flex: '1 1 0',
+        minWidth: 52,
+        padding: '3px 6px',
+        borderRadius: 6,
         background: 'var(--surface)',
         border: '1px solid var(--border)',
+        lineHeight: 1.2,
       }}
     >
-      <div style={{ fontSize: 16, fontWeight: 600, color: color ?? 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: color ?? 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontVariantNumeric: 'tabular-nums' }}>
         {value}
       </div>
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+      <div style={{ fontSize: 9, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
     </div>
   )
 }
 
 export function N64StatRow({ children }: { children: ReactNode }) {
-  return <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{children}</div>
+  return <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>{children}</div>
+}
+
+/** Ländercode als kleine Markierung (Flaggen-Emojis zeigt Windows nicht an). */
+export function N64Code({ code }: { code: string }) {
+  return (
+    <span
+      style={{
+        fontSize: 9,
+        fontWeight: 600,
+        padding: '0 4px',
+        borderRadius: 3,
+        border: '1px solid var(--border)',
+        color: 'var(--text-muted)',
+        fontFamily: 'var(--font-mono, monospace)',
+        flex: 'none',
+        lineHeight: '14px',
+      }}
+    >
+      {code.toUpperCase()}
+    </span>
+  )
 }
 
 export function N64Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-      <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{title}</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+      <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{title}</div>
       {children}
     </div>
   )
@@ -438,6 +461,12 @@ export function N64BaseSettings({
       {children}
     </div>
   )
+}
+
+/** Anzahl Listeneinträge aus der Konfiguration (0–20, Standard `def`). */
+export function n64Count(v: unknown, def: number): number {
+  if (v === undefined || v === null || v === '') return def
+  return Math.max(0, Math.min(20, Math.round(n64Num(v))))
 }
 
 /** Gemeinsame Felder für `configSchema` (Sicherung/Export der Kachel). */
