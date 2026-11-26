@@ -3,7 +3,7 @@
   "repository": "s3lfcod3r/selfdashboard",
   "ref": "main",
   "basePath": "plugins-pack",
-  "generatedAt": "2026-11-26T11:04:58.414Z",
+  "generatedAt": "2026-11-26T11:51:49.479Z",
   "plugins": [
     {
       "id": "adguard",
@@ -546,7 +546,7 @@
       "id": "node64-checks",
       "name": "Node64 Prüfungen",
       "description": "Healthchecks aus Node64 (ipv64.net): Gesamtzustand, offene Störungen, alle Prüfungen nach Gruppen mit Antwortzeit. Ersatz für das Uptime-Kuma-Widget. API: /api/plugins/node64-checks.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "SelfDashboard",
       "category": "network",
       "icon": "💚",
@@ -574,14 +574,14 @@
       "id": "node64-dns",
       "name": "Node64 DNS-Filter",
       "description": "DNS64 aus Node64 (ipv64.net): Anfragen, Sperrquote, Verlauf, meistgesperrte Adressen, aktivste Geräte; Filter auf Knopfdruck 10 Minuten pausieren. Ersatz für das AdGuard-Widget. API: /api/plugins/node64-dns.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "SelfDashboard",
       "category": "network",
       "icon": "🛡️",
       "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/node64-dns/icon.png",
       "defaultLayout": {
         "w": 4,
-        "h": 4,
+        "h": 3,
         "minW": 2,
         "minH": 2
       },
@@ -605,16 +605,16 @@
       "id": "node64-map",
       "name": "Node64 Angriffskarte",
       "description": "Honeypot64 aus Node64 (ipv64.net): Weltkarte der Angriffe (Punkte oder Bögen), Top-Länder, letzte Zugriffe, gesperrte Adressen. Ersatz für CrowdSec-Widget und SelfThreatMap. API: /api/plugins/node64-map.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "SelfDashboard",
       "category": "security",
       "icon": "🗺️",
       "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/node64-map/icon.png",
       "defaultLayout": {
         "w": 6,
-        "h": 4,
+        "h": 3,
         "minW": 3,
-        "minH": 3
+        "minH": 2
       },
       "readCache": {
         "methods": [
@@ -634,14 +634,14 @@
       "id": "node64-proxy",
       "name": "Node64 Reverse-Proxy",
       "description": "PROXY64 aus Node64 (ipv64.net): Proxy-Hosts mit Erreichbarkeit, Anfragen, Sperren und Restlaufzeit der Zertifikate, Verlauf der letzten 24 Stunden. Ersatz für das Zoraxy-Widget. API: /api/plugins/node64-proxy.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "SelfDashboard",
       "category": "network",
       "icon": "🔀",
       "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/node64-proxy/icon.png",
       "defaultLayout": {
         "w": 4,
-        "h": 4,
+        "h": 3,
         "minW": 2,
         "minH": 2
       },
@@ -662,7 +662,7 @@
       "id": "node64-servers",
       "name": "Node64 Server",
       "description": "Monitor64 aus Node64 (ipv64.net): überwachte Server mit Zustand, CPU, RAM, Diensten und offenen Problemen. API: /api/plugins/node64-servers.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": "SelfDashboard",
       "category": "system",
       "icon": "🖥️",
