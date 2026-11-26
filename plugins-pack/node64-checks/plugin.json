@@ -1,0 +1,22 @@
+{
+  "id": "node64-checks",
+  "name": "Node64 Prüfungen",
+  "description": "Healthchecks aus Node64 (ipv64.net): Gesamtzustand, offene Störungen, alle Prüfungen nach Gruppen mit Antwortzeit. Ersatz für das Uptime-Kuma-Widget. API: /api/plugins/node64-checks.",
+  "version": "1.0.0",
+  "author": "SelfDashboard",
+  "category": "network",
+  "icon": "💚",
+  "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/node64-checks/icon.png",
+  "defaultLayout": {
+    "w": 4,
+    "h": 4,
+    "minW": 2,
+    "minH": 2
+  },
+  "hasServer": true,
+  "readCache": {
+    "methods": [
+      "POST"
+    ]
+  }
+}

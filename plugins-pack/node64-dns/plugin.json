@@ -1,0 +1,25 @@
+{
+  "id": "node64-dns",
+  "name": "Node64 DNS-Filter",
+  "description": "DNS64 aus Node64 (ipv64.net): Anfragen, Sperrquote, Verlauf, meistgesperrte Adressen, aktivste Geräte; Filter auf Knopfdruck 10 Minuten pausieren. Ersatz für das AdGuard-Widget. API: /api/plugins/node64-dns.",
+  "version": "1.0.0",
+  "author": "SelfDashboard",
+  "category": "network",
+  "icon": "🛡️",
+  "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/node64-dns/icon.png",
+  "defaultLayout": {
+    "w": 4,
+    "h": 4,
+    "minW": 2,
+    "minH": 2
+  },
+  "hasServer": true,
+  "readCache": {
+    "methods": [
+      "POST"
+    ],
+    "readActions": [
+      null
+    ]
+  }
+}

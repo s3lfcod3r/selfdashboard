@@ -1,0 +1,22 @@
+{
+  "id": "node64-proxy",
+  "name": "Node64 Reverse-Proxy",
+  "description": "PROXY64 aus Node64 (ipv64.net): Proxy-Hosts mit Erreichbarkeit, Anfragen, Sperren und Restlaufzeit der Zertifikate, Verlauf der letzten 24 Stunden. Ersatz für das Zoraxy-Widget. API: /api/plugins/node64-proxy.",
+  "version": "1.0.0",
+  "author": "SelfDashboard",
+  "category": "network",
+  "icon": "🔀",
+  "iconUrl": "https://cdn.jsdelivr.net/gh/s3lfcod3r/selfdashboard@main/plugins-pack/node64-proxy/icon.png",
+  "defaultLayout": {
+    "w": 4,
+    "h": 4,
+    "minW": 2,
+    "minH": 2
+  },
+  "hasServer": true,
+  "readCache": {
+    "methods": [
+      "POST"
+    ]
+  }
+}
