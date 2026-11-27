@@ -22,7 +22,7 @@ import {
 import type { ProxyHost, ProxyPayload } from './server'
 
 const ID = 'node64-proxy'
-const VERSION = '1.1.0'
+const VERSION = '1.2.0'
 
 function reachColor(h: ProxyHost): string {
   if (!h.enabled) return N64_COLOR.idle

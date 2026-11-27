@@ -447,16 +447,25 @@ var dynamic = "force-dynamic";
 async function work(conn, _b, signal) {
   const ov = n64Obj(await n64Get(conn, "/monitor64/overview", signal));
   const c = n64Obj(ov.counts);
+  const open = /* @__PURE__ */ new Map();
+  for (const p of n64Arr(ov.problems).map(n64Obj)) {
+    if (p.acked === true) continue;
+    const uid = n64Str(p.host_uid, 40);
+    open.set(uid, (open.get(uid) ?? 0) + 1);
+  }
   const hosts = n64Arr(ov.hosts).map((x) => {
     const h = n64Obj(x);
+    const uid = n64Str(h.uid, 40);
+    const unacked = open.get(uid) ?? 0;
+    const raw = n64Str(h.state, 20) || "unknown";
     return {
-      id: n64Str(h.uid, 40),
+      id: uid,
       name: n64Str(h.name, 100),
       address: n64Str(h.address, 100),
       group: n64Str(h.group, 64),
-      state: n64Str(h.state, 20) || "unknown",
+      state: (raw === "warn" || raw === "crit") && unacked === 0 ? "ok" : raw,
       offline: n64Str(h.view, 20) === "offline",
-      problems: n64Num(h.problems),
+      problems: unacked,
       services: n64Num(h.services),
       cpu: h.has_cpu === true ? Math.round(n64Num(h.cpu)) : null,
       ram: h.has_ram === true ? Math.round(n64Num(h.ram)) : null,

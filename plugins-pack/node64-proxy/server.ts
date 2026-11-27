@@ -24,6 +24,18 @@ export type ProxyPayload = {
   timeline: { total: number; part: number }[]
 }
 
+/**
+ * Ohne eigene Erreichbarkeitsprüfung (z. B. reine WebSocket-Dienste mit
+ * „Ziel nicht prüfen") zählt der verknüpfte Healthcheck.
+ */
+function reachState(own: string, hcs: Record<string, unknown>[]): string {
+  if (own && own !== 'unknown') return own
+  const states = hcs.filter((c) => c.paused !== true).map((c) => n64Str(c.state, 20))
+  if (states.includes('down')) return 'down'
+  if (states.includes('up')) return 'up'
+  return 'unknown'
+}
+
 async function work(conn: Node64Conn, _b: unknown, signal: AbortSignal): Promise<ProxyPayload> {
   const [hostsRaw, statsRaw] = await Promise.all([
     n64Get(conn, '/cdn64/hosts', signal),
@@ -43,7 +55,7 @@ async function work(conn: Node64Conn, _b: unknown, signal: AbortSignal): Promise
       extra: Math.max(0, names.length - 1),
       kind: n64Str(h.kind, 20),
       enabled: h.enabled !== false,
-      reach: n64Str(reach.state, 20) || 'unknown',
+      reach: reachState(n64Str(reach.state, 20), n64Arr(h.healthchecks).map(n64Obj)),
       ms: Number.isFinite(ms) && n64Str(reach.state) === 'up' ? ms : null,
       requests: n64Num(st.requests),
       errors: n64Num(st.errors),

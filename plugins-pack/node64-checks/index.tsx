@@ -20,7 +20,7 @@ import {
 import type { ChecksPayload, CheckRow } from './server'
 
 const ID = 'node64-checks'
-const VERSION = '1.1.0'
+const VERSION = '1.2.0'
 
 const STATE_COLOR: Record<string, string> = {
   up: N64_COLOR.ok,
@@ -30,6 +30,7 @@ const STATE_COLOR: Record<string, string> = {
   maintenance: N64_COLOR.idle,
   stabilizing: N64_COLOR.warn,
   pending: N64_COLOR.idle,
+  off: N64_COLOR.idle,
 }
 
 function stateLabel(state: string, t: N64T): string {
@@ -39,6 +40,7 @@ function stateLabel(state: string, t: N64T): string {
     degraded: 'st_degraded',
     paused: 'st_paused',
     maintenance: 'st_maintenance',
+    off: 'st_offline',
   }
   return t(k[state] ?? 'st_pending')
 }
@@ -58,7 +60,7 @@ function Row({ c, showLatency, t }: { c: CheckRow; showLatency: boolean; t: N64T
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
-          color: c.state === 'paused' ? 'var(--text-muted)' : undefined,
+          color: c.state === 'paused' || c.state === 'off' ? 'var(--text-muted)' : undefined,
         }}
       >
         {c.name}
@@ -86,7 +88,7 @@ function Widget({ config }: PluginWidgetProps) {
   const all = data?.checks ?? []
   const filtered = all
     .filter((c) => !groupFilter || c.group === groupFilter)
-    .filter((c) => !onlyProblems || (c.state !== 'up' && c.state !== 'paused'))
+    .filter((c) => !onlyProblems || (c.state !== 'up' && c.state !== 'paused' && c.state !== 'off'))
   const down = (data?.counts.down ?? 0) > 0
   const groups = new Map<string, CheckRow[]>()
   for (const c of filtered) {
@@ -131,7 +133,7 @@ function Widget({ config }: PluginWidgetProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {[...groups.entries()].map(([g, rows]) => {
                 const ok = rows.filter((c) => c.state === 'up').length
-                const active = rows.filter((c) => c.state !== 'paused' && c.state !== 'maintenance')
+                const active = rows.filter((c) => c.state !== 'paused' && c.state !== 'maintenance' && c.state !== 'off')
                 const bad = rows.filter((c) => c.state === 'down' || c.state === 'degraded')
                 return (
                   <div key={g || '_'} style={{ minWidth: 0 }}>

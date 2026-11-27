@@ -453,6 +453,7 @@ function stateOf(c) {
   const s = n64Obj(c.state);
   if (s.maintenance === true) return "maintenance";
   const v = n64Str(s.state, 20);
+  if (c.notify_down === false && (v === "down" || v === "degraded")) return "off";
   return ["up", "down", "degraded", "paused", "stabilizing", "pending"].includes(v) ? v : "pending";
 }
 async function work(conn, _b, signal) {
@@ -484,10 +485,10 @@ async function work(conn, _b, signal) {
   for (const c of checks) {
     if (c.state === "up") counts.up++;
     else if (c.state === "down" || c.state === "degraded") counts.down++;
-    else if (c.state === "paused" || c.state === "maintenance") counts.paused++;
+    else if (c.state === "paused" || c.state === "maintenance" || c.state === "off") counts.paused++;
     else counts.other++;
   }
-  const pausedIds = new Set(checks.filter((c) => c.state === "paused").map((c) => c.id));
+  const pausedIds = new Set(checks.filter((c) => c.state === "paused" || c.state === "off").map((c) => c.id));
   const incidents = n64Arr(incRaw).map(n64Obj).filter((i) => i.open === true && !pausedIds.has(n64Str(i.token, 64))).slice(0, 10).map((i) => ({
     name: names.get(n64Str(i.token, 64)) ?? "?",
     reason: n64Str(i.message, 120) || n64Str(i.reason, 40),

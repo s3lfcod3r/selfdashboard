@@ -16,7 +16,7 @@ import {
 import type { ServerHost, ServersPayload } from './server'
 
 const ID = 'node64-servers'
-const VERSION = '1.1.0'
+const VERSION = '1.2.0'
 
 const STATE_COLOR: Record<string, string> = {
   ok: N64_COLOR.ok,
