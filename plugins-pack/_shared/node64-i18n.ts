@@ -112,4 +112,7 @@ export const N64_TEXT: Record<string, readonly [string, string, string, string, 
   s_list_count: ['Entries in lists', 'Einträge in Listen', 'Entrées dans les listes', 'Entradas en las listas', 'Voci negli elenchi', 'Items in lijsten', 'Pozycje na listach', 'Itens nas listas', 'Poster i listor', 'Poster i lister', 'Položky v seznamech', 'Εγγραφές στις λίστες'],
   s_group_summary: ['Summary per group only', 'Nur Zusammenfassung je Gruppe', 'Résumé par groupe uniquement', 'Solo resumen por grupo', 'Solo riepilogo per gruppo', 'Alleen samenvatting per groep', 'Tylko podsumowanie grup', 'Apenas resumo por grupo', 'Endast sammanfattning per grupp', 'Kun opsummering pr. gruppe', 'Jen souhrn za skupinu', 'Μόνο σύνοψη ανά ομάδα'],
   group_ok: ['{n} of {v} OK', '{n} von {v} OK', '{n} sur {v} OK', '{n} de {v} OK', '{n} su {v} OK', '{n} van {v} OK', '{n} z {v} OK', '{n} de {v} OK', '{n} av {v} OK', '{n} af {v} OK', '{n} z {v} OK', '{n} από {v} OK'],
+  gpu: ['GPU', 'GPU', 'GPU', 'GPU', 'GPU', 'GPU', 'GPU', 'GPU', 'GPU', 'GPU', 'GPU', 'GPU'],
+  vram: ['VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM', 'VRAM'],
+  fan: ['Fan', 'Lüfter', 'Ventilateur', 'Ventilador', 'Ventola', 'Ventilator', 'Wentylator', 'Ventoinha', 'Fläkt', 'Blæser', 'Ventilátor', 'Ανεμιστήρας'],
 }

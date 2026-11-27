@@ -414,6 +414,14 @@ async function call(conn, method, path, signal, body) {
 function n64Get(conn, path, signal) {
   return call(conn, "GET", path, signal);
 }
+async function n64Try(p, fallback) {
+  try {
+    return await p;
+  } catch (e) {
+    if (e instanceof Node64Error && (e.code === "unauthorized" || e.code === "forbidden")) throw e;
+    return fallback;
+  }
+}
 async function handleNode64(pluginId, req, work2) {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), NODE64_TIMEOUT_MS);
@@ -469,9 +477,33 @@ async function work(conn, _b, signal) {
       services: n64Num(h.services),
       cpu: h.has_cpu === true ? Math.round(n64Num(h.cpu)) : null,
       ram: h.has_ram === true ? Math.round(n64Num(h.ram)) : null,
-      meters: n64Arr(h.meters).map(n64Obj).filter((m) => !["cpu", "ram"].includes(n64Str(m.label, 30))).slice(0, 4).map((m) => ({ label: n64Str(m.label, 30), value: Math.round(n64Num(m.value)), state: n64Str(m.state, 20) }))
+      meters: n64Arr(h.meters).map(n64Obj).filter((m) => !["cpu", "ram"].includes(n64Str(m.label, 30))).slice(0, 4).map((m) => ({ label: n64Str(m.label, 30), value: Math.round(n64Num(m.value)), state: n64Str(m.state, 20) })),
+      gpu: null
     };
   });
+  await Promise.all(
+    hosts.filter((h) => !h.offline && h.id).map(async (h) => {
+      const d = n64Obj(await n64Try(n64Get(conn, `/monitor64/hosts/${encodeURIComponent(h.id)}`, signal), {}));
+      const v = (metric) => {
+        const svc = n64Arr(d.services).map(n64Obj).find((x) => n64Str(x.key, 300).startsWith(`prom:nvidia_smi_${metric}`));
+        if (!svc) return null;
+        const m = n64Arr(svc.metrics).map(n64Obj)[0];
+        return m ? n64Num(m.value) : null;
+      };
+      const util = v("utilization_gpu_ratio");
+      if (util === null) return;
+      h.gpu = {
+        util: Math.round(util),
+        memUsed: v("memory_used_bytes") ?? 0,
+        memTotal: v("memory_total_bytes") ?? 0,
+        temp: Math.round(v("temperature_gpu") ?? 0),
+        power: Math.round((v("power_draw_watts") ?? 0) * 10) / 10,
+        fan: Math.round(v("fan_speed_ratio") ?? 0)
+      };
+    })
+  );
+  const ipKey = (a) => a.split(".").map((p) => p.padStart(3, "0")).join(".");
+  hosts.sort((a, b) => Number(a.offline) - Number(b.offline) || ipKey(a.address).localeCompare(ipKey(b.address)));
   return {
     counts: { ok: n64Num(c.ok), warn: n64Num(c.warn), crit: n64Num(c.crit), unknown: n64Num(c.unknown) },
     hosts

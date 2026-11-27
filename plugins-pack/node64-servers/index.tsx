@@ -11,12 +11,13 @@ import {
   N64Note,
   useN64,
   useN64Data,
+  fmtBytes,
   type N64T,
 } from '../_shared/node64-ui'
 import type { ServerHost, ServersPayload } from './server'
 
 const ID = 'node64-servers'
-const VERSION = '1.2.0'
+const VERSION = '1.3.0'
 
 const STATE_COLOR: Record<string, string> = {
   ok: N64_COLOR.ok,
@@ -45,7 +46,7 @@ function MeterRow({ label, value }: { label: string; value: number }) {
 }
 
 function Widget({ config }: PluginWidgetProps) {
-  const { t } = useN64()
+  const { t, locale } = useN64()
   const { ref, data, error, loading, configured } = useN64Data<ServersPayload>(ID, config)
 
   return (
@@ -88,6 +89,20 @@ function Widget({ config }: PluginWidgetProps) {
                 </div>
                 {!h.offline && h.cpu !== null ? <MeterRow label={t('cpu')} value={h.cpu} /> : null}
                 {!h.offline && h.ram !== null ? <MeterRow label={t('ram')} value={h.ram} /> : null}
+                {!h.offline && h.gpu ? (
+                  <>
+                    <MeterRow label={t('gpu')} value={h.gpu.util} />
+                    {h.gpu.memTotal > 0 ? (
+                      <MeterRow label={t('vram')} value={Math.round((h.gpu.memUsed / h.gpu.memTotal) * 100)} />
+                    ) : null}
+                    <div
+                      title={`${fmtBytes(h.gpu.memUsed, locale)} / ${fmtBytes(h.gpu.memTotal, locale)}`}
+                      style={{ fontSize: 10, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}
+                    >
+                      {h.gpu.temp} °C · {h.gpu.power.toLocaleString(locale)} W · {t('fan')} {h.gpu.fan} %
+                    </div>
+                  </>
+                ) : null}
                 <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>
                   {h.services} {t('services')}
                   {h.problems ? <span style={{ color: N64_COLOR.warn }}> · {h.problems} {t('problems')}</span> : null}
